@@ -1,15 +1,16 @@
 {
   "expo": {
-    "name": "MySocialApp",
-    "slug": "MySocialApp",
+    "name": "SBallt",
+    "slug": "sballt",
+    "scheme": "sballt",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mysocialapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.chihfan.sballt"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,6 +19,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "package": "com.chihfan.sballt",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
