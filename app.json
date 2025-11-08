@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "SBallt",
-    "slug": "sballt",
-    "scheme": "sballt",
+    "name": "SBALT",
+    "slug": "sbalt",
+    "scheme": "sbalt",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,7 +10,14 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.chihfan.sballt"
+      "bundleIdentifier": "com.chihfan.sballt",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": ["sbalt", "exp"]
+          }
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -45,6 +52,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "supabaseUrl": "https://wmflayhfjrcmxqodwghx.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndtZmxheWhmanJjbXhxb2R3Z2h4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNjAwMzksImV4cCI6MjA3NzkzNjAzOX0.XQER5xi5JhRUMvWng54p_JQY9caMezZ2_mUtp-pLipU",
+      "oauthRedirectUrl": "sbalt://"
     }
   }
 }

@@ -3,34 +3,39 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { getLiveGames, getTodayGames } from '@/services/scoreApi';
 import { Game } from '@/types/database';
-import { useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function HomeScreen() {
-  const router = useRouter();
+export default function ScoresScreen() {
+  const [games, setGames] = React.useState<Game[]>([]);
   const [liveGames, setLiveGames] = React.useState<Game[]>([]);
-  const [todayGames, setTodayGames] = React.useState<Game[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [refreshing, setRefreshing] = React.useState(false);
 
-  React.useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadGames = async () => {
     try {
-      const [live, today] = await Promise.all([
-        getLiveGames(),
+      const [todayGames, live] = await Promise.all([
         getTodayGames(),
+        getLiveGames(),
       ]);
+      setGames(todayGames);
       setLiveGames(live);
-      setTodayGames(today);
     } catch (error) {
-      console.error('載入資料失敗:', error);
+      console.error('載入比賽失敗:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  React.useEffect(() => {
+    loadGames();
+  }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadGames();
   };
 
   if (loading) {
@@ -47,33 +52,13 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
-        <ThemedText type="title" style={styles.title}>
-          SPALT
-        </ThemedText>
-        <ThemedText style={styles.subtitle}>運動與球類主題應用</ThemedText>
-
-      <View style={styles.quickActions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push('/event/new')}
-        >
-          <ThemedText style={styles.actionText}>⚽ 舉辦活動</ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push('/(tabs)/scores')}
-        >
-          <ThemedText style={styles.actionText}>📊 查看比分</ThemedText>
-        </TouchableOpacity>
-      </View>
-
       {liveGames.length > 0 && (
         <View style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
+          <ThemedText type="title" style={styles.sectionTitle}>
             🔴 即時比分
           </ThemedText>
           <FlatList
-            data={liveGames.slice(0, 3)}
+            data={liveGames}
             renderItem={({ item }) => <ScoreCard game={item} />}
             keyExtractor={(item) => item.id}
             horizontal
@@ -84,13 +69,16 @@ export default function HomeScreen() {
       )}
 
       <View style={styles.section}>
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
+        <ThemedText type="title" style={styles.sectionTitle}>
           今日比賽
         </ThemedText>
         <FlatList
-          data={todayGames.slice(0, 5)}
+          data={games}
           renderItem={({ item }) => <ScoreCard game={item} />}
           keyExtractor={(item) => item.id}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
           ListEmptyComponent={
             <ThemedView style={styles.emptyContainer}>
               <ThemedText style={styles.emptyText}>今日尚無比賽</ThemedText>
@@ -120,39 +108,12 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    opacity: 0.7,
-    marginBottom: 24,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  actionText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   section: {
     marginBottom: 24,
   },
   sectionTitle: {
     marginBottom: 12,
-    fontSize: 18,
+    fontSize: 20,
   },
   horizontalList: {
     paddingRight: 16,
@@ -166,3 +127,4 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
+
