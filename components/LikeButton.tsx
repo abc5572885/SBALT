@@ -1,43 +1,66 @@
 import { ThemedText } from '@/components/themed-text';
-import { useAppStore } from '@/store/useAppStore';
+import { useAuth } from '@/contexts/AuthContext';
+import { getLikeCount, hasUserLiked, toggleLike } from '@/services/database';
 import * as Haptics from 'expo-haptics';
-import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface LikeButtonProps {
   entityId: string;
   entityType: 'game' | 'team' | 'player' | 'news' | 'event' | 'comment';
-  initialLiked?: boolean;
-  initialCount?: number;
-  onToggle?: (liked: boolean) => void;
+  onToggle?: (liked: boolean, count: number) => void;
 }
 
-export function LikeButton({
-  entityId,
-  entityType,
-  initialLiked = false,
-  initialCount = 0,
-  onToggle,
-}: LikeButtonProps) {
-  const user = useAppStore((state) => state.user);
-  const [liked, setLiked] = React.useState(initialLiked);
-  const [count, setCount] = React.useState(initialCount);
+export function LikeButton({ entityId, entityType, onToggle }: LikeButtonProps) {
+  const { user } = useAuth();
+  const [liked, setLiked] = React.useState(false);
+  const [count, setCount] = React.useState(0);
+  const [loading, setLoading] = React.useState(false);
+
+  // Load initial like status and count
+  useEffect(() => {
+    loadLikeStatus();
+  }, [entityId, entityType, user]);
+
+  const loadLikeStatus = async () => {
+    try {
+      const [likeCount, userLiked] = await Promise.all([
+        getLikeCount(entityType, entityId),
+        user ? hasUserLiked(user.id, entityType, entityId) : Promise.resolve(false),
+      ]);
+      setCount(likeCount);
+      setLiked(userLiked);
+    } catch (error) {
+      console.error('載入按讚狀態失敗:', error);
+    }
+  };
 
   const handlePress = async () => {
     if (!user) {
-      // TODO: 導向登入頁面
+      Alert.alert('請先登入', '按讚功能需要先登入帳號');
       return;
     }
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (loading) return;
 
-    const newLiked = !liked;
-    setLiked(newLiked);
-    setCount((prev) => (newLiked ? prev + 1 : prev - 1));
+    try {
+      setLoading(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // TODO: 呼叫 Supabase API 更新按讚狀態
-    if (onToggle) {
-      onToggle(newLiked);
+      const result = await toggleLike(user.id, entityType, entityId);
+      setLiked(result.liked);
+      setCount(result.count);
+
+      if (onToggle) {
+        onToggle(result.liked, result.count);
+      }
+    } catch (error: any) {
+      console.error('切換按讚失敗:', error);
+      Alert.alert('錯誤', error.message || '操作失敗，請稍後再試');
+      // Reload to sync state
+      loadLikeStatus();
+    } finally {
+      setLoading(false);
     }
   };
 

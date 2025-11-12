@@ -1,9 +1,25 @@
 /**
- * 比分 API 服務（模擬資料）
- * 在 MVP 階段使用本地模擬資料，後續可替換為真實 API
+ * Score API Service
+ * In MVP stage: uses mock data stored in database
+ * Later: can be replaced with real API integration
+ * 
+ * Strategy:
+ * 1. Try to read from database first
+ * 2. If no data exists, generate mock data and store in database
+ * 3. Use external_id to identify and deduplicate games
  */
 
+import { supabase } from '@/lib/supabase';
 import { Game } from '@/types/database';
+
+// Generate UUID v4
+const generateUUID = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 
 // 模擬的聯賽資料
 const LEAGUES = ['NBA', 'PL', 'La Liga', 'Bundesliga', 'MLB', 'NFL'];
@@ -74,8 +90,10 @@ const generateMockGame = (index: number): Omit<Game, 'id' | 'created_at' | 'upda
 
   return {
     league,
-    home_team_id: `team-${homeTeam.toLowerCase().replace(/\s+/g, '-')}`,
-    away_team_id: `team-${awayTeam.toLowerCase().replace(/\s+/g, '-')}`,
+    // Set to null for now - teams will be created separately or from real API
+    // Database allows NULL for these fields
+    home_team_id: null,
+    away_team_id: null,
     scheduled_at: scheduledAt,
     status,
     home_score: homeScore,
@@ -86,72 +104,216 @@ const generateMockGame = (index: number): Omit<Game, 'id' | 'created_at' | 'upda
 };
 
 /**
- * 取得今日比賽列表
+ * Get today's games
+ * Strategy:
+ * 1. Read from database first
+ * 2. If empty, generate mock data and upsert (avoid duplicates)
+ * 3. Use external_id for deduplication
  */
 export const getTodayGames = async (): Promise<Game[]> => {
-  // 模擬 API 延遲
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const games: Game[] = Array.from({ length: 10 }, (_, i) => ({
-    id: `game-${i}`,
-    ...generateMockGame(i),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }));
+  try {
+    // Try to read from database first
+    const { data: dbGames, error } = await supabase
+      .from('games')
+      .select('*')
+      .gte('scheduled_at', today.toISOString())
+      .lt('scheduled_at', tomorrow.toISOString())
+      .order('scheduled_at', { ascending: true });
 
-  // 過濾出今日的比賽
-  return games.filter((game) => {
-    const gameDate = new Date(game.scheduled_at);
-    return gameDate >= today && gameDate < tomorrow;
-  });
+    if (error) throw error;
+
+    // If we have games in database, return them
+    if (dbGames && dbGames.length > 0) {
+      return dbGames as Game[];
+    }
+
+    // If no games, generate mock data
+    // Use date-based external_id to ensure consistency
+    const dateKey = today.toISOString().split('T')[0]; // YYYY-MM-DD
+    const mockGames = Array.from({ length: 10 }, (_, i) => {
+      const gameData = generateMockGame(i);
+      return {
+        ...gameData,
+        external_id: `mock-${dateKey}-${i}`,
+      };
+    }).filter((game) => {
+      const gameDate = new Date(game.scheduled_at);
+      return gameDate >= today && gameDate < tomorrow;
+    });
+
+    // Upsert mock games (insert or update if external_id exists)
+    // This prevents duplicates if function is called multiple times
+    const { data: insertedGames, error: insertError } = await supabase
+      .from('games')
+      .upsert(mockGames, {
+        onConflict: 'external_id',
+        ignoreDuplicates: false,
+      })
+      .select();
+
+    if (insertError) {
+      console.warn('Failed to upsert mock games:', insertError);
+      // Return mock data even if insert fails
+      return mockGames.map((game) => ({
+        id: generateUUID(),
+        ...game,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })) as Game[];
+    }
+
+    return (insertedGames || []) as Game[];
+  } catch (error) {
+    console.error('Error fetching today games:', error);
+    // Fallback to pure mock data if database fails
+    const mockGames = Array.from({ length: 10 }, (_, i) => ({
+      id: generateUUID(),
+      ...generateMockGame(i),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
+
+    return mockGames.filter((game) => {
+      const gameDate = new Date(game.scheduled_at);
+      return gameDate >= today && gameDate < tomorrow;
+    });
+  }
 };
 
 /**
- * 取得所有比賽（支援分頁）
+ * Get all games with pagination
+ * Reads from database, generates mock data if empty
+ * Uses upsert to avoid duplicates
  */
 export const getAllGames = async (page: number = 1, limit: number = 20): Promise<Game[]> => {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  
-  const games: Game[] = Array.from({ length: limit }, (_, i) => ({
-    id: `game-${(page - 1) * limit + i}`,
-    ...generateMockGame((page - 1) * limit + i),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }));
+  try {
+    const offset = (page - 1) * limit;
 
-  return games;
+    // Try to read from database
+    const { data: dbGames, error } = await supabase
+      .from('games')
+      .select('*')
+      .order('scheduled_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
+
+    // If we have enough games, return them
+    if (dbGames && dbGames.length >= limit) {
+      return dbGames as Game[];
+    }
+
+    // If not enough games, generate and upsert mock data
+    // Only generate for the current page to avoid generating too much
+    const mockGames = Array.from({ length: limit }, (_, i) => ({
+      ...generateMockGame((page - 1) * limit + i),
+      external_id: `mock-all-${(page - 1) * limit + i}`,
+    }));
+
+    // Upsert to avoid duplicates
+    const { data: insertedGames, error: insertError } = await supabase
+      .from('games')
+      .upsert(mockGames, {
+        onConflict: 'external_id',
+        ignoreDuplicates: false,
+      })
+      .select();
+
+    if (insertError) {
+      console.warn('Failed to upsert mock games:', insertError);
+      return mockGames.map((game) => ({
+        id: generateUUID(),
+        ...game,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })) as Game[];
+    }
+
+    // Re-fetch to get the actual data with correct pagination
+    const { data: finalGames, error: fetchError } = await supabase
+      .from('games')
+      .select('*')
+      .order('scheduled_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (fetchError) throw fetchError;
+    return (finalGames || []) as Game[];
+  } catch (error) {
+    console.error('Error fetching games:', error);
+    // Fallback to pure mock data
+    return Array.from({ length: limit }, (_, i) => ({
+      id: generateUUID(),
+      ...generateMockGame((page - 1) * limit + i),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
+  }
 };
 
 /**
- * 取得特定比賽詳情
+ * Get game by ID
+ * Reads from database first, falls back to mock if not found
  */
 export const getGameById = async (gameId: string): Promise<Game | null> => {
-  await new Promise((resolve) => setTimeout(resolve, 200));
-  
-  // 模擬查找
-  const game: Game = {
-    id: gameId,
-    ...generateMockGame(parseInt(gameId.replace('game-', '')) || 0),
+  // Check if gameId is a valid UUID
+  const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(gameId);
+
+  if (isValidUUID) {
+    try {
+      // Try to read from database
+      const { data: game, error } = await supabase
+        .from('games')
+        .select('*')
+        .eq('id', gameId)
+        .single();
+
+      if (!error && game) {
+        return game as Game;
+      }
+    } catch (error) {
+      console.error('Error fetching game from database:', error);
+    }
+  }
+
+  // Fallback: generate mock game (for backward compatibility with old IDs)
+  const mockGame: Game = {
+    id: isValidUUID ? gameId : generateUUID(),
+    ...generateMockGame(Math.floor(Math.random() * 1000)),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
 
-  return game;
+  return mockGame;
 };
 
 /**
- * 取得即時比分（進行中的比賽）
+ * Get live games (games in progress)
  */
 export const getLiveGames = async (): Promise<Game[]> => {
-  await new Promise((resolve) => setTimeout(resolve, 200));
-  
-  const allGames = await getAllGames(1, 50);
-  return allGames.filter((game) => game.status === 'live');
+  try {
+    // Try to read from database
+    const { data: liveGames, error } = await supabase
+      .from('games')
+      .select('*')
+      .eq('status', 'live')
+      .order('scheduled_at', { ascending: false });
+
+    if (!error && liveGames && liveGames.length > 0) {
+      return liveGames as Game[];
+    }
+
+    // Fallback: get all games and filter
+    const allGames = await getAllGames(1, 50);
+    return allGames.filter((game) => game.status === 'live');
+  } catch (error) {
+    console.error('Error fetching live games:', error);
+    return [];
+  }
 };
 
 /**
@@ -176,8 +338,8 @@ export const searchGames = async (query: string): Promise<Game[]> => {
   return allGames.filter(
     (game) =>
       game.league.toLowerCase().includes(lowerQuery) ||
-      game.home_team_id.toLowerCase().includes(lowerQuery) ||
-      game.away_team_id.toLowerCase().includes(lowerQuery)
+      (game.home_team_id && game.home_team_id.toLowerCase().includes(lowerQuery)) ||
+      (game.away_team_id && game.away_team_id.toLowerCase().includes(lowerQuery))
   );
 };
 

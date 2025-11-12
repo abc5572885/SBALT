@@ -1,10 +1,11 @@
+import { PageHeader } from '@/components/PageHeader';
 import { ScoreCard } from '@/components/ScoreCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { getLiveGames, getTodayGames } from '@/services/scoreApi';
 import { Game } from '@/types/database';
 import React from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ScoresScreen() {
@@ -52,40 +53,48 @@ export default function ScoresScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
-      {liveGames.length > 0 && (
+        <PageHeader title="比分" showBack={false} />
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          {liveGames.length > 0 && (
         <View style={styles.section}>
-          <ThemedText type="title" style={styles.sectionTitle}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
             🔴 即時比分
           </ThemedText>
-          <FlatList
-            data={liveGames}
-            renderItem={({ item }) => <ScoreCard game={item} />}
-            keyExtractor={(item) => item.id}
+          <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.horizontalList}
-          />
+          >
+            {liveGames.map((item) => (
+              <ScoreCard key={item.id} game={item} />
+            ))}
+          </ScrollView>
         </View>
       )}
 
       <View style={styles.section}>
-        <ThemedText type="title" style={styles.sectionTitle}>
+        <ThemedText type="subtitle" style={styles.sectionTitle}>
           今日比賽
         </ThemedText>
-        <FlatList
-          data={games}
-          renderItem={({ item }) => <ScoreCard game={item} />}
-          keyExtractor={(item) => item.id}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          ListEmptyComponent={
-            <ThemedView style={styles.emptyContainer}>
-              <ThemedText style={styles.emptyText}>今日尚無比賽</ThemedText>
-            </ThemedView>
-          }
-        />
+        {games.length > 0 ? (
+          <View>
+            {games.map((item) => (
+              <ScoreCard key={item.id} game={item} />
+            ))}
+          </View>
+        ) : (
+          <ThemedView style={styles.emptyContainer}>
+            <ThemedText style={styles.emptyText}>今日尚無比賽</ThemedText>
+          </ThemedView>
+        )}
       </View>
+        </ScrollView>
       </ThemedView>
     </SafeAreaView>
   );
@@ -97,7 +106,10 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 16,
+  },
+  scrollView: {
+    flex: 1,
   },
   centerContainer: {
     flex: 1,
@@ -113,7 +125,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginBottom: 12,
-    fontSize: 20,
+    fontSize: 18,
   },
   horizontalList: {
     paddingRight: 16,

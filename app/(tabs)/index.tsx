@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/PageHeader';
 import { ScoreCard } from '@/components/ScoreCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -5,7 +6,7 @@ import { getLiveGames, getTodayGames } from '@/services/scoreApi';
 import { Game } from '@/types/database';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
@@ -47,15 +48,14 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
-        <ThemedText type="title" style={styles.title}>
-          SPALT
-        </ThemedText>
+        <PageHeader title="SPALT" showBack={false} />
         <ThemedText style={styles.subtitle}>運動與球類主題應用</ThemedText>
 
-      <View style={styles.quickActions}>
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          <View style={styles.quickActions}>
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => router.push('/event/new')}
+          onPress={() => router.push('/(tabs)/event/new')}
         >
           <ThemedText style={styles.actionText}>⚽ 舉辦活動</ThemedText>
         </TouchableOpacity>
@@ -72,14 +72,15 @@ export default function HomeScreen() {
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             🔴 即時比分
           </ThemedText>
-          <FlatList
-            data={liveGames.slice(0, 3)}
-            renderItem={({ item }) => <ScoreCard game={item} />}
-            keyExtractor={(item) => item.id}
+          <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.horizontalList}
-          />
+          >
+            {liveGames.slice(0, 3).map((item) => (
+              <ScoreCard key={item.id} game={item} />
+            ))}
+          </ScrollView>
         </View>
       )}
 
@@ -87,17 +88,19 @@ export default function HomeScreen() {
         <ThemedText type="subtitle" style={styles.sectionTitle}>
           今日比賽
         </ThemedText>
-        <FlatList
-          data={todayGames.slice(0, 5)}
-          renderItem={({ item }) => <ScoreCard game={item} />}
-          keyExtractor={(item) => item.id}
-          ListEmptyComponent={
-            <ThemedView style={styles.emptyContainer}>
-              <ThemedText style={styles.emptyText}>今日尚無比賽</ThemedText>
-            </ThemedView>
-          }
-        />
+        {todayGames.length > 0 ? (
+          <View>
+            {todayGames.slice(0, 5).map((item) => (
+              <ScoreCard key={item.id} game={item} />
+            ))}
+          </View>
+        ) : (
+          <ThemedView style={styles.emptyContainer}>
+            <ThemedText style={styles.emptyText}>今日尚無比賽</ThemedText>
+          </ThemedView>
+        )}
       </View>
+        </ScrollView>
       </ThemedView>
     </SafeAreaView>
   );
@@ -109,7 +112,10 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 16,
+  },
+  scrollView: {
+    flex: 1,
   },
   centerContainer: {
     flex: 1,
@@ -120,15 +126,11 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
   subtitle: {
     fontSize: 16,
     opacity: 0.7,
     marginBottom: 24,
+    paddingHorizontal: 16,
   },
   quickActions: {
     flexDirection: 'row',
@@ -145,7 +147,7 @@ const styles = StyleSheet.create({
   actionText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '600',
+    // fontWeight is handled by ThemedText component (set to 600)
   },
   section: {
     marginBottom: 24,

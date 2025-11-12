@@ -1,41 +1,36 @@
+import { PageHeader } from '@/components/PageHeader';
+import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const colorScheme = useColorScheme();
 
   const handleLogout = async () => {
     await logout();
     router.replace('/login');
   };
 
-  // This screen is protected, so user should always be available
-  // But we add a safety check just in case
   if (!user) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ThemedView style={styles.container}>
-          <ThemedText type="title">個人資料</ThemedText>
-          <ThemedText style={styles.subtitle}>載入中...</ThemedText>
-        </ThemedView>
-      </SafeAreaView>
+      <ScreenLayout>
+        <PageHeader title="個人資料" showBack={false} />
+        <ThemedText style={styles.subtitle}>載入中...</ThemedText>
+      </ScreenLayout>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ThemedView style={styles.container}>
-        <ThemedText type="title" style={styles.title}>
-          個人資料
-        </ThemedText>
-
-      <View style={styles.profileSection}>
+    <ScreenLayout scrollable>
+      <PageHeader title="個人資料" showBack={false} />
+          <View style={styles.profileSection}>
         <ThemedText style={styles.label}>顯示名稱</ThemedText>
         <ThemedText style={styles.value}>
           {user.displayName || '未設定'}
@@ -47,41 +42,56 @@ export default function ProfileScreen() {
 
       <View style={styles.menuSection}>
         <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => router.push('/settings')}
+          style={[
+            styles.menuItem,
+            colorScheme === 'dark' ? styles.menuItemDark : styles.menuItemLight,
+          ]}
+          onPress={() => router.push('/(tabs)/settings')}
+          activeOpacity={0.7}
         >
           <ThemedText style={styles.menuText}>⚙️ 設定</ThemedText>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => router.push('/event/new')}
+          style={[
+            styles.menuItem,
+            colorScheme === 'dark' ? styles.menuItemDark : styles.menuItemLight,
+          ]}
+          onPress={() => router.push('/(tabs)/event/my-events')}
+          activeOpacity={0.7}
+        >
+          <ThemedText style={styles.menuText}>📅 我的活動</ThemedText>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.menuItem,
+            colorScheme === 'dark' ? styles.menuItemDark : styles.menuItemLight,
+          ]}
+          onPress={() => router.push('/(tabs)/event/new')}
+          activeOpacity={0.7}
         >
           <ThemedText style={styles.menuText}>➕ 建立活動</ThemedText>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+        <TouchableOpacity
+          style={[
+            styles.menuItem,
+            colorScheme === 'dark' ? styles.menuItemDark : styles.menuItemLight,
+          ]}
+          onPress={handleLogout}
+          activeOpacity={0.7}
+        >
           <ThemedText style={[styles.menuText, styles.logoutText]}>
             登出
           </ThemedText>
         </TouchableOpacity>
       </View>
-      </ThemedView>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    padding: 16,
-  },
-  title: {
-    marginBottom: 24,
-  },
   subtitle: {
     marginTop: 12,
     marginBottom: 24,
@@ -105,14 +115,20 @@ const styles = StyleSheet.create({
   },
   menuItem: {
     padding: 16,
-    backgroundColor: '#F5F5F5',
     borderRadius: 12,
+  },
+  menuItemLight: {
+    backgroundColor: Colors.light.card,
+  },
+  menuItemDark: {
+    backgroundColor: Colors.dark.card,
   },
   menuText: {
     fontSize: 16,
+    fontWeight: '600',
   },
   logoutText: {
-    color: '#FF3B30',
+    color: Colors.light.error,
   },
 });
 

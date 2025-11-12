@@ -1,14 +1,18 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useAuth } from '@/contexts/AuthContext';
+import { deleteComment } from '@/services/database';
 import { Comment } from '@/types/database';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface CommentListProps {
   comments: Comment[];
-  onLoadMore?: () => void;
+  onCommentDeleted?: () => void;
 }
 
-export function CommentList({ comments, onLoadMore }: CommentListProps) {
+export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
+  const { user } = useAuth();
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -24,6 +28,26 @@ export function CommentList({ comments, onLoadMore }: CommentListProps) {
     return date.toLocaleDateString('zh-TW');
   };
 
+  const handleDelete = async (commentId: string) => {
+    Alert.alert('刪除留言', '確定要刪除這則留言嗎？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '刪除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteComment(commentId);
+            if (onCommentDeleted) {
+              onCommentDeleted();
+            }
+          } catch (error: any) {
+            Alert.alert('錯誤', error.message || '刪除失敗');
+          }
+        },
+      },
+    ]);
+  };
+
   if (comments.length === 0) {
     return (
       <ThemedView style={styles.emptyContainer}>
@@ -34,17 +58,32 @@ export function CommentList({ comments, onLoadMore }: CommentListProps) {
 
   return (
     <View style={styles.container}>
-      {comments.map((comment) => (
-        <ThemedView key={comment.id} style={styles.commentCard}>
-          <View style={styles.commentHeader}>
-            <ThemedText style={styles.userName}>用戶 {comment.user_id.slice(0, 8)}</ThemedText>
-            <ThemedText style={styles.timestamp}>
-              {formatDate(comment.created_at)}
-            </ThemedText>
-          </View>
-          <ThemedText style={styles.content}>{comment.content}</ThemedText>
-        </ThemedView>
-      ))}
+      {comments.map((comment) => {
+        const isOwner = user?.id === comment.user_id;
+        return (
+          <ThemedView key={comment.id} style={styles.commentCard}>
+            <View style={styles.commentHeader}>
+              <ThemedText style={styles.userName}>
+                {isOwner ? '我' : `用戶 ${comment.user_id.slice(0, 8)}`}
+              </ThemedText>
+              <View style={styles.headerRight}>
+                <ThemedText style={styles.timestamp}>
+                  {formatDate(comment.created_at)}
+                </ThemedText>
+                {isOwner && (
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDelete(comment.id)}
+                  >
+                    <ThemedText style={styles.deleteText}>刪除</ThemedText>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+            <ThemedText style={styles.content}>{comment.content}</ThemedText>
+          </ThemedView>
+        );
+      })}
     </View>
   );
 }
@@ -64,6 +103,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   userName: {
     fontSize: 14,
     fontWeight: '600',
@@ -71,6 +115,14 @@ const styles = StyleSheet.create({
   timestamp: {
     fontSize: 12,
     opacity: 0.6,
+  },
+  deleteButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  deleteText: {
+    fontSize: 12,
+    color: '#FF3B30',
   },
   content: {
     fontSize: 14,

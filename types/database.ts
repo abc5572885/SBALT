@@ -77,8 +77,8 @@ export interface Database {
         Row: {
           id: string;
           league: string;
-          home_team_id: string;
-          away_team_id: string;
+          home_team_id: string | null;
+          away_team_id: string | null;
           scheduled_at: string;
           status: 'scheduled' | 'live' | 'finished' | 'cancelled';
           home_score: number | null;
@@ -91,8 +91,8 @@ export interface Database {
         Insert: {
           id?: string;
           league: string;
-          home_team_id: string;
-          away_team_id: string;
+          home_team_id?: string | null;
+          away_team_id?: string | null;
           scheduled_at: string;
           status?: 'scheduled' | 'live' | 'finished' | 'cancelled';
           home_score?: number | null;
@@ -165,6 +165,11 @@ export interface Database {
           fee: number;
           status: 'draft' | 'open' | 'closed' | 'cancelled' | 'finished';
           form_schema: Json | null;
+          recurrence_rule: string | null;
+          recurrence_end_date: string | null;
+          recurrence_count: number | null;
+          parent_event_id: string | null;
+          is_recurring_instance: boolean | null;
           created_at: string;
           updated_at: string;
         };
@@ -179,6 +184,11 @@ export interface Database {
           fee?: number;
           form_schema?: Json | null;
           status?: 'draft' | 'open' | 'closed' | 'cancelled' | 'finished';
+          recurrence_rule?: string | null;
+          recurrence_end_date?: string | null;
+          recurrence_count?: number | null;
+          parent_event_id?: string | null;
+          is_recurring_instance?: boolean | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -192,6 +202,11 @@ export interface Database {
           fee?: number;
           form_schema?: Json | null;
           status?: 'draft' | 'open' | 'closed' | 'cancelled' | 'finished';
+          recurrence_rule?: string | null;
+          recurrence_end_date?: string | null;
+          recurrence_count?: number | null;
+          parent_event_id?: string | null;
+          is_recurring_instance?: boolean | null;
           updated_at?: string;
         };
       };

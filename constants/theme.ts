@@ -16,6 +16,13 @@ export const Colors = {
     icon: '#687076',
     tabIconDefault: '#687076',
     tabIconSelected: tintColorLight,
+    // UI Colors
+    primary: '#007AFF',
+    primaryText: '#FFFFFF',
+    secondary: '#F5F5F5',
+    border: '#F0F0F0',
+    error: '#FF3B30',
+    card: '#F5F5F5',
   },
   dark: {
     text: '#ECEDEE',
@@ -24,30 +31,46 @@ export const Colors = {
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
     tabIconSelected: tintColorDark,
+    // UI Colors
+    primary: '#007AFF',
+    primaryText: '#FFFFFF',
+    secondary: '#2C2C2E',
+    border: '#3A3A3C',
+    error: '#FF3B30',
+    card: '#2C2C2E',
   },
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  },
-});
+// Legacy font constants (deprecated - use constants/fonts.ts instead)
+// Kept for backward compatibility
+export const Fonts = {
+  primary: 'Inter-Regular',
+  primaryBold: 'Inter-Bold',
+  primarySemiBold: 'Inter-SemiBold',
+  primaryMedium: 'Inter-Medium',
+  primaryLight: 'Inter-Light',
+  chinese: 'SourceHanSerif-Regular',
+  chineseBold: 'SourceHanSerif-Bold',
+  chineseMedium: 'SourceHanSerif-Medium',
+  combined: 'Inter-Regular',
+  sans: Platform.select({
+    ios: 'system-ui',
+    default: 'normal',
+    web: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  }) || 'normal',
+  serif: Platform.select({
+    ios: 'ui-serif',
+    default: 'serif',
+    web: "Georgia, 'Times New Roman', serif",
+  }) || 'serif',
+  rounded: Platform.select({
+    ios: 'ui-rounded',
+    default: 'normal',
+    web: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
+  }) || 'normal',
+  mono: Platform.select({
+    ios: 'ui-monospace',
+    default: 'monospace',
+    web: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+  }) || 'monospace',
+};

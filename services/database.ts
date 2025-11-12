@@ -1,0 +1,266 @@
+/**
+ * Database Service
+ * Provides functions to interact with Supabase database
+ * Handles user-generated content: comments, likes, events, registrations
+ */
+
+import { supabase } from '@/lib/supabase';
+import { Database } from '@/types/database';
+
+type Tables = Database['public']['Tables'];
+type Comment = Tables['comments']['Insert'];
+type Like = Tables['likes']['Insert'];
+type Event = Tables['events']['Insert'];
+type Registration = Tables['registrations']['Insert'];
+
+// ============================================================================
+// COMMENTS
+// ============================================================================
+
+export async function createComment(data: Comment) {
+  const { data: comment, error } = await supabase.from('comments').insert(data).select().single();
+  if (error) throw error;
+  return comment;
+}
+
+export async function getComments(entityType: string, entityId: string) {
+  const { data, error } = await supabase
+    .from('comments')
+    .select('*')
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function updateComment(id: string, content: string) {
+  const { data, error } = await supabase
+    .from('comments')
+    .update({ content })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteComment(id: string) {
+  const { error } = await supabase.from('comments').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ============================================================================
+// LIKES
+// ============================================================================
+
+export async function createLike(data: Like) {
+  const { data: like, error } = await supabase.from('likes').insert(data).select().single();
+  if (error) throw error;
+  return like;
+}
+
+export async function deleteLike(userId: string, entityType: string, entityId: string) {
+  const { error } = await supabase
+    .from('likes')
+    .delete()
+    .eq('user_id', userId)
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId);
+  if (error) throw error;
+}
+
+export async function getLikes(entityType: string, entityId: string) {
+  const { data, error } = await supabase
+    .from('likes')
+    .select('*')
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getLikeCount(entityType: string, entityId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('likes')
+    .select('*', { count: 'exact', head: true })
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId);
+  if (error) throw error;
+  return count || 0;
+}
+
+export async function hasUserLiked(
+  userId: string,
+  entityType: 'game' | 'team' | 'player' | 'news' | 'event' | 'comment',
+  entityId: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('likes')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .single();
+  // If no row found, user hasn't liked
+  if (error && error.code !== 'PGRST116') throw error;
+  return !!data;
+}
+
+export async function toggleLike(
+  userId: string,
+  entityType: 'game' | 'team' | 'player' | 'news' | 'event' | 'comment',
+  entityId: string
+): Promise<{ liked: boolean; count: number }> {
+  const hasLiked = await hasUserLiked(userId, entityType, entityId);
+  
+  if (hasLiked) {
+    await deleteLike(userId, entityType, entityId);
+  } else {
+    await createLike({ user_id: userId, entity_type: entityType, entity_id: entityId });
+  }
+  
+  const count = await getLikeCount(entityType, entityId);
+  return { liked: !hasLiked, count };
+}
+
+// ============================================================================
+// EVENTS
+// ============================================================================
+
+export async function createEvent(
+  data: Event & { recurrence_rule?: string | null; recurrence_end_date?: string | null; recurrence_count?: number | null }
+) {
+  const { recurrence_rule, recurrence_end_date, recurrence_count, ...eventData } = data;
+
+  // If no recurrence, create single event
+  if (!recurrence_rule) {
+    const { data: event, error } = await supabase.from('events').insert(eventData).select().single();
+    if (error) throw error;
+    return event;
+  }
+
+  // Parse RRULE to extract count if not provided
+  // This ensures data consistency: RRULE is the single source of truth
+  let finalRecurrenceCount = recurrence_count;
+  if (!finalRecurrenceCount && !recurrence_end_date) {
+    const { parseRRULE } = await import('@/utils/rrule');
+    const startDate = new Date(eventData.scheduled_at);
+    const parsed = parseRRULE(recurrence_rule, startDate);
+    if (parsed?.count) {
+      finalRecurrenceCount = parsed.count;
+    }
+  }
+
+  // For recurring events, create parent event first
+  const parentEventData = {
+    ...eventData,
+    recurrence_rule,
+    recurrence_end_date: recurrence_end_date || null,
+    recurrence_count: finalRecurrenceCount || null,
+    parent_event_id: null,
+    is_recurring_instance: false,
+  };
+
+  const { data: parentEvent, error: parentError } = await supabase
+    .from('events')
+    .insert(parentEventData)
+    .select()
+    .single();
+
+  if (parentError) throw parentError;
+
+  // Generate recurring instances
+  const { generateOccurrences } = await import('@/utils/rrule');
+  const startDate = new Date(eventData.scheduled_at);
+  const endDate = recurrence_end_date ? new Date(recurrence_end_date) : undefined;
+
+  // Limit to 100 instances to prevent performance issues
+  const occurrences = generateOccurrences(recurrence_rule, startDate, endDate, 100);
+
+  if (occurrences.length === 0) {
+    throw new Error('無法生成任何活動日期，請檢查重複規則設定');
+  }
+
+  // Create event instances
+  const instances = occurrences.map((occurrence) => ({
+    ...eventData,
+    scheduled_at: occurrence.toISOString(),
+    parent_event_id: parentEvent.id,
+    is_recurring_instance: true,
+    recurrence_rule: null, // Instances don't need the rule
+    recurrence_end_date: null,
+  }));
+
+  const { data: createdInstances, error: instancesError } = await supabase
+    .from('events')
+    .insert(instances)
+    .select();
+
+  if (instancesError) throw instancesError;
+
+  console.log(`✅ 已建立 ${createdInstances.length + 1} 個活動（1 個母活動 + ${createdInstances.length} 個實例）`);
+
+  return parentEvent;
+}
+
+export async function getEvents(filters?: { status?: string; organizerId?: string; excludeInstances?: boolean }) {
+  let query = supabase.from('events').select('*').order('scheduled_at', { ascending: true });
+  if (filters?.status) query = query.eq('status', filters.status);
+  if (filters?.organizerId) query = query.eq('organizer_id', filters.organizerId);
+  // Exclude recurring instances (only show parent events)
+  // This is useful for "My Events" page where we want to show the main event, not all instances
+  if (filters?.excludeInstances) {
+    query = query.or('is_recurring_instance.is.null,is_recurring_instance.eq.false');
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getEventById(id: string) {
+  const { data, error } = await supabase.from('events').select('*').eq('id', id).single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateEvent(id: string, data: Partial<Event>) {
+  const { data: event, error } = await supabase
+    .from('events')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return event;
+}
+
+export async function deleteEvent(id: string) {
+  const { error } = await supabase.from('events').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ============================================================================
+// REGISTRATIONS
+// ============================================================================
+
+export async function createRegistration(data: Registration) {
+  const { data: registration, error } = await supabase
+    .from('registrations')
+    .insert(data)
+    .select()
+    .single();
+  if (error) throw error;
+  return registration;
+}
+
+export async function getRegistrations(eventId: string) {
+  const { data, error } = await supabase
+    .from('registrations')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+

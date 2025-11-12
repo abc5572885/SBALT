@@ -1,10 +1,11 @@
+import { PageHeader } from '@/components/PageHeader';
 import { ScoreCard } from '@/components/ScoreCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { getAllGames } from '@/services/scoreApi';
 import { Game } from '@/types/database';
 import React from 'react';
-import { ActivityIndicator, FlatList, StyleSheet } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CalendarScreen() {
@@ -50,30 +51,30 @@ export default function CalendarScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
-      <ThemedText type="title" style={styles.title}>
-        賽事日曆
-      </ThemedText>
-      <ThemedText style={styles.subtitle}>
-        {selectedDate.toLocaleDateString('zh-TW', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        })}
-      </ThemedText>
+        <PageHeader title="賽事日曆" showBack={false} />
+        <ThemedText style={styles.subtitle}>
+          {selectedDate.toLocaleDateString('zh-TW', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          })}
+        </ThemedText>
 
-      {/* TODO: 加入日曆元件讓用戶選擇日期 */}
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {/* TODO: 加入日曆元件讓用戶選擇日期 */}
 
-      <FlatList
-        data={games}
-        renderItem={({ item }) => <ScoreCard game={item} />}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <ThemedView style={styles.emptyContainer}>
-            <ThemedText style={styles.emptyText}>當日尚無比賽</ThemedText>
-          </ThemedView>
-        }
-      />
+          {games.length > 0 ? (
+            <View style={styles.list}>
+              {games.map((item) => (
+                <ScoreCard key={item.id} game={item} />
+              ))}
+            </View>
+          ) : (
+            <ThemedView style={styles.emptyContainer}>
+              <ThemedText style={styles.emptyText}>當日尚無比賽</ThemedText>
+            </ThemedView>
+          )}
+        </ScrollView>
       </ThemedView>
     </SafeAreaView>
   );
@@ -85,7 +86,10 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 16,
+  },
+  scrollView: {
+    flex: 1,
   },
   centerContainer: {
     flex: 1,
@@ -96,13 +100,11 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
   },
-  title: {
-    marginBottom: 8,
-  },
   subtitle: {
     fontSize: 16,
     opacity: 0.7,
     marginBottom: 16,
+    paddingHorizontal: 16,
   },
   list: {
     paddingBottom: 16,

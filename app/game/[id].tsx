@@ -1,13 +1,16 @@
+import { CommentInput } from '@/components/CommentInput';
 import { CommentList } from '@/components/CommentList';
 import { LikeButton } from '@/components/LikeButton';
 import { ScoreCard } from '@/components/ScoreCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { getComments } from '@/services/database';
 import { getGameById } from '@/services/scoreApi';
 import { Comment, Game } from '@/types/database';
 import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function GameDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -34,66 +37,78 @@ export default function GameDetailScreen() {
   };
 
   const loadComments = async () => {
-    // TODO: 從 Supabase 載入留言
-    setComments([]);
+    try {
+      const commentsData = await getComments('game', id);
+      setComments(commentsData);
+    } catch (error) {
+      console.error('載入留言失敗:', error);
+    }
   };
 
   if (loading || !game) {
     return (
-      <ThemedView style={styles.centerContainer}>
-        <ActivityIndicator size="large" />
-        <ThemedText style={styles.loadingText}>載入中...</ThemedText>
-      </ThemedView>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ThemedView style={styles.centerContainer}>
+          <ActivityIndicator size="large" />
+          <ThemedText style={styles.loadingText}>載入中...</ThemedText>
+        </ThemedView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.content}>
-        <ScoreCard game={game} />
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <ScrollView style={styles.container}>
+        <ThemedView style={styles.content}>
+          <ScoreCard game={game} />
 
-        <View style={styles.actions}>
-          <LikeButton
-            entityId={game.id}
-            entityType="game"
-            initialCount={0}
-          />
-          {/* TODO: 加入分享按鈕 */}
-        </View>
+          <View style={styles.actions}>
+            <LikeButton entityId={game.id} entityType="game" />
+          </View>
 
-        <View style={styles.section}>
-          <ThemedText type="title" style={styles.sectionTitle}>
-            比賽詳情
-          </ThemedText>
-          <ThemedText style={styles.detail}>
-            <ThemedText style={styles.label}>聯賽：</ThemedText>
-            {game.league}
-          </ThemedText>
-          <ThemedText style={styles.detail}>
-            <ThemedText style={styles.label}>時間：</ThemedText>
-            {new Date(game.scheduled_at).toLocaleString('zh-TW')}
-          </ThemedText>
-          {game.venue && (
-            <ThemedText style={styles.detail}>
-              <ThemedText style={styles.label}>場地：</ThemedText>
-              {game.venue}
+          <View style={styles.section}>
+            <ThemedText type="title" style={styles.sectionTitle}>
+              比賽詳情
             </ThemedText>
-          )}
-        </View>
+            <ThemedText style={styles.detail}>
+              <ThemedText style={styles.label}>聯賽：</ThemedText>
+              {game.league}
+            </ThemedText>
+            <ThemedText style={styles.detail}>
+              <ThemedText style={styles.label}>時間：</ThemedText>
+              {new Date(game.scheduled_at).toLocaleString('zh-TW')}
+            </ThemedText>
+            {game.venue && (
+              <ThemedText style={styles.detail}>
+                <ThemedText style={styles.label}>場地：</ThemedText>
+                {game.venue}
+              </ThemedText>
+            )}
+          </View>
 
-        <View style={styles.section}>
-          <ThemedText type="title" style={styles.sectionTitle}>
-            留言 ({comments.length})
-          </ThemedText>
-          <CommentList comments={comments} />
-          {/* TODO: 加入留言輸入框 */}
-        </View>
-      </ThemedView>
-    </ScrollView>
+          <View style={styles.section}>
+            <ThemedText type="title" style={styles.sectionTitle}>
+              留言 ({comments.length})
+            </ThemedText>
+            <CommentInput
+              entityType="game"
+              entityId={game.id}
+              onCommentAdded={loadComments}
+            />
+            <View style={styles.commentsContainer}>
+              <CommentList comments={comments} onCommentDeleted={loadComments} />
+            </View>
+          </View>
+        </ThemedView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },
@@ -129,6 +144,9 @@ const styles = StyleSheet.create({
   },
   label: {
     fontWeight: '600',
+  },
+  commentsContainer: {
+    marginTop: 16,
   },
 });
 
