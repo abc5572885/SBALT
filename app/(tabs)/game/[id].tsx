@@ -1,22 +1,28 @@
 import { CommentInput } from '@/components/CommentInput';
 import { CommentList } from '@/components/CommentList';
 import { LikeButton } from '@/components/LikeButton';
+import { PageHeader } from '@/components/PageHeader';
 import { ScoreCard } from '@/components/ScoreCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getComments } from '@/services/database';
 import { getGameById } from '@/services/scoreApi';
 import { Comment, Game } from '@/types/database';
 import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function GameDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   const [game, setGame] = React.useState<Game | null>(null);
   const [comments, setComments] = React.useState<Comment[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(false);
 
   React.useEffect(() => {
     if (id) {
@@ -27,10 +33,12 @@ export default function GameDetailScreen() {
 
   const loadGame = async () => {
     try {
+      setError(false);
       const gameData = await getGameById(id);
       setGame(gameData);
-    } catch (error) {
-      console.error('載入比賽失敗:', error);
+    } catch (err) {
+      console.error('載入比賽失敗:', err);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -45,7 +53,7 @@ export default function GameDetailScreen() {
     }
   };
 
-  if (loading || !game) {
+  if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ThemedView style={styles.centerContainer}>
@@ -56,10 +64,30 @@ export default function GameDetailScreen() {
     );
   }
 
+  if (error || !game) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ThemedView style={styles.centerContainer}>
+          <ThemedText style={styles.errorText}>
+            {error ? '載入失敗，請檢查網路連線' : '找不到此比賽'}
+          </ThemedText>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
+            onPress={() => { setLoading(true); loadGame(); }}
+          >
+            <ThemedText style={[styles.retryText, { color: colors.primaryText }]}>重試</ThemedText>
+          </TouchableOpacity>
+        </ThemedView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView style={styles.container}>
-        <ThemedView style={styles.content}>
+      <ThemedView style={styles.container}>
+        <PageHeader title="比賽詳情" />
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
           <ScoreCard game={game} />
 
           <View style={styles.actions}>
@@ -99,8 +127,9 @@ export default function GameDetailScreen() {
               <CommentList comments={comments} onCommentDeleted={loadComments} />
             </View>
           </View>
-        </ThemedView>
+        </View>
       </ScrollView>
+      </ThemedView>
     </SafeAreaView>
   );
 }
@@ -111,9 +140,13 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    paddingHorizontal: 16,
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
-    padding: 16,
+    paddingBottom: 32,
   },
   centerContainer: {
     flex: 1,
@@ -147,6 +180,21 @@ const styles = StyleSheet.create({
   },
   commentsContainer: {
     marginTop: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    opacity: 0.7,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

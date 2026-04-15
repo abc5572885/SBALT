@@ -24,6 +24,7 @@ export function RecurrenceSelector({
   disabled = false,
 }: RecurrenceSelectorProps) {
   const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState<Frequency>('WEEKLY');
   const [interval, setInterval] = useState(1);
@@ -131,11 +132,11 @@ export function RecurrenceSelector({
           }}
           disabled={disabled}
           trackColor={{
-            false: colorScheme === 'dark' ? '#3A3A3C' : '#E5E5EA',
-            true: colorScheme === 'dark' ? '#007AFF' : '#007AFF',
+            false: Colors[colorScheme ?? 'light'].switchTrackOff,
+            true: Colors[colorScheme ?? 'light'].primary,
           }}
-          thumbColor={isRecurring ? '#FFFFFF' : '#FFFFFF'}
-          ios_backgroundColor={colorScheme === 'dark' ? '#3A3A3C' : '#E5E5EA'}
+          thumbColor="#FFFFFF"
+          ios_backgroundColor={Colors[colorScheme ?? 'light'].switchTrackOff}
         />
       </View>
 
@@ -222,8 +223,8 @@ export function RecurrenceSelector({
                         key={day}
                         style={[
                           styles.pickerItem,
-                          isActive && styles.pickerItemActive,
                           colorScheme === 'dark' ? styles.pickerItemDark : styles.pickerItemLight,
+                          isActive && [styles.pickerItemActive, { backgroundColor: colors.primary, borderColor: colors.primary }],
                         ]}
                         onPress={() => {
                           if (disabled) return;
@@ -243,8 +244,8 @@ export function RecurrenceSelector({
                     );
                   })}
                 </ScrollView>
-                <View style={styles.pickerIndicator}>
-                  <ThemedText style={styles.pickerIndicatorText}>目前選擇：{monthlyDay}日</ThemedText>
+                <View style={[styles.pickerIndicator, { backgroundColor: colors.secondary }]}>
+                  <ThemedText style={[styles.pickerIndicatorText, { color: colors.primary }]}>目前選擇：{monthlyDay}日</ThemedText>
                 </View>
               </View>
             </View>
@@ -424,7 +425,7 @@ export function RecurrenceSelector({
                 <ThemedText style={styles.countLabel}>重複</ThemedText>
                 <View style={styles.countControls}>
                   <TouchableOpacity
-                    style={styles.countButton}
+                    style={[styles.countButton, { backgroundColor: colors.primary }]}
                     onPress={() => {
                       if (disabled || occurrenceCount <= 1) return;
                       setOccurrenceCount(occurrenceCount - 1);
@@ -435,7 +436,7 @@ export function RecurrenceSelector({
                   </TouchableOpacity>
                   <ThemedText style={styles.countValue}>{occurrenceCount}</ThemedText>
                   <TouchableOpacity
-                    style={styles.countButton}
+                    style={[styles.countButton, { backgroundColor: colors.primary }]}
                     onPress={() => {
                       if (disabled) return;
                       setOccurrenceCount(occurrenceCount + 1);
@@ -460,15 +461,15 @@ export function RecurrenceSelector({
             animationType="slide"
             onRequestClose={() => setShowEndDatePicker(false)}
           >
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
+            <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+              <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+                <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                   <TouchableOpacity
                     onPress={() => {
                       setShowEndDatePicker(false);
                     }}
                   >
-                    <ThemedText style={styles.modalButton}>取消</ThemedText>
+                    <ThemedText style={[styles.modalButton, { color: colors.icon }]}>取消</ThemedText>
                   </TouchableOpacity>
                   <ThemedText style={styles.modalTitle}>選擇結束日期</ThemedText>
                   <TouchableOpacity
@@ -477,10 +478,10 @@ export function RecurrenceSelector({
                       setShowEndDatePicker(false);
                     }}
                   >
-                    <ThemedText style={[styles.modalButton, styles.modalConfirm]}>確定</ThemedText>
+                    <ThemedText style={[styles.modalButton, styles.modalConfirm, { color: colors.primary }]}>確定</ThemedText>
                   </TouchableOpacity>
                 </View>
-                <View style={styles.pickerContainerModal}>
+                <View style={[styles.pickerContainerModal, { backgroundColor: colors.background }]}>
                   <DateTimePicker
                     value={tempEndDate}
                     mode="date"
@@ -492,7 +493,7 @@ export function RecurrenceSelector({
                         setTempEndDate(selectedDate);
                       }
                     }}
-                    textColor="#000000"
+                    textColor={colors.text}
                     themeVariant="light"
                   />
                 </View>
@@ -512,7 +513,7 @@ export function RecurrenceSelector({
                 setEndDate(selectedDate);
               }
             }}
-            textColor="#000000"
+            textColor={colors.text}
             themeVariant="light"
           />
         )
@@ -569,9 +570,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   frequencyButtonActive: {
-    backgroundColor: Colors.light.primary,
     borderWidth: 2,
-    borderColor: Colors.light.primary,
   },
   frequencyButtonActiveLight: {
     backgroundColor: Colors.light.primary,
@@ -586,7 +585,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   frequencyButtonTextActive: {
-    color: Colors.light.primaryText,
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   weekdaySection: {
@@ -615,9 +614,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   weekdayButtonActive: {
-    backgroundColor: Colors.light.primary,
     borderWidth: 2,
-    borderColor: Colors.light.primary,
   },
   weekdayButtonActiveLight: {
     backgroundColor: Colors.light.primary,
@@ -632,7 +629,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   weekdayButtonTextActive: {
-    color: Colors.light.primaryText,
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   monthlySection: {
@@ -670,29 +667,25 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   pickerItemActive: {
-    backgroundColor: Colors.light.primary,
     borderWidth: 2,
-    borderColor: Colors.light.primary,
   },
   pickerItemText: {
     fontSize: 14,
     fontWeight: '500',
   },
   pickerItemTextActive: {
-    color: Colors.light.primaryText,
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   pickerIndicator: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: Colors.light.secondary,
     borderRadius: 6,
     alignItems: 'center',
   },
   pickerIndicatorText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.light.primary,
   },
   yearlySection: {
     gap: 16,
@@ -729,9 +722,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   endConditionButtonActive: {
-    backgroundColor: Colors.light.primary,
     borderWidth: 2,
-    borderColor: Colors.light.primary,
   },
   endConditionButtonActiveLight: {
     backgroundColor: Colors.light.primary,
@@ -746,7 +737,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   endConditionButtonTextActive: {
-    color: Colors.light.primaryText,
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   dateButton: {
@@ -754,10 +745,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   dateButtonLight: {
     backgroundColor: Colors.light.background,
+    borderColor: Colors.light.border,
   },
   dateButtonDark: {
     backgroundColor: Colors.dark.background,
@@ -785,14 +776,13 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.light.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   countButtonText: {
     fontSize: 20,
     fontWeight: '600',
-    color: Colors.light.primaryText,
+    color: '#FFFFFF',
   },
   countValue: {
     fontSize: 18,
@@ -806,7 +796,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: Colors.light.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 20,
@@ -817,7 +806,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
   },
   modalTitle: {
     fontSize: 18,
@@ -825,14 +813,11 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     fontSize: 16,
-    color: '#666',
   },
   modalConfirm: {
-    color: Colors.light.primary,
     fontWeight: '600',
   },
   pickerContainerModal: {
-    backgroundColor: Colors.light.background,
     paddingVertical: 8,
   },
 });

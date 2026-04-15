@@ -12,8 +12,12 @@
 import { supabase } from '@/lib/supabase';
 import { Game } from '@/types/database';
 
-// Generate UUID v4
+// Generate UUID v4 using crypto API
 const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for environments without crypto.randomUUID
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -320,26 +324,39 @@ export const getLiveGames = async (): Promise<Game[]> => {
  * 根據聯賽篩選比賽
  */
 export const getGamesByLeague = async (league: string): Promise<Game[]> => {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  
+  try {
+    const { data, error } = await supabase
+      .from('games')
+      .select('*')
+      .eq('league', league)
+      .order('scheduled_at', { ascending: false })
+      .limit(50);
+
+    if (!error && data && data.length > 0) {
+      return data as Game[];
+    }
+  } catch (err) {
+    console.error('Error fetching games by league:', err);
+  }
+
+  // Fallback: filter from all games
   const allGames = await getAllGames(1, 50);
   return allGames.filter((game) => game.league === league);
 };
 
 /**
- * 搜尋比賽（根據球隊名稱或聯賽）
+ * 搜尋比賽（根據聯賽名稱或場地）
+ * Note: home_team_id / away_team_id are UUIDs, not searchable by name.
+ * In MVP stage, search is limited to league and venue fields.
  */
 export const searchGames = async (query: string): Promise<Game[]> => {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  
   const allGames = await getAllGames(1, 50);
   const lowerQuery = query.toLowerCase();
-  
+
   return allGames.filter(
     (game) =>
       game.league.toLowerCase().includes(lowerQuery) ||
-      (game.home_team_id && game.home_team_id.toLowerCase().includes(lowerQuery)) ||
-      (game.away_team_id && game.away_team_id.toLowerCase().includes(lowerQuery))
+      (game.venue && game.venue.toLowerCase().includes(lowerQuery))
   );
 };
 

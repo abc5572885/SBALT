@@ -4,6 +4,8 @@
  */
 
 import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatDateChinese, formatTime } from '@/utils/dateFormat';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useState } from 'react';
@@ -26,6 +28,8 @@ export function DateTimePickerButton({
   disabled = false,
   label,
 }: DateTimePickerButtonProps) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   const [showPicker, setShowPicker] = useState(false);
   const [tempValue, setTempValue] = useState(value);
 
@@ -69,19 +73,19 @@ export function DateTimePickerButton({
       onChange={handleChange}
       minimumDate={minimumDate}
       locale="zh-TW"
-      textColor="#000000"
-      themeVariant="light"
+      textColor={colors.text}
+      themeVariant={colorScheme === 'dark' ? 'dark' : 'light'}
     />
   );
 
   return (
     <>
       <TouchableOpacity
-        style={[styles.button, disabled && styles.buttonDisabled]}
+        style={[styles.button, { borderColor: colors.border, backgroundColor: colors.background }, disabled && styles.buttonDisabled]}
         onPress={handleOpen}
         disabled={disabled}
       >
-        <ThemedText style={styles.text}>{formatDisplay(value)}</ThemedText>
+        <ThemedText style={[styles.text, { color: colors.text }]}>{formatDisplay(value)}</ThemedText>
         <ThemedText style={styles.icon}>{mode === 'date' ? '📅' : '🕐'}</ThemedText>
       </TouchableOpacity>
 
@@ -93,20 +97,20 @@ export function DateTimePickerButton({
             animationType="slide"
             onRequestClose={() => setShowPicker(false)}
           >
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
+            <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+              <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+                <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                   <TouchableOpacity onPress={() => setShowPicker(false)}>
-                    <ThemedText style={styles.modalButton}>取消</ThemedText>
+                    <ThemedText style={[styles.modalButton, { color: colors.icon }]}>取消</ThemedText>
                   </TouchableOpacity>
                   <ThemedText style={styles.modalTitle}>
                     {mode === 'date' ? '選擇日期' : '選擇時間'}
                   </ThemedText>
                   <TouchableOpacity onPress={handleConfirm}>
-                    <ThemedText style={[styles.modalButton, styles.modalConfirm]}>確定</ThemedText>
+                    <ThemedText style={[styles.modalButton, { color: colors.primary, fontWeight: '600' }]}>確定</ThemedText>
                   </TouchableOpacity>
                 </View>
-                <View style={styles.pickerContainer}>
+                <View style={[styles.pickerContainer, { backgroundColor: colors.background }]}>
                   {picker}
                 </View>
               </View>
@@ -126,42 +130,34 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#DDD',
     borderRadius: 8,
     padding: 12,
-    backgroundColor: '#FFF',
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   text: {
     fontSize: 16,
-    color: '#000',
   },
   icon: {
     fontSize: 20,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 20,
   },
-  pickerContainer: {
-    backgroundColor: '#FFF',
-  },
+  pickerContainer: {},
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
   },
   modalTitle: {
     fontSize: 18,
@@ -169,11 +165,6 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     fontSize: 16,
-    color: '#666',
-  },
-  modalConfirm: {
-    color: '#007AFF',
-    fontWeight: '600',
   },
 });
 

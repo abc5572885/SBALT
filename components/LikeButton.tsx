@@ -1,5 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getLikeCount, hasUserLiked, toggleLike } from '@/services/database';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect } from 'react';
@@ -13,6 +15,8 @@ interface LikeButtonProps {
 
 export function LikeButton({ entityId, entityType, onToggle }: LikeButtonProps) {
   const { user } = useAuth();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   const [liked, setLiked] = React.useState(false);
   const [count, setCount] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
@@ -43,6 +47,12 @@ export function LikeButton({ entityId, entityType, onToggle }: LikeButtonProps) 
 
     if (loading) return;
 
+    // Optimistic UI update
+    const prevLiked = liked;
+    const prevCount = count;
+    setLiked(!liked);
+    setCount(liked ? count - 1 : count + 1);
+
     try {
       setLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -56,9 +66,10 @@ export function LikeButton({ entityId, entityType, onToggle }: LikeButtonProps) 
       }
     } catch (error: any) {
       console.error('切換按讚失敗:', error);
+      // Rollback optimistic update
+      setLiked(prevLiked);
+      setCount(prevCount);
       Alert.alert('錯誤', error.message || '操作失敗，請稍後再試');
-      // Reload to sync state
-      loadLikeStatus();
     } finally {
       setLoading(false);
     }
@@ -66,7 +77,7 @@ export function LikeButton({ entityId, entityType, onToggle }: LikeButtonProps) 
 
   return (
     <TouchableOpacity onPress={handlePress} style={styles.container}>
-      <View style={[styles.iconContainer, liked && styles.iconContainerLiked]}>
+      <View style={[styles.iconContainer, { backgroundColor: colors.card }, liked && { backgroundColor: colors.errorBackground }]}>
         <ThemedText style={styles.icon}>{liked ? '❤️' : '🤍'}</ThemedText>
       </View>
       {count > 0 && <ThemedText style={styles.count}>{count}</ThemedText>}
@@ -83,10 +94,6 @@ const styles = StyleSheet.create({
   iconContainer: {
     padding: 8,
     borderRadius: 20,
-    backgroundColor: '#F5F5F5',
-  },
-  iconContainerLiked: {
-    backgroundColor: '#FFE5E5',
   },
   icon: {
     fontSize: 20,

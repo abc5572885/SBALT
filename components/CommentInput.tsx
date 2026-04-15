@@ -5,7 +5,9 @@
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createComment } from '@/services/database';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
@@ -18,6 +20,8 @@ interface CommentInputProps {
 
 export function CommentInput({ entityType, entityId, onCommentAdded }: CommentInputProps) {
   const { user } = useAuth();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -55,18 +59,18 @@ export function CommentInput({ entityType, entityId, onCommentAdded }: CommentIn
 
   if (!user) {
     return (
-      <ThemedView style={styles.loginPrompt}>
+      <ThemedView style={[styles.loginPrompt, { backgroundColor: colors.card }]}>
         <ThemedText style={styles.loginText}>請先登入以發表留言</ThemedText>
       </ThemedView>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={[styles.container, { backgroundColor: colors.secondary }]}>
       <TextInput
-        style={styles.input}
+        style={[styles.input, { color: colors.text, backgroundColor: colors.background }]}
         placeholder="輸入留言..."
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.placeholder}
         value={content}
         onChangeText={setContent}
         multiline
@@ -76,11 +80,15 @@ export function CommentInput({ entityType, entityId, onCommentAdded }: CommentIn
       <View style={styles.footer}>
         <ThemedText style={styles.charCount}>{content.length}/500</ThemedText>
         <TouchableOpacity
-          style={[styles.submitButton, (!content.trim() || loading) && styles.submitButtonDisabled]}
+          style={[
+            styles.submitButton,
+            { backgroundColor: colors.primary },
+            (!content.trim() || loading) && { backgroundColor: colors.disabled, opacity: 0.6 },
+          ]}
           onPress={handleSubmit}
           disabled={!content.trim() || loading}
         >
-          <ThemedText style={styles.submitText}>{loading ? '發送中...' : '發送'}</ThemedText>
+          <ThemedText style={[styles.submitText, { color: colors.primaryText }]}>{loading ? '發送中...' : '發送'}</ThemedText>
         </TouchableOpacity>
       </View>
     </ThemedView>
@@ -91,16 +99,13 @@ const styles = StyleSheet.create({
   container: {
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#F9F9F9',
   },
   input: {
     minHeight: 80,
     maxHeight: 120,
     fontSize: 14,
     lineHeight: 20,
-    color: '#000',
     padding: 8,
-    backgroundColor: '#FFF',
     borderRadius: 6,
     marginBottom: 8,
   },
@@ -116,22 +121,15 @@ const styles = StyleSheet.create({
   submitButton: {
     paddingHorizontal: 20,
     paddingVertical: 8,
-    backgroundColor: '#007AFF',
     borderRadius: 6,
   },
-  submitButtonDisabled: {
-    backgroundColor: '#CCC',
-    opacity: 0.6,
-  },
   submitText: {
-    color: '#FFF',
     fontSize: 14,
     fontWeight: '600',
   },
   loginPrompt: {
     padding: 16,
     borderRadius: 8,
-    backgroundColor: '#F5F5F5',
     alignItems: 'center',
   },
   loginText: {

@@ -1,5 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Game } from '@/types/database';
 import { useRouter } from 'expo-router';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -12,6 +14,8 @@ interface ScoreCardProps {
 
 export function ScoreCard({ game, homeTeamName, awayTeamName }: ScoreCardProps) {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
   const getStatusText = () => {
     switch (game.status) {
@@ -34,20 +38,20 @@ export function ScoreCard({ game, homeTeamName, awayTeamName }: ScoreCardProps) 
   const getStatusColor = () => {
     switch (game.status) {
       case 'live':
-        return '#FF3B30';
+        return colors.error;
       case 'finished':
-        return '#8E8E93';
+        return colors.statusSecondary;
       default:
-        return '#007AFF';
+        return colors.primary;
     }
   };
 
   return (
     <TouchableOpacity
-      onPress={() => router.push(`/game/${game.id}`)}
+      onPress={() => router.push(`/(tabs)/game/${game.id}`)}
       style={styles.container}
     >
-      <ThemedView style={styles.card}>
+      <ThemedView style={[styles.card, { backgroundColor: colors.card }]}>
         <View style={styles.header}>
           <ThemedText style={styles.league}>{game.league}</ThemedText>
           <ThemedText style={[styles.status, { color: getStatusColor() }]}>
@@ -92,7 +96,6 @@ const styles = StyleSheet.create({
   card: {
     padding: 16,
     borderRadius: 12,
-    backgroundColor: '#F5F5F5',
   },
   header: {
     flexDirection: 'row',

@@ -1,6 +1,8 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { deleteComment } from '@/services/database';
 import { Comment } from '@/types/database';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -12,6 +14,8 @@ interface CommentListProps {
 
 export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
   const { user } = useAuth();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -61,7 +65,7 @@ export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
       {comments.map((comment) => {
         const isOwner = user?.id === comment.user_id;
         return (
-          <ThemedView key={comment.id} style={styles.commentCard}>
+          <ThemedView key={comment.id} style={[styles.commentCard, { backgroundColor: colors.card }]}>
             <View style={styles.commentHeader}>
               <ThemedText style={styles.userName}>
                 {isOwner ? '我' : `用戶 ${comment.user_id.slice(0, 8)}`}
@@ -75,7 +79,7 @@ export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
                     style={styles.deleteButton}
                     onPress={() => handleDelete(comment.id)}
                   >
-                    <ThemedText style={styles.deleteText}>刪除</ThemedText>
+                    <ThemedText style={[styles.deleteText, { color: colors.error }]}>刪除</ThemedText>
                   </TouchableOpacity>
                 )}
               </View>
@@ -95,7 +99,6 @@ const styles = StyleSheet.create({
   commentCard: {
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#F5F5F5',
   },
   commentHeader: {
     flexDirection: 'row',
@@ -122,7 +125,6 @@ const styles = StyleSheet.create({
   },
   deleteText: {
     fontSize: 12,
-    color: '#FF3B30',
   },
   content: {
     fontSize: 14,

@@ -1,6 +1,8 @@
 import { DateTimePickerButton } from '@/components/DateTimePickerButton';
 import { RecurrenceSelector } from '@/components/RecurrenceSelector';
 import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Event } from '@/types/database';
 import React from 'react';
 import { Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
@@ -13,6 +15,8 @@ interface EventFormProps {
 }
 
 export function EventForm({ event, onSubmit, onCancel, loading = false }: EventFormProps) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   const [title, setTitle] = React.useState(event?.title || '');
   const [description, setDescription] = React.useState(event?.description || '');
   const [location, setLocation] = React.useState(event?.location || '');
@@ -100,11 +104,11 @@ export function EventForm({ event, onSubmit, onCancel, loading = false }: EventF
       <View style={styles.form}>
           <ThemedText style={styles.label}>活動標題 *</ThemedText>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { borderColor: colors.border, backgroundColor: colors.background, color: colors.text }]}
             value={title}
             onChangeText={setTitle}
             placeholder="輸入活動標題"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.placeholder}
             editable={!loading}
           />
 
@@ -114,7 +118,7 @@ export function EventForm({ event, onSubmit, onCancel, loading = false }: EventF
             value={description}
             onChangeText={setDescription}
             placeholder="輸入活動描述（選填）"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.placeholder}
             multiline
             numberOfLines={4}
             editable={!loading}
@@ -139,11 +143,11 @@ export function EventForm({ event, onSubmit, onCancel, loading = false }: EventF
 
           <ThemedText style={styles.label}>地點 *</ThemedText>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { borderColor: colors.border, backgroundColor: colors.background, color: colors.text }]}
             value={location}
             onChangeText={setLocation}
             placeholder="輸入活動地點"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.placeholder}
             editable={!loading}
           />
 
@@ -151,11 +155,11 @@ export function EventForm({ event, onSubmit, onCancel, loading = false }: EventF
             <View style={styles.halfWidth}>
               <ThemedText style={styles.label}>人數上限 *</ThemedText>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { borderColor: colors.border, backgroundColor: colors.background, color: colors.text }]}
                 value={quota}
                 onChangeText={setQuota}
                 placeholder="例如：20"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholder}
                 keyboardType="numeric"
                 editable={!loading}
               />
@@ -164,11 +168,11 @@ export function EventForm({ event, onSubmit, onCancel, loading = false }: EventF
             <View style={styles.halfWidth}>
               <ThemedText style={styles.label}>費用 (NT$)</ThemedText>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { borderColor: colors.border, backgroundColor: colors.background, color: colors.text }]}
                 value={fee}
                 onChangeText={setFee}
                 placeholder="0"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholder}
                 keyboardType="decimal-pad"
                 editable={!loading}
               />
@@ -184,19 +188,19 @@ export function EventForm({ event, onSubmit, onCancel, loading = false }: EventF
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={[styles.button, styles.cancelButton]}
+            style={[styles.button, { backgroundColor: colors.card }]}
             onPress={onCancel}
             disabled={loading}
           >
-            <ThemedText style={styles.cancelButtonText}>取消</ThemedText>
+            <ThemedText style={[styles.cancelButtonText, { color: colors.icon }]}>取消</ThemedText>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.button, styles.submitButton, loading && styles.submitButtonDisabled]}
+            style={[styles.button, { backgroundColor: colors.primary }, loading && { backgroundColor: colors.disabled }]}
             onPress={handleSubmit}
             disabled={loading}
           >
-            <ThemedText style={styles.submitButtonText}>
+            <ThemedText style={[styles.submitButtonText, { color: colors.primaryText }]}>
               {loading ? '建立中...' : event ? '更新' : '建立活動'}
           </ThemedText>
         </TouchableOpacity>
@@ -218,19 +222,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
   },
-  hint: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 4,
-    marginBottom: 8,
-  },
   input: {
     borderWidth: 1,
-    borderColor: '#DDD',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#FFF',
   },
   textArea: {
     height: 100,
@@ -256,24 +252,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelButton: {
-    backgroundColor: '#F5F5F5',
-  },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#666',
-  },
-  submitButton: {
-    backgroundColor: '#007AFF',
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#CCC',
   },
   submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFF',
   },
 });
 

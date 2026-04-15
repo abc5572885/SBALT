@@ -3,7 +3,6 @@
  * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
  */
 
-import { Platform } from 'react-native';
 
 const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
@@ -22,7 +21,16 @@ export const Colors = {
     secondary: '#F5F5F5',
     border: '#F0F0F0',
     error: '#FF3B30',
+    errorBackground: '#FFE5E5',
     card: '#F5F5F5',
+    // Status Colors
+    statusSuccess: '#28A745',
+    statusSecondary: '#6C757D',
+    // Control Colors
+    disabled: '#CCC',
+    placeholder: '#999',
+    overlay: 'rgba(0, 0, 0, 0.5)',
+    switchTrackOff: '#E5E5EA',
   },
   dark: {
     text: '#ECEDEE',
@@ -32,45 +40,20 @@ export const Colors = {
     tabIconDefault: '#9BA1A6',
     tabIconSelected: tintColorDark,
     // UI Colors
-    primary: '#007AFF',
+    primary: '#0A84FF',
     primaryText: '#FFFFFF',
     secondary: '#2C2C2E',
     border: '#3A3A3C',
-    error: '#FF3B30',
+    error: '#FF453A',
+    errorBackground: '#3A1A1A',
     card: '#2C2C2E',
+    // Status Colors
+    statusSuccess: '#30D158',
+    statusSecondary: '#8E8E93',
+    // Control Colors
+    disabled: '#555',
+    placeholder: '#6C6C70',
+    overlay: 'rgba(0, 0, 0, 0.7)',
+    switchTrackOff: '#3A3A3C',
   },
-};
-
-// Legacy font constants (deprecated - use constants/fonts.ts instead)
-// Kept for backward compatibility
-export const Fonts = {
-  primary: 'Inter-Regular',
-  primaryBold: 'Inter-Bold',
-  primarySemiBold: 'Inter-SemiBold',
-  primaryMedium: 'Inter-Medium',
-  primaryLight: 'Inter-Light',
-  chinese: 'SourceHanSerif-Regular',
-  chineseBold: 'SourceHanSerif-Bold',
-  chineseMedium: 'SourceHanSerif-Medium',
-  combined: 'Inter-Regular',
-  sans: Platform.select({
-    ios: 'system-ui',
-    default: 'normal',
-    web: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-  }) || 'normal',
-  serif: Platform.select({
-    ios: 'ui-serif',
-    default: 'serif',
-    web: "Georgia, 'Times New Roman', serif",
-  }) || 'serif',
-  rounded: Platform.select({
-    ios: 'ui-rounded',
-    default: 'normal',
-    web: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-  }) || 'normal',
-  mono: Platform.select({
-    ios: 'ui-monospace',
-    default: 'monospace',
-    web: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  }) || 'monospace',
 };

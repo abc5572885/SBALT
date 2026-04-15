@@ -2,28 +2,35 @@ import { PageHeader } from '@/components/PageHeader';
 import { ScoreCard } from '@/components/ScoreCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getLiveGames, getTodayGames } from '@/services/scoreApi';
 import { Game } from '@/types/database';
 import React from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ScoresScreen() {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   const [games, setGames] = React.useState<Game[]>([]);
   const [liveGames, setLiveGames] = React.useState<Game[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [error, setError] = React.useState(false);
 
   const loadGames = async () => {
     try {
+      setError(false);
       const [todayGames, live] = await Promise.all([
         getTodayGames(),
         getLiveGames(),
       ]);
       setGames(todayGames);
       setLiveGames(live);
-    } catch (error) {
-      console.error('載入比賽失敗:', error);
+    } catch (err) {
+      console.error('載入比賽失敗:', err);
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -45,6 +52,22 @@ export default function ScoresScreen() {
         <ThemedView style={styles.centerContainer}>
           <ActivityIndicator size="large" />
           <ThemedText style={styles.loadingText}>載入中...</ThemedText>
+        </ThemedView>
+      </SafeAreaView>
+    );
+  }
+
+  if (error && games.length === 0) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ThemedView style={styles.centerContainer}>
+          <ThemedText style={styles.errorText}>載入失敗，請檢查網路連線</ThemedText>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
+            onPress={() => { setLoading(true); loadGames(); }}
+          >
+            <ThemedText style={[styles.retryText, { color: colors.primaryText }]}>重試</ThemedText>
+          </TouchableOpacity>
         </ThemedView>
       </SafeAreaView>
     );
@@ -137,6 +160,21 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     opacity: 0.5,
+  },
+  errorText: {
+    fontSize: 16,
+    opacity: 0.7,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

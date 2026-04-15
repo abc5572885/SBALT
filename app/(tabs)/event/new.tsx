@@ -2,7 +2,9 @@ import { EventForm } from '@/components/EventForm';
 import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createEvent } from '@/services/database';
 import { Event } from '@/types/database';
 import { Redirect, useRouter } from 'expo-router';
@@ -11,6 +13,7 @@ import { ActivityIndicator, Alert, StyleSheet } from 'react-native';
 
 export default function NewEventScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
 
@@ -18,7 +21,7 @@ export default function NewEventScreen() {
     return (
       <ScreenLayout>
         <ThemedView style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].primary} />
         </ThemedView>
       </ScreenLayout>
     );

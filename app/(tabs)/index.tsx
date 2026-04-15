@@ -2,6 +2,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { ScoreCard } from '@/components/ScoreCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getLiveGames, getTodayGames } from '@/services/scoreApi';
 import { Game } from '@/types/database';
 import { useRouter } from 'expo-router';
@@ -11,9 +13,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   const [liveGames, setLiveGames] = React.useState<Game[]>([]);
   const [todayGames, setTodayGames] = React.useState<Game[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(false);
 
   React.useEffect(() => {
     loadData();
@@ -21,14 +26,16 @@ export default function HomeScreen() {
 
   const loadData = async () => {
     try {
+      setError(false);
       const [live, today] = await Promise.all([
         getLiveGames(),
         getTodayGames(),
       ]);
       setLiveGames(live);
       setTodayGames(today);
-    } catch (error) {
-      console.error('載入資料失敗:', error);
+    } catch (err) {
+      console.error('載入資料失敗:', err);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -45,6 +52,22 @@ export default function HomeScreen() {
     );
   }
 
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ThemedView style={styles.centerContainer}>
+          <ThemedText style={styles.errorText}>載入失敗，請檢查網路連線</ThemedText>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
+            onPress={() => { setLoading(true); loadData(); }}
+          >
+            <ThemedText style={[styles.retryText, { color: colors.primaryText }]}>重試</ThemedText>
+          </TouchableOpacity>
+        </ThemedView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
@@ -54,16 +77,16 @@ export default function HomeScreen() {
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.quickActions}>
         <TouchableOpacity
-          style={styles.actionButton}
+          style={[styles.actionButton, { backgroundColor: colors.primary }]}
           onPress={() => router.push('/(tabs)/event/new')}
         >
-          <ThemedText style={styles.actionText}>⚽ 舉辦活動</ThemedText>
+          <ThemedText style={[styles.actionText, { color: colors.primaryText }]}>⚽ 舉辦活動</ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.actionButton}
+          style={[styles.actionButton, { backgroundColor: colors.primary }]}
           onPress={() => router.push('/(tabs)/scores')}
         >
-          <ThemedText style={styles.actionText}>📊 查看比分</ThemedText>
+          <ThemedText style={[styles.actionText, { color: colors.primaryText }]}>📊 查看比分</ThemedText>
         </TouchableOpacity>
       </View>
 
@@ -139,15 +162,12 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    backgroundColor: '#007AFF',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
   actionText: {
-    color: '#FFF',
     fontSize: 16,
-    // fontWeight is handled by ThemedText component (set to 600)
   },
   section: {
     marginBottom: 24,
@@ -166,5 +186,20 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     opacity: 0.5,
+  },
+  errorText: {
+    fontSize: 16,
+    opacity: 0.7,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

@@ -5,7 +5,9 @@
  * Single-path implementation: only navigate on SIGNED_IN event to avoid race conditions
  */
 
+import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { supabase } from '@/lib/supabase';
 import * as AuthSession from 'expo-auth-session';
 import { Redirect, useRouter } from 'expo-router';
@@ -18,6 +20,8 @@ WebBrowser.maybeCompleteAuthSession();
 export default function LoginScreen() {
   const router = useRouter();
   const { session, loading: authLoading } = useAuth();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   const [loading, setLoading] = useState(false);
   const loggingRef = useRef(false);
 
@@ -50,7 +54,7 @@ export default function LoginScreen() {
   if (authLoading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -129,13 +133,13 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome to SBALT</Text>
-      <Text style={styles.subtitle}>Sign in with Google</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[styles.title, { color: colors.text }]}>Welcome to SBALT</Text>
+      <Text style={[styles.subtitle, { color: colors.icon }]}>Sign in with Google</Text>
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Processing…</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.icon }]}>Processing…</Text>
         </View>
       ) : (
         <Button title="Sign in with Google" onPress={handleGoogleLogin} />
@@ -150,7 +154,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#fff',
   },
   title: {
     fontSize: 24,
@@ -159,7 +162,6 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 30,
   },
   loadingContainer: {
@@ -168,6 +170,5 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 8,
-    color: '#666',
   },
 });

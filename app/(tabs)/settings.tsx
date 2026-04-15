@@ -39,7 +39,7 @@ export default function SettingsScreen() {
                     style={[
                       styles.option,
                       colorScheme === 'dark' ? styles.optionDark : styles.optionLight,
-                      isSelected && styles.optionSelected,
+                      isSelected && { backgroundColor: Colors[colorScheme ?? 'light'].primary },
                     ]}
                     onPress={() => setThemeMode(option.value)}
                     activeOpacity={0.7}
@@ -47,7 +47,7 @@ export default function SettingsScreen() {
                     <ThemedText
                       style={[
                         styles.optionText,
-                        isSelected && styles.optionTextSelected,
+                        isSelected && { color: Colors[colorScheme ?? 'light'].primaryText, fontWeight: '600' as const },
                       ]}
                     >
                       {option.label}
@@ -131,15 +131,8 @@ const styles = StyleSheet.create({
   optionDark: {
     backgroundColor: Colors.dark.card,
   },
-  optionSelected: {
-    backgroundColor: Colors.light.primary,
-  },
   optionText: {
     fontSize: 14,
-  },
-  optionTextSelected: {
-    color: Colors.light.primaryText,
-    fontWeight: '600',
   },
 });
 

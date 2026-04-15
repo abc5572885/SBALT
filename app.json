@@ -54,8 +54,8 @@
       "reactCompiler": true
     },
     "extra": {
-      "supabaseUrl": "https://wmflayhfjrcmxqodwghx.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndtZmxheWhmanJjbXhxb2R3Z2h4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNjAwMzksImV4cCI6MjA3NzkzNjAzOX0.XQER5xi5JhRUMvWng54p_JQY9caMezZ2_mUtp-pLipU",
+      "supabaseUrl": "https://zavwiobxpuwgoqdmjmpg.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inphdndpb2J4cHV3Z29xZG1qbXBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNjQxNzUsImV4cCI6MjA5MTg0MDE3NX0.u7_7OnvuzNrBmIjZ0A9C79rQ0FdHb9M6Uh3fUMwo-kc",
       "oauthRedirectUrl": "sbalt://"
     }
   }

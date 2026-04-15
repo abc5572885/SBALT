@@ -82,7 +82,7 @@ export default function ProfileScreen() {
           onPress={handleLogout}
           activeOpacity={0.7}
         >
-          <ThemedText style={[styles.menuText, styles.logoutText]}>
+          <ThemedText style={[styles.menuText, { color: Colors[colorScheme ?? 'light'].error }]}>
             登出
           </ThemedText>
         </TouchableOpacity>
@@ -127,8 +127,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  logoutText: {
-    color: Colors.light.error,
-  },
+  logoutText: {},
 });
 

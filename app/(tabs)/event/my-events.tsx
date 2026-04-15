@@ -89,8 +89,7 @@ export default function MyEventsScreen() {
   };
 
   const handleEdit = (event: Event) => {
-    // TODO: 實作編輯功能
-    Alert.alert('提示', '編輯功能開發中');
+    router.push(`/(tabs)/event/${event.id}`);
   };
 
   if (authLoading || loading) {
@@ -98,7 +97,7 @@ export default function MyEventsScreen() {
       <ScreenLayout>
         <PageHeader title="我的活動" />
         <ThemedView style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={Colors.light.primary} />
+          <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].primary} />
           <ThemedText style={styles.loadingText}>載入中...</ThemedText>
         </ThemedView>
       </ScreenLayout>
@@ -153,9 +152,9 @@ export default function MyEventsScreen() {
                     <ThemedText
                       style={[
                         styles.statusText,
-                        event.status === 'open' && styles.statusOpen,
-                        event.status === 'closed' && styles.statusClosed,
-                        event.status === 'cancelled' && styles.statusCancelled,
+                        event.status === 'open' && { color: Colors[colorScheme ?? 'light'].statusSuccess },
+                        event.status === 'closed' && { color: Colors[colorScheme ?? 'light'].statusSecondary },
+                        event.status === 'cancelled' && { color: Colors[colorScheme ?? 'light'].error },
                       ]}
                     >
                       {event.status === 'open'
@@ -182,22 +181,22 @@ export default function MyEventsScreen() {
                     人數上限：{event.quota} 人 | 費用：NT$ {event.fee}
                   </ThemedText>
                   {event.recurrence_rule && (
-                    <ThemedText style={styles.recurrenceBadge}>🔄 重複活動</ThemedText>
+                    <ThemedText style={[styles.recurrenceBadge, { color: Colors[colorScheme ?? 'light'].primary }]}>🔄 重複活動</ThemedText>
                   )}
                 </View>
 
-                <View style={styles.actionButtons}>
+                <View style={[styles.actionButtons, { borderTopColor: Colors[colorScheme ?? 'light'].border }]}>
                   <TouchableOpacity
-                    style={[styles.actionButton, styles.editButton]}
+                    style={[styles.actionButton, { backgroundColor: Colors[colorScheme ?? 'light'].primary }]}
                     onPress={() => handleEdit(event)}
                   >
-                    <ThemedText style={styles.editButtonText}>編輯</ThemedText>
+                    <ThemedText style={[styles.actionButtonText, { color: Colors[colorScheme ?? 'light'].primaryText }]}>編輯</ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.actionButton, styles.deleteButton]}
+                    style={[styles.actionButton, { backgroundColor: Colors[colorScheme ?? 'light'].error }]}
                     onPress={() => handleDelete(event)}
                   >
-                    <ThemedText style={styles.deleteButtonText}>刪除</ThemedText>
+                    <ThemedText style={[styles.actionButtonText, { color: Colors[colorScheme ?? 'light'].primaryText }]}>刪除</ThemedText>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -246,7 +245,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.primary,
   },
   createButtonText: {
-    color: Colors.light.primaryText,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -291,20 +289,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
-    backgroundColor: Colors.light.secondary,
   },
   statusText: {
     fontSize: 12,
     fontWeight: '600',
-  },
-  statusOpen: {
-    color: '#28A745',
-  },
-  statusClosed: {
-    color: '#6C757D',
-  },
-  statusCancelled: {
-    color: Colors.light.error,
   },
   eventDescription: {
     fontSize: 14,
@@ -323,7 +311,6 @@ const styles = StyleSheet.create({
   },
   recurrenceBadge: {
     fontSize: 12,
-    color: Colors.light.primary,
     fontWeight: '600',
   },
   actionButtons: {
@@ -332,7 +319,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: Colors.light.border,
   },
   actionButton: {
     flex: 1,
@@ -341,19 +327,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
   },
-  editButton: {
-    backgroundColor: Colors.light.primary,
-  },
-  editButtonText: {
-    color: Colors.light.primaryText,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  deleteButton: {
-    backgroundColor: Colors.light.error,
-  },
-  deleteButtonText: {
-    color: Colors.light.primaryText,
+  actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
   },
