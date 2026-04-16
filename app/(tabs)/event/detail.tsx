@@ -60,7 +60,13 @@ export default function EventDetailScreen() {
       ]);
       setRegCount(count);
       setScores(eventScores);
-      loadComments();
+
+      // Load comments
+      try {
+        const commentsData = await getComments('event', eventId);
+        setComments(commentsData);
+      } catch {}
+
 
       if (user) {
         const isRegistered = await hasUserRegistered(user.id, eventId);
