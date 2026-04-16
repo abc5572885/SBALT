@@ -2,7 +2,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { ScoreCard } from '@/components/ScoreCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getAllGames } from '@/services/scoreApi';
 import { Game } from '@/types/database';
@@ -151,7 +151,7 @@ export default function CalendarScreen() {
                   key={index}
                   style={[
                     styles.dateCell,
-                    { backgroundColor: colors.card },
+                    { backgroundColor: colors.surface },
                     isSelected && { backgroundColor: colors.primary },
                   ]}
                   onPress={() => setSelectedDate(date)}
@@ -190,7 +190,7 @@ export default function CalendarScreen() {
         </View>
 
         {/* Selected date label */}
-        <ThemedText style={styles.subtitle}>
+        <ThemedText type="caption" style={[styles.subtitle, { color: colors.textSecondary }]}>
           {selectedDate.toLocaleDateString('zh-TW', {
             year: 'numeric',
             month: 'long',
@@ -208,9 +208,11 @@ export default function CalendarScreen() {
               ))}
             </View>
           ) : (
-            <ThemedView style={styles.emptyContainer}>
-              <ThemedText style={styles.emptyText}>當日尚無比賽</ThemedText>
-            </ThemedView>
+            <View style={[styles.emptyContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+                當日尚無比賽
+              </ThemedText>
+            </View>
           )}
         </ScrollView>
       </ThemedView>
@@ -224,7 +226,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.lg,
   },
   scrollView: {
     flex: 1,
@@ -233,72 +235,53 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
   },
-  loadingText: {
-    marginTop: 12,
-  },
-  // Date strip
   dateStripWrapper: {
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   dateStrip: {
-    gap: 8,
-    paddingVertical: 4,
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
   },
   dateCell: {
-    width: 56,
-    height: 72,
-    borderRadius: 12,
+    width: 48,
+    height: 68,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
   },
   dateWeekday: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
-    opacity: 0.7,
+    opacity: 0.6,
   },
   dateDay: {
     fontSize: 18,
     fontWeight: '700',
+    letterSpacing: -0.5,
   },
   todayDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
     marginTop: 2,
   },
-  // Content
   subtitle: {
-    fontSize: 16,
-    opacity: 0.7,
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   list: {
-    paddingBottom: 16,
+    paddingBottom: Spacing.lg,
   },
   emptyContainer: {
-    padding: 32,
+    padding: Spacing.xxl,
     alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 14,
-    opacity: 0.5,
-  },
-  errorText: {
-    fontSize: 16,
-    opacity: 0.7,
-    textAlign: 'center',
-    marginBottom: 16,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryText: {
-    fontSize: 16,
-    fontWeight: '600',
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.sm,
   },
 });

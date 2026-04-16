@@ -2,10 +2,9 @@
  * Login Screen
  * Handles Google OAuth authentication via Supabase
  * Uses PKCE flow for secure authentication
- * Single-path implementation: only navigate on SIGNED_IN event to avoid race conditions
  */
 
-import { Colors } from '@/constants/theme';
+import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { supabase } from '@/lib/supabase';
@@ -13,7 +12,7 @@ import * as AuthSession from 'expo-auth-session';
 import { Redirect, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Button, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -25,10 +24,6 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const loggingRef = useRef(false);
 
-  // Generate redirect URI based on current environment
-  // Native App: sbalt://oauth
-  // Expo Go: exp://[IP]:[port]/--/oauth
-  // Web: https://localhost:19006/oauth or https://yourwebsite.com/oauth
   const redirectUri = AuthSession.makeRedirectUri({
     scheme: 'sbalt',
     path: 'oauth',
@@ -50,10 +45,9 @@ export default function LoginScreen() {
     };
   }, [router]);
 
-  // Redirect to home if already authenticated
   if (authLoading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -68,7 +62,6 @@ export default function LoginScreen() {
       setLoading(true);
       loggingRef.current = true;
 
-      // Get OAuth provider URL (PKCE flow)
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -81,13 +74,12 @@ export default function LoginScreen() {
       });
 
       if (error || !data?.url) {
-        Alert.alert('Login failed', error?.message || 'No OAuth URL');
+        Alert.alert('登入失敗', error?.message || 'No OAuth URL');
         setLoading(false);
         loggingRef.current = false;
         return;
       }
 
-      // Open auth session and wait for callback
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri, {
         showInRecents: true,
         preferEphemeralSession: true,
@@ -99,13 +91,12 @@ export default function LoginScreen() {
         return;
       }
 
-      // Only handle PKCE code, avoid mixing with implicit flow
       const url = new URL(result.url);
       const code = url.searchParams.get('code');
       const oauthError = url.searchParams.get('error');
 
       if (oauthError) {
-        Alert.alert('Login failed', `Auth error: ${oauthError}`);
+        Alert.alert('登入失敗', `Auth error: ${oauthError}`);
         setLoading(false);
         loggingRef.current = false;
         return;
@@ -114,19 +105,18 @@ export default function LoginScreen() {
       if (code) {
         const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
         if (exErr) {
-          Alert.alert('Login failed', `Exchange error: ${exErr.message}`);
+          Alert.alert('登入失敗', `Exchange error: ${exErr.message}`);
           setLoading(false);
           loggingRef.current = false;
           return;
         }
-        // Navigation is handled by onAuthStateChange SIGNED_IN event
       } else {
-        Alert.alert('Login failed', 'Missing authorization code');
+        Alert.alert('登入失敗', 'Missing authorization code');
         setLoading(false);
         loggingRef.current = false;
       }
     } catch (e: any) {
-      Alert.alert('Login failed', e?.message || 'Unknown error');
+      Alert.alert('登入失敗', e?.message || 'Unknown error');
       setLoading(false);
       loggingRef.current = false;
     }
@@ -134,16 +124,33 @@ export default function LoginScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.title, { color: colors.text }]}>Welcome to SBALT</Text>
-      <Text style={[styles.subtitle, { color: colors.icon }]}>Sign in with Google</Text>
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.icon }]}>Processing…</Text>
-        </View>
-      ) : (
-        <Button title="Sign in with Google" onPress={handleGoogleLogin} />
-      )}
+      <View style={styles.content}>
+        <Text style={[styles.title, { color: colors.text }]}>SBALT</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          運動社交，從這裡開始
+        </Text>
+      </View>
+
+      <View style={styles.bottom}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+              處理中...
+            </Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.loginButton, { backgroundColor: colors.text }, Shadows.md]}
+            onPress={handleGoogleLogin}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.loginButtonText, { color: colors.background }]}>
+              Sign in with Google
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -151,24 +158,43 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: 'space-between',
+    padding: Spacing.xl,
+  },
+  content: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
+    fontSize: 48,
+    fontWeight: '800',
+    letterSpacing: -2,
+    marginBottom: Spacing.sm,
   },
   subtitle: {
     fontSize: 16,
-    marginBottom: 30,
+    fontWeight: '400',
+  },
+  bottom: {
+    paddingBottom: Spacing.xxl,
   },
   loadingContainer: {
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.md,
   },
   loadingText: {
-    marginTop: 8,
+    fontSize: 14,
+  },
+  loginButton: {
+    width: '100%',
+    paddingVertical: Spacing.lg,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+  },
+  loginButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: -0.3,
   },
 });

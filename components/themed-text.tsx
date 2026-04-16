@@ -6,7 +6,7 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
   darkColor?: string;
-  type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link';
+  type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link' | 'caption' | 'label';
 };
 
 function containsChinese(text: string): boolean {
@@ -67,6 +67,8 @@ export function ThemedText({
         type === 'defaultSemiBold' && styles.defaultSemiBold,
         type === 'subtitle' && styles.subtitle,
         type === 'link' && styles.link,
+        type === 'caption' && styles.caption,
+        type === 'label' && styles.label,
         ...mergedStyles,
       ]}
       {...rest}
@@ -78,24 +80,34 @@ export function ThemedText({
 
 const styles = StyleSheet.create({
   default: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
   },
   defaultSemiBold: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
   },
   title: {
-    fontSize: 32,
-    lineHeight: 40,
+    fontSize: 28,
+    lineHeight: 34,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 20,
-    lineHeight: 28,
+    fontSize: 18,
+    lineHeight: 24,
+    letterSpacing: -0.3,
   },
   link: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#0a7ea4',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  caption: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  label: {
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: 0.2,
   },
 });

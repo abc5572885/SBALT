@@ -1,59 +1,120 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * SBALT Design System
+ * Modern minimal style — black/white/gray + single accent color
  */
 
+import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// ─── Colors ───────────────────────────────────────────────
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    text: '#1A1A1A',
+    textSecondary: '#6B7280',
+    background: '#FFFFFF',
+    surface: '#FAFAFA',
+    tint: '#2563EB',
+    icon: '#6B7280',
+    tabIconDefault: '#9CA3AF',
+    tabIconSelected: '#1A1A1A',
     // UI Colors
-    primary: '#007AFF',
+    primary: '#2563EB',
     primaryText: '#FFFFFF',
-    secondary: '#F5F5F5',
-    border: '#F0F0F0',
-    error: '#FF3B30',
-    errorBackground: '#FFE5E5',
-    card: '#F5F5F5',
+    secondary: '#F3F4F6',
+    border: '#E5E7EB',
+    error: '#DC2626',
+    errorBackground: '#FEF2F2',
+    card: '#FAFAFA',
     // Status Colors
-    statusSuccess: '#28A745',
-    statusSecondary: '#6C757D',
+    statusSuccess: '#16A34A',
+    statusSecondary: '#6B7280',
     // Control Colors
-    disabled: '#CCC',
-    placeholder: '#999',
-    overlay: 'rgba(0, 0, 0, 0.5)',
-    switchTrackOff: '#E5E5EA',
+    disabled: '#D1D5DB',
+    placeholder: '#9CA3AF',
+    overlay: 'rgba(0, 0, 0, 0.4)',
+    switchTrackOff: '#E5E7EB',
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: '#F5F5F5',
+    textSecondary: '#9CA3AF',
+    background: '#0A0A0A',
+    surface: '#1A1A1A',
+    tint: '#3B82F6',
+    icon: '#9CA3AF',
+    tabIconDefault: '#6B7280',
+    tabIconSelected: '#F5F5F5',
     // UI Colors
-    primary: '#0A84FF',
+    primary: '#3B82F6',
     primaryText: '#FFFFFF',
-    secondary: '#2C2C2E',
-    border: '#3A3A3C',
-    error: '#FF453A',
-    errorBackground: '#3A1A1A',
-    card: '#2C2C2E',
+    secondary: '#1F2937',
+    border: '#27272A',
+    error: '#EF4444',
+    errorBackground: '#1C1111',
+    card: '#1A1A1A',
     // Status Colors
-    statusSuccess: '#30D158',
-    statusSecondary: '#8E8E93',
+    statusSuccess: '#22C55E',
+    statusSecondary: '#9CA3AF',
     // Control Colors
-    disabled: '#555',
-    placeholder: '#6C6C70',
-    overlay: 'rgba(0, 0, 0, 0.7)',
-    switchTrackOff: '#3A3A3C',
+    disabled: '#4B5563',
+    placeholder: '#6B7280',
+    overlay: 'rgba(0, 0, 0, 0.6)',
+    switchTrackOff: '#374151',
   },
+};
+
+// ─── Shadows ──────────────────────────────────────────────
+
+export const Shadows = {
+  sm: Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+    },
+    android: { elevation: 1 },
+    default: {},
+  }),
+  md: Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+    },
+    android: { elevation: 3 },
+    default: {},
+  }),
+  lg: Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.12,
+      shadowRadius: 16,
+    },
+    android: { elevation: 6 },
+    default: {},
+  }),
+};
+
+// ─── Spacing ──────────────────────────────────────────────
+
+export const Spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  xxl: 32,
+  xxxl: 48,
+};
+
+// ─── Border Radius ────────────────────────────────────────
+
+export const Radius = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  full: 9999,
 };

@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Game } from '@/types/database';
 import { useRouter } from 'expo-router';
@@ -20,7 +20,7 @@ export function ScoreCard({ game, homeTeamName, awayTeamName }: ScoreCardProps) 
   const getStatusText = () => {
     switch (game.status) {
       case 'live':
-        return '進行中';
+        return 'LIVE';
       case 'finished':
         return '已結束';
       case 'scheduled':
@@ -50,99 +50,118 @@ export function ScoreCard({ game, homeTeamName, awayTeamName }: ScoreCardProps) 
     <TouchableOpacity
       onPress={() => router.push(`/(tabs)/game/${game.id}`)}
       style={styles.container}
+      activeOpacity={0.7}
     >
-      <ThemedView style={[styles.card, { backgroundColor: colors.card }]}>
+      <View style={[
+        styles.card,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+        Shadows.sm,
+      ]}>
         <View style={styles.header}>
-          <ThemedText style={styles.league}>{game.league}</ThemedText>
-          <ThemedText style={[styles.status, { color: getStatusColor() }]}>
-            {getStatusText()}
+          <ThemedText type="label" style={{ color: colors.textSecondary }}>
+            {game.league}
+          </ThemedText>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor() + '15' }]}>
+            <ThemedText type="label" style={{ color: getStatusColor() }}>
+              {getStatusText()}
+            </ThemedText>
+          </View>
+        </View>
+
+        {/* Team names row */}
+        <View style={styles.teamsRow}>
+          <ThemedText type="caption" style={[styles.teamName, { color: colors.textSecondary }]} numberOfLines={1}>
+            {homeTeamName || game.home_team_id || 'TBD'}
+          </ThemedText>
+          <View style={styles.vsContainer} />
+          <ThemedText type="caption" style={[styles.teamName, { color: colors.textSecondary }]} numberOfLines={1}>
+            {awayTeamName || game.away_team_id || 'TBD'}
           </ThemedText>
         </View>
 
-        <View style={styles.scoreContainer}>
-          <View style={styles.teamContainer}>
-            <ThemedText style={styles.teamName}>
-              {homeTeamName || game.home_team_id}
-            </ThemedText>
-            {game.home_score !== null && (
-              <ThemedText style={styles.score}>{game.home_score}</ThemedText>
-            )}
-          </View>
-
-          <ThemedText style={styles.vs}>VS</ThemedText>
-
-          <View style={styles.teamContainer}>
-            <ThemedText style={styles.teamName}>
-              {awayTeamName || game.away_team_id}
-            </ThemedText>
-            {game.away_score !== null && (
-              <ThemedText style={styles.score}>{game.away_score}</ThemedText>
-            )}
-          </View>
+        {/* Scores row */}
+        <View style={styles.scoresRow}>
+          <ThemedText style={styles.score}>
+            {game.home_score !== null ? game.home_score : '-'}
+          </ThemedText>
+          <ThemedText style={[styles.vsText, { color: colors.textSecondary }]}>
+            :
+          </ThemedText>
+          <ThemedText style={styles.score}>
+            {game.away_score !== null ? game.away_score : '-'}
+          </ThemedText>
         </View>
 
         {game.venue && (
-          <ThemedText style={styles.venue}>📍 {game.venue}</ThemedText>
+          <View style={styles.venueRow}>
+            <IconSymbol name="location.fill" size={12} color={colors.textSecondary} />
+            <ThemedText type="caption" style={{ color: colors.textSecondary, marginLeft: 4 }}>
+              {game.venue}
+            </ThemedText>
+          </View>
         )}
-      </ThemedView>
+      </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   card: {
-    padding: 16,
-    borderRadius: 12,
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
-  league: {
-    fontSize: 12,
-    fontWeight: '600',
-    opacity: 0.7,
+  statusBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.sm,
   },
-  status: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  scoreContainer: {
+  teamsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  teamContainer: {
-    flex: 1,
-    alignItems: 'center',
+    marginBottom: Spacing.xs,
   },
   teamName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    flex: 1,
     textAlign: 'center',
+  },
+  vsContainer: {
+    width: 40,
+  },
+  scoresRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
   },
   score: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  vs: {
-    fontSize: 14,
-    fontWeight: '500',
-    opacity: 0.5,
-    marginHorizontal: 16,
-  },
-  venue: {
-    fontSize: 12,
-    opacity: 0.6,
+    flex: 1,
+    fontSize: 36,
+    fontWeight: '700',
+    letterSpacing: -1,
     textAlign: 'center',
-    marginTop: 8,
+    lineHeight: 40,
+  },
+  vsText: {
+    fontSize: 20,
+    fontWeight: '300',
+    width: 24,
+    textAlign: 'center',
+    lineHeight: 40,
+  },
+  venueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.sm,
   },
 });
-

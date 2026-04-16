@@ -1,5 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -10,35 +11,26 @@ interface PageHeaderProps {
   showBack?: boolean;
 }
 
-const BACK_BUTTON_WIDTH = 80;
-const HEADER_PADDING_HORIZONTAL = 16;
-const HEADER_PADDING_VERTICAL = 8;
-
 export function PageHeader({ title, showBack = true }: PageHeaderProps) {
   const router = useRouter();
   const colorScheme = useColorScheme();
-  const primaryColor = Colors[colorScheme ?? 'light'].primary;
-
-  const handleBack = () => {
-    router.back();
-  };
+  const colors = Colors[colorScheme ?? 'light'];
 
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, { borderBottomColor: colors.border }]}>
       {showBack ? (
         <TouchableOpacity
           style={styles.backButton}
-          onPress={handleBack}
-          activeOpacity={0.7}
+          onPress={() => router.back()}
+          activeOpacity={0.6}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <ThemedText style={[styles.backButtonText, { color: primaryColor }]}>
-            ← 返回
-          </ThemedText>
+          <IconSymbol name="chevron.left" size={20} color={colors.text} />
         </TouchableOpacity>
       ) : (
         <View style={styles.backButton} />
       )}
-      <ThemedText type="title" style={styles.headerTitle}>
+      <ThemedText style={styles.headerTitle} numberOfLines={1}>
         {title}
       </ThemedText>
       <View style={styles.backButton} />
@@ -51,22 +43,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: HEADER_PADDING_HORIZONTAL,
-    paddingTop: HEADER_PADDING_VERTICAL,
-    paddingBottom: 16,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backButton: {
-    padding: 8,
-    minWidth: BACK_BUTTON_WIDTH,
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 18,
+    fontWeight: '600',
     flex: 1,
     textAlign: 'center',
+    letterSpacing: -0.3,
   },
 });
-

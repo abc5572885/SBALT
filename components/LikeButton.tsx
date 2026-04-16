@@ -1,5 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getLikeCount, hasUserLiked, toggleLike } from '@/services/database';
@@ -21,7 +22,6 @@ export function LikeButton({ entityId, entityType, onToggle }: LikeButtonProps) 
   const [count, setCount] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
 
-  // Load initial like status and count
   useEffect(() => {
     loadLikeStatus();
   }, [entityId, entityType, user]);
@@ -47,7 +47,6 @@ export function LikeButton({ entityId, entityType, onToggle }: LikeButtonProps) 
 
     if (loading) return;
 
-    // Optimistic UI update
     const prevLiked = liked;
     const prevCount = count;
     setLiked(!liked);
@@ -66,7 +65,6 @@ export function LikeButton({ entityId, entityType, onToggle }: LikeButtonProps) 
       }
     } catch (error: any) {
       console.error('切換按讚失敗:', error);
-      // Rollback optimistic update
       setLiked(prevLiked);
       setCount(prevCount);
       Alert.alert('錯誤', error.message || '操作失敗，請稍後再試');
@@ -76,11 +74,24 @@ export function LikeButton({ entityId, entityType, onToggle }: LikeButtonProps) 
   };
 
   return (
-    <TouchableOpacity onPress={handlePress} style={styles.container}>
-      <View style={[styles.iconContainer, { backgroundColor: colors.card }, liked && { backgroundColor: colors.errorBackground }]}>
-        <ThemedText style={styles.icon}>{liked ? '❤️' : '🤍'}</ThemedText>
+    <TouchableOpacity
+      onPress={handlePress}
+      style={styles.container}
+      activeOpacity={0.6}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      <View style={[styles.iconContainer, { backgroundColor: liked ? colors.errorBackground : colors.secondary }]}>
+        <IconSymbol
+          name={liked ? 'heart.fill' : 'heart'}
+          size={18}
+          color={liked ? colors.error : colors.textSecondary}
+        />
       </View>
-      {count > 0 && <ThemedText style={styles.count}>{count}</ThemedText>}
+      {count > 0 && (
+        <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+          {count}
+        </ThemedText>
+      )}
     </TouchableOpacity>
   );
 }
@@ -89,18 +100,13 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: Spacing.sm,
   },
   iconContainer: {
-    padding: 8,
-    borderRadius: 20,
-  },
-  icon: {
-    fontSize: 20,
-  },
-  count: {
-    fontSize: 14,
-    fontWeight: '600',
+    width: 36,
+    height: 36,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
-

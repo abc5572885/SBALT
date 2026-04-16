@@ -68,20 +68,22 @@ export const Typography = {
 } as const;
 
 export function getTypographyConfig(
-  type: 'default' | 'title' | 'subtitle' | 'defaultSemiBold' | 'link',
+  type: 'default' | 'title' | 'subtitle' | 'defaultSemiBold' | 'link' | 'caption' | 'label',
   isChinese: boolean
 ): { fontFamily: string; fontWeight: FontWeightValue } {
   const lang = isChinese ? 'chinese' : 'english';
-  
+
   switch (type) {
     case 'title':
-    case 'subtitle':
       return Typography.bold[lang];
+    case 'subtitle':
     case 'defaultSemiBold':
+    case 'label':
       return Typography.semiBold[lang];
     case 'link':
       return Typography.medium[lang];
+    case 'caption':
     default:
-      return Typography.medium[lang];
+      return Typography.default[lang];
   }
 }

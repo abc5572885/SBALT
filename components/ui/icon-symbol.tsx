@@ -18,6 +18,22 @@ const MAPPING = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'chevron.left': 'chevron-left',
+  'heart': 'favorite-border',
+  'heart.fill': 'favorite',
+  'location.fill': 'location-on',
+  'calendar': 'event',
+  'person.fill': 'person',
+  'sportscourt.fill': 'sports-basketball',
+  'plus': 'add',
+  'gearshape.fill': 'settings',
+  'arrow.right.square': 'logout',
+  'pencil': 'edit',
+  'trash': 'delete',
+  'arrow.clockwise': 'refresh',
+  'magnifyingglass': 'search',
+  'bolt.fill': 'flash-on',
+  'chart.bar.fill': 'bar-chart',
 } as IconMapping;
 
 /**

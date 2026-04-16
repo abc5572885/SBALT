@@ -1,17 +1,19 @@
 import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
   const handleLogout = async () => {
     await logout();
@@ -22,69 +24,73 @@ export default function ProfileScreen() {
     return (
       <ScreenLayout>
         <PageHeader title="個人資料" showBack={false} />
-        <ThemedText style={styles.subtitle}>載入中...</ThemedText>
+        <ThemedText type="caption" style={{ color: colors.textSecondary, marginTop: Spacing.md }}>
+          載入中...
+        </ThemedText>
       </ScreenLayout>
     );
   }
 
+  const menuItems = [
+    { icon: 'gearshape.fill' as const, label: '設定', onPress: () => router.push('/(tabs)/settings') },
+    { icon: 'calendar' as const, label: '我的活動', onPress: () => router.push('/(tabs)/event/my-events') },
+    { icon: 'plus' as const, label: '建立活動', onPress: () => router.push('/(tabs)/event/new') },
+  ];
+
   return (
     <ScreenLayout scrollable>
       <PageHeader title="個人資料" showBack={false} />
-          <View style={styles.profileSection}>
-        <ThemedText style={styles.label}>顯示名稱</ThemedText>
-        <ThemedText style={styles.value}>
+
+      {/* Avatar & Info */}
+      <View style={styles.profileSection}>
+        <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+          <Text style={styles.avatarText}>
+            {(user.displayName || user.email)?.[0]?.toUpperCase() || '?'}
+          </Text>
+        </View>
+        <ThemedText style={styles.displayName}>
           {user.displayName || '未設定'}
         </ThemedText>
-
-        <ThemedText style={styles.label}>電子郵件</ThemedText>
-        <ThemedText style={styles.value}>{user.email}</ThemedText>
+        <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+          {user.email}
+        </ThemedText>
       </View>
 
+      {/* Menu */}
       <View style={styles.menuSection}>
-        <TouchableOpacity
-          style={[
-            styles.menuItem,
-            colorScheme === 'dark' ? styles.menuItemDark : styles.menuItemLight,
-          ]}
-          onPress={() => router.push('/(tabs)/settings')}
-          activeOpacity={0.7}
-        >
-          <ThemedText style={styles.menuText}>⚙️ 設定</ThemedText>
-        </TouchableOpacity>
+        {menuItems.map((item, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[
+              styles.menuItem,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              Shadows.sm,
+            ]}
+            onPress={item.onPress}
+            activeOpacity={0.6}
+          >
+            <View style={styles.menuLeft}>
+              <IconSymbol name={item.icon} size={18} color={colors.textSecondary} />
+              <ThemedText style={styles.menuText}>{item.label}</ThemedText>
+            </View>
+            <IconSymbol name="chevron.right" size={16} color={colors.disabled} />
+          </TouchableOpacity>
+        ))}
 
+        {/* Logout */}
         <TouchableOpacity
           style={[
             styles.menuItem,
-            colorScheme === 'dark' ? styles.menuItemDark : styles.menuItemLight,
-          ]}
-          onPress={() => router.push('/(tabs)/event/my-events')}
-          activeOpacity={0.7}
-        >
-          <ThemedText style={styles.menuText}>📅 我的活動</ThemedText>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.menuItem,
-            colorScheme === 'dark' ? styles.menuItemDark : styles.menuItemLight,
-          ]}
-          onPress={() => router.push('/(tabs)/event/new')}
-          activeOpacity={0.7}
-        >
-          <ThemedText style={styles.menuText}>➕ 建立活動</ThemedText>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.menuItem,
-            colorScheme === 'dark' ? styles.menuItemDark : styles.menuItemLight,
+            { backgroundColor: colors.surface, borderColor: colors.border, marginTop: Spacing.lg },
+            Shadows.sm,
           ]}
           onPress={handleLogout}
-          activeOpacity={0.7}
+          activeOpacity={0.6}
         >
-          <ThemedText style={[styles.menuText, { color: Colors[colorScheme ?? 'light'].error }]}>
-            登出
-          </ThemedText>
+          <View style={styles.menuLeft}>
+            <IconSymbol name="arrow.right.square" size={18} color={colors.error} />
+            <ThemedText style={[styles.menuText, { color: colors.error }]}>登出</ThemedText>
+          </View>
         </TouchableOpacity>
       </View>
     </ScreenLayout>
@@ -92,41 +98,48 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  subtitle: {
-    marginTop: 12,
-    marginBottom: 24,
-    opacity: 0.7,
-  },
   profileSection: {
-    marginBottom: 32,
-    gap: 12,
+    alignItems: 'center',
+    marginBottom: Spacing.xxl,
+    gap: Spacing.sm,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    opacity: 0.7,
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
   },
-  value: {
-    fontSize: 16,
-    marginBottom: 16,
+  avatarText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    lineHeight: 28,
+  },
+  displayName: {
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
   menuSection: {
-    gap: 12,
+    gap: Spacing.sm,
   },
   menuItem: {
-    padding: 16,
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  menuItemLight: {
-    backgroundColor: Colors.light.card,
-  },
-  menuItemDark: {
-    backgroundColor: Colors.dark.card,
+  menuLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
   },
   menuText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '500',
   },
-  logoutText: {},
 });
-

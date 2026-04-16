@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { ScoreCard } from '@/components/ScoreCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getComments } from '@/services/database';
 import { getGameById } from '@/services/scoreApi';
@@ -48,8 +48,8 @@ export default function GameDetailScreen() {
     try {
       const commentsData = await getComments('game', id);
       setComments(commentsData);
-    } catch (error) {
-      console.error('載入留言失敗:', error);
+    } catch (err) {
+      console.error('載入留言失敗:', err);
     }
   };
 
@@ -58,7 +58,9 @@ export default function GameDetailScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ThemedView style={styles.centerContainer}>
           <ActivityIndicator size="large" />
-          <ThemedText style={styles.loadingText}>載入中...</ThemedText>
+          <ThemedText type="caption" style={{ color: colors.textSecondary, marginTop: Spacing.md }}>
+            載入中...
+          </ThemedText>
         </ThemedView>
       </SafeAreaView>
     );
@@ -67,16 +69,19 @@ export default function GameDetailScreen() {
   if (error || !game) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ThemedView style={styles.centerContainer}>
-          <ThemedText style={styles.errorText}>
-            {error ? '載入失敗，請檢查網路連線' : '找不到此比賽'}
-          </ThemedText>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            onPress={() => { setLoading(true); loadGame(); }}
-          >
-            <ThemedText style={[styles.retryText, { color: colors.primaryText }]}>重試</ThemedText>
-          </TouchableOpacity>
+        <ThemedView style={styles.container}>
+          <PageHeader title="比賽詳情" />
+          <ThemedView style={styles.centerContainer}>
+            <ThemedText style={{ color: colors.textSecondary, marginBottom: Spacing.lg }}>
+              {error ? '載入失敗，請檢查網路連線' : '找不到此比賽'}
+            </ThemedText>
+            <TouchableOpacity
+              style={[styles.retryButton, { backgroundColor: colors.primary }]}
+              onPress={() => { setLoading(true); loadGame(); }}
+            >
+              <ThemedText style={{ color: colors.primaryText, fontWeight: '600' }}>重試</ThemedText>
+            </TouchableOpacity>
+          </ThemedView>
         </ThemedView>
       </SafeAreaView>
     );
@@ -86,49 +91,57 @@ export default function GameDetailScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
         <PageHeader title="比賽詳情" />
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>
-          <ScoreCard game={game} />
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          <View style={styles.content}>
+            <ScoreCard game={game} />
 
-          <View style={styles.actions}>
-            <LikeButton entityId={game.id} entityType="game" />
-          </View>
+            <View style={styles.actions}>
+              <LikeButton entityId={game.id} entityType="game" />
+            </View>
 
-          <View style={styles.section}>
-            <ThemedText type="title" style={styles.sectionTitle}>
-              比賽詳情
-            </ThemedText>
-            <ThemedText style={styles.detail}>
-              <ThemedText style={styles.label}>聯賽：</ThemedText>
-              {game.league}
-            </ThemedText>
-            <ThemedText style={styles.detail}>
-              <ThemedText style={styles.label}>時間：</ThemedText>
-              {new Date(game.scheduled_at).toLocaleString('zh-TW')}
-            </ThemedText>
-            {game.venue && (
-              <ThemedText style={styles.detail}>
-                <ThemedText style={styles.label}>場地：</ThemedText>
-                {game.venue}
+            <View style={styles.section}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                詳細資訊
               </ThemedText>
-            )}
-          </View>
+              <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={styles.detailRow}>
+                  <ThemedText type="caption" style={{ color: colors.textSecondary }}>聯賽</ThemedText>
+                  <ThemedText style={styles.detailValue}>{game.league}</ThemedText>
+                </View>
+                <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.detailRow}>
+                  <ThemedText type="caption" style={{ color: colors.textSecondary }}>時間</ThemedText>
+                  <ThemedText style={styles.detailValue}>
+                    {new Date(game.scheduled_at).toLocaleString('zh-TW')}
+                  </ThemedText>
+                </View>
+                {game.venue && (
+                  <>
+                    <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
+                    <View style={styles.detailRow}>
+                      <ThemedText type="caption" style={{ color: colors.textSecondary }}>場地</ThemedText>
+                      <ThemedText style={styles.detailValue}>{game.venue}</ThemedText>
+                    </View>
+                  </>
+                )}
+              </View>
+            </View>
 
-          <View style={styles.section}>
-            <ThemedText type="title" style={styles.sectionTitle}>
-              留言 ({comments.length})
-            </ThemedText>
-            <CommentInput
-              entityType="game"
-              entityId={game.id}
-              onCommentAdded={loadComments}
-            />
-            <View style={styles.commentsContainer}>
-              <CommentList comments={comments} onCommentDeleted={loadComments} />
+            <View style={styles.section}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                留言 ({comments.length})
+              </ThemedText>
+              <CommentInput
+                entityType="game"
+                entityId={game.id}
+                onCommentAdded={loadComments}
+              />
+              <View style={styles.commentsContainer}>
+                <CommentList comments={comments} onCommentDeleted={loadComments} />
+              </View>
             </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
       </ThemedView>
     </SafeAreaView>
   );
@@ -140,61 +153,57 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.lg,
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    paddingBottom: 32,
+    paddingBottom: Spacing.xxxl,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    marginTop: 12,
   },
   actions: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 16,
-    marginBottom: 24,
+    gap: Spacing.lg,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.xl,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: Spacing.xl,
   },
   sectionTitle: {
-    marginBottom: 12,
-    fontSize: 18,
+    marginBottom: Spacing.md,
   },
-  detail: {
-    fontSize: 14,
-    marginBottom: 8,
-    lineHeight: 20,
+  detailCard: {
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
   },
-  label: {
-    fontWeight: '600',
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  detailValue: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  detailDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: Spacing.lg,
   },
   commentsContainer: {
-    marginTop: 16,
-  },
-  errorText: {
-    fontSize: 16,
-    opacity: 0.7,
-    textAlign: 'center',
-    marginBottom: 16,
+    marginTop: Spacing.lg,
   },
   retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryText: {
-    fontSize: 16,
-    fontWeight: '600',
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.sm,
   },
 });
-
