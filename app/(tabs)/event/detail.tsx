@@ -18,6 +18,7 @@ import {
   hasUserRegistered,
 } from '@/services/database';
 import { Comment, Event, EventScore } from '@/types/database';
+import { scheduleEventReminder } from '@/services/notifications';
 import { formatDateChinese, formatTime } from '@/utils/dateFormat';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -101,7 +102,17 @@ export default function EventDetailScreen() {
       });
       setRegistered(true);
       setRegCount((prev) => prev + 1);
-      Alert.alert('報名成功', '您已成功報名此活動');
+
+      // Schedule reminder 1 hour before
+      scheduleEventReminder(
+        event.id,
+        event.title,
+        event.location,
+        new Date(event.scheduled_at),
+        60
+      );
+
+      Alert.alert('報名成功', '您已成功報名此活動，開始前 1 小時會提醒您');
     } catch (error: any) {
       if (error?.code === '23505') {
         Alert.alert('重複報名', '您已經報名過此活動');

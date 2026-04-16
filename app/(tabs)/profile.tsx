@@ -5,10 +5,13 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { pickAndUploadAvatar } from '@/services/avatar';
 import { getUserStats } from '@/services/database';
+import { useAppStore } from '@/store/useAppStore';
+import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -16,6 +19,9 @@ export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [stats, setStats] = useState({ organized: 0, joined: 0 });
+  const [uploading, setUploading] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl || null);
+  const { setUser } = useAppStore();
 
   useFocusEffect(
     useCallback(() => {
@@ -24,6 +30,24 @@ export default function ProfileScreen() {
       }
     }, [user])
   );
+
+  const handleAvatarPress = async () => {
+    if (!user || uploading) return;
+    try {
+      setUploading(true);
+      const url = await pickAndUploadAvatar(user.id);
+      if (url) {
+        // Add cache buster to force image reload
+        const avatarUrl = url + '?t=' + Date.now();
+        setUser({ ...user, avatarUrl });
+        setAvatarUrl(avatarUrl);
+      }
+    } catch (error) {
+      console.error('頭像上傳失敗:', error);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -51,11 +75,25 @@ export default function ProfileScreen() {
     <ScreenLayout scrollable>
       {/* Avatar & Info */}
       <View style={styles.profileSection}>
-        <View style={[styles.avatar, { backgroundColor: colors.text }]}>
-          <Text style={[styles.avatarText, { color: colors.background }]}>
-            {(user.displayName || user.email)?.[0]?.toUpperCase() || '?'}
-          </Text>
-        </View>
+        <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.7} style={styles.avatarWrapper}>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: colors.text }]}>
+              <Text style={[styles.avatarText, { color: colors.background }]}>
+                {(user.displayName || user.email)?.[0]?.toUpperCase() || '?'}
+              </Text>
+            </View>
+          )}
+          {uploading && (
+            <View style={styles.avatarOverlay}>
+              <ActivityIndicator size="small" color="#FFF" />
+            </View>
+          )}
+          <View style={[styles.editBadge, { backgroundColor: colors.primary }]}>
+            <IconSymbol name="pencil" size={10} color="#FFF" />
+          </View>
+        </TouchableOpacity>
         <Text style={[styles.displayName, { color: colors.text }]}>
           {user.displayName || '未設定'}
         </Text>
@@ -139,19 +177,43 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
     gap: Spacing.sm,
   },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
+  avatarWrapper: {
+    position: 'relative',
     marginBottom: Spacing.sm,
   },
+  avatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+  },
   avatarText: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
-    color: '#FFFFFF',
-    lineHeight: 28,
+    lineHeight: 32,
+  },
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   displayName: {
     fontSize: 24,

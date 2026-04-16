@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 
 import { AuthProvider } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { requestNotificationPermission } from '@/services/notifications';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -36,6 +37,8 @@ export default function RootLayout() {
       if (fontError) {
         console.warn('Font loading error:', fontError);
       }
+      // Request notification permission on first launch
+      requestNotificationPermission();
     }
   }, [fontsLoaded, fontError]);
 

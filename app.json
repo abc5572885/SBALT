@@ -16,7 +16,8 @@
           {
             "CFBundleURLSchemes": ["sbalt", "exp"]
           }
-        ]
+        ],
+        "NSPhotoLibraryUsageDescription": "SBALT 需要存取您的照片來設定頭像"
       }
     },
     "android": {
@@ -36,6 +37,18 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "SBALT 需要存取您的照片來設定頭像"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "sounds": []
+        }
+      ],
       [
         "expo-splash-screen",
         {
