@@ -42,8 +42,6 @@ export default function ProfileScreen() {
   }
 
   const menuItems = [
-    { icon: 'calendar' as const, label: '我報名的活動', onPress: () => router.push('/(tabs)/event/joined') },
-    { icon: 'pencil' as const, label: '我建立的活動', onPress: () => router.push('/(tabs)/event/my-events') },
     { icon: 'plus' as const, label: '建立活動', onPress: () => router.push('/(tabs)/event/new') },
     { icon: 'gearshape.fill' as const, label: '設定', onPress: () => router.push('/(tabs)/settings') },
   ];
@@ -74,9 +72,9 @@ export default function ProfileScreen() {
           onPress={() => router.push('/(tabs)/event/my-events')}
           activeOpacity={0.7}
         >
-          <ThemedText style={[styles.statNumber, { color: colors.primary }]}>
+          <Text style={[styles.statNumber, { color: colors.primary }]}>
             {stats.organized}
-          </ThemedText>
+          </Text>
           <ThemedText type="caption" style={{ color: colors.textSecondary }}>
             主辦活動
           </ThemedText>
@@ -86,9 +84,9 @@ export default function ProfileScreen() {
           onPress={() => router.push('/(tabs)/event/joined')}
           activeOpacity={0.7}
         >
-          <ThemedText style={[styles.statNumber, { color: colors.primary }]}>
+          <Text style={[styles.statNumber, { color: colors.primary }]}>
             {stats.joined}
-          </ThemedText>
+          </Text>
           <ThemedText type="caption" style={{ color: colors.textSecondary }}>
             參加活動
           </ThemedText>
