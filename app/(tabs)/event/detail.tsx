@@ -22,6 +22,7 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Share,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -150,16 +151,44 @@ export default function EventDetailScreen() {
   const isOrganizer = user?.id === event.organizer_id;
   const scheduledDate = new Date(event.scheduled_at);
 
+  const handleShare = async () => {
+    try {
+      const dateStr = scheduledDate.toLocaleDateString('zh-TW', {
+        month: 'long',
+        day: 'numeric',
+      });
+      const timeStr = scheduledDate.toLocaleTimeString('zh-TW', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      await Share.share({
+        message: `${event.title}\n${dateStr} ${timeStr} | ${event.location}\n${regCount}/${event.quota} 人${event.fee > 0 ? ` | NT$ ${event.fee}` : ''}\n\nSBALT 報名連結：sbalt://open?event=${event.id}`,
+      });
+    } catch (error) {
+      // User cancelled share
+    }
+  };
+
   return (
     <ScreenLayout>
       <PageHeader title="活動詳情" />
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Title & Status */}
+        {/* Title & Status & Share */}
         <View style={styles.titleSection}>
-          <View style={[styles.statusBadge, { backgroundColor: colors.statusSuccess + '15' }]}>
-            <ThemedText type="label" style={{ color: colors.statusSuccess }}>
-              {event.status === 'open' ? '開放報名' : event.status}
-            </ThemedText>
+          <View style={styles.titleTopRow}>
+            <View style={[styles.statusBadge, { backgroundColor: colors.statusSuccess + '15' }]}>
+              <ThemedText type="label" style={{ color: colors.statusSuccess }}>
+                {event.status === 'open' ? '開放報名' : event.status}
+              </ThemedText>
+            </View>
+            <TouchableOpacity
+              onPress={handleShare}
+              style={[styles.shareBtn, { backgroundColor: colors.secondary }]}
+              activeOpacity={0.6}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <IconSymbol name="paperplane.fill" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
           <ThemedText style={styles.title}>{event.title}</ThemedText>
         </View>
@@ -292,6 +321,11 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
     gap: Spacing.sm,
   },
+  titleTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   title: {
     fontSize: 24,
     fontWeight: '700',
@@ -299,10 +333,16 @@ const styles = StyleSheet.create({
     lineHeight: 32,
   },
   statusBadge: {
-    alignSelf: 'flex-start',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: Radius.sm,
+  },
+  shareBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   infoCard: {
     borderRadius: Radius.md,

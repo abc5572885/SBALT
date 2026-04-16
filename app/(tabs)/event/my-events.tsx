@@ -16,6 +16,7 @@ import {
   Alert,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -86,6 +87,19 @@ export default function MyEventsScreen() {
 
   const handleEdit = (event: Event) => {
     router.push(`/(tabs)/event/${event.id}`);
+  };
+
+  const handleShare = async (event: Event) => {
+    try {
+      const date = new Date(event.scheduled_at);
+      const dateStr = date.toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' });
+      const timeStr = date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+      await Share.share({
+        message: `${event.title}\n${dateStr} ${timeStr} | ${event.location}\n${event.quota} 人${event.fee > 0 ? ` | NT$ ${event.fee}` : ''}\n\nSBALT 報名連結：sbalt://open?event=${event.id}`,
+      });
+    } catch (error) {
+      // User cancelled
+    }
   };
 
   const getStatusLabel = (status: string) => {
@@ -216,6 +230,14 @@ export default function MyEventsScreen() {
                   >
                     <IconSymbol name="chart.bar.fill" size={14} color={colors.text} />
                     <ThemedText style={styles.actionButtonText}>記分</ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionButton, { borderColor: colors.border }]}
+                    onPress={() => handleShare(event)}
+                    activeOpacity={0.6}
+                  >
+                    <IconSymbol name="paperplane.fill" size={14} color={colors.text} />
+                    <ThemedText style={styles.actionButtonText}>分享</ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionButton, { borderColor: colors.border }]}
