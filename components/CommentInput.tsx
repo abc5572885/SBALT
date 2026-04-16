@@ -1,11 +1,9 @@
 /**
  * Comment Input Component
- * Allows users to create comments on games, teams, players, etc.
  */
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createComment } from '@/services/database';
@@ -24,6 +22,7 @@ export function CommentInput({ entityType, entityId, onCommentAdded }: CommentIn
   const colors = Colors[colorScheme ?? 'light'];
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   const handleSubmit = async () => {
     if (!user) {
@@ -59,82 +58,90 @@ export function CommentInput({ entityType, entityId, onCommentAdded }: CommentIn
 
   if (!user) {
     return (
-      <ThemedView style={[styles.loginPrompt, { backgroundColor: colors.card }]}>
-        <ThemedText style={styles.loginText}>請先登入以發表留言</ThemedText>
-      </ThemedView>
+      <View style={[styles.loginPrompt, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+          請先登入以發表留言
+        </ThemedText>
+      </View>
     );
   }
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: colors.secondary }]}>
+    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
       <TextInput
-        style={[styles.input, { color: colors.text, backgroundColor: colors.background }]}
+        style={[
+          styles.input,
+          { color: colors.text, backgroundColor: colors.background, borderColor: focused ? colors.primary : colors.border },
+        ]}
         placeholder="輸入留言..."
         placeholderTextColor={colors.placeholder}
         value={content}
         onChangeText={setContent}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         multiline
         maxLength={500}
         editable={!loading}
       />
       <View style={styles.footer}>
-        <ThemedText style={styles.charCount}>{content.length}/500</ThemedText>
+        <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+          {content.length}/500
+        </ThemedText>
         <TouchableOpacity
           style={[
             styles.submitButton,
             { backgroundColor: colors.primary },
-            (!content.trim() || loading) && { backgroundColor: colors.disabled, opacity: 0.6 },
+            (!content.trim() || loading) && { backgroundColor: colors.disabled },
           ]}
           onPress={handleSubmit}
           disabled={!content.trim() || loading}
+          activeOpacity={0.7}
         >
-          <ThemedText style={[styles.submitText, { color: colors.primaryText }]}>{loading ? '發送中...' : '發送'}</ThemedText>
+          <ThemedText style={styles.submitText}>
+            {loading ? '發送中...' : '發送'}
+          </ThemedText>
         </TouchableOpacity>
       </View>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 12,
-    borderRadius: 8,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   input: {
-    minHeight: 80,
+    minHeight: 72,
     maxHeight: 120,
-    fontSize: 14,
-    lineHeight: 20,
-    padding: 8,
-    borderRadius: 6,
-    marginBottom: 8,
+    fontSize: 15,
+    lineHeight: 22,
+    padding: Spacing.md,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: Spacing.sm,
+    textAlignVertical: 'top',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  charCount: {
-    fontSize: 12,
-    opacity: 0.6,
-  },
   submitButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 6,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.sm,
   },
   submitText: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
   loginPrompt: {
-    padding: 16,
-    borderRadius: 8,
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
     alignItems: 'center',
-  },
-  loginText: {
-    fontSize: 14,
-    opacity: 0.7,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });
-

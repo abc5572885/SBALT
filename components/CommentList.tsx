@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { deleteComment } from '@/services/database';
@@ -54,9 +54,11 @@ export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
 
   if (comments.length === 0) {
     return (
-      <ThemedView style={styles.emptyContainer}>
-        <ThemedText style={styles.emptyText}>尚無留言</ThemedText>
-      </ThemedView>
+      <View style={styles.emptyContainer}>
+        <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+          尚無留言
+        </ThemedText>
+      </View>
     );
   }
 
@@ -65,27 +67,31 @@ export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
       {comments.map((comment) => {
         const isOwner = user?.id === comment.user_id;
         return (
-          <ThemedView key={comment.id} style={[styles.commentCard, { backgroundColor: colors.card }]}>
+          <View
+            key={comment.id}
+            style={[styles.commentCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+          >
             <View style={styles.commentHeader}>
-              <ThemedText style={styles.userName}>
+              <ThemedText type="label">
                 {isOwner ? '我' : `用戶 ${comment.user_id.slice(0, 8)}`}
               </ThemedText>
               <View style={styles.headerRight}>
-                <ThemedText style={styles.timestamp}>
+                <ThemedText type="caption" style={{ color: colors.textSecondary }}>
                   {formatDate(comment.created_at)}
                 </ThemedText>
                 {isOwner && (
                   <TouchableOpacity
                     style={styles.deleteButton}
                     onPress={() => handleDelete(comment.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <ThemedText style={[styles.deleteText, { color: colors.error }]}>刪除</ThemedText>
+                    <IconSymbol name="trash" size={14} color={colors.error} />
                   </TouchableOpacity>
                 )}
               </View>
             </View>
             <ThemedText style={styles.content}>{comment.content}</ThemedText>
-          </ThemedView>
+          </View>
         );
       })}
     </View>
@@ -94,49 +100,33 @@ export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
 
 const styles = StyleSheet.create({
   container: {
-    gap: 12,
+    gap: Spacing.sm,
   },
   commentCard: {
-    padding: 12,
-    borderRadius: 8,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   commentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  userName: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  timestamp: {
-    fontSize: 12,
-    opacity: 0.6,
+    gap: Spacing.md,
   },
   deleteButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  deleteText: {
-    fontSize: 12,
+    padding: Spacing.xs,
   },
   content: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 22,
   },
   emptyContainer: {
-    padding: 32,
+    padding: Spacing.xxl,
     alignItems: 'center',
   },
-  emptyText: {
-    fontSize: 14,
-    opacity: 0.5,
-  },
 });
-

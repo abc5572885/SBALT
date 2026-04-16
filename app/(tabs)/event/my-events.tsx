@@ -2,7 +2,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { deleteEvent, getEvents } from '@/services/database';
@@ -11,35 +12,31 @@ import { formatDateChinese } from '@/utils/dateFormat';
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export default function MyEventsScreen() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      loadEvents();
-    }
+    if (user) loadEvents();
   }, [user]);
 
-  // 當頁面獲得焦點時自動刷新（例如從建立活動頁面返回時）
   useFocusEffect(
     useCallback(() => {
-      if (user) {
-        loadEvents();
-      }
+      if (user) loadEvents();
     }, [user])
   );
 
@@ -47,7 +44,6 @@ export default function MyEventsScreen() {
     if (!user) return;
     try {
       setLoading(true);
-      // excludeInstances: true 只顯示母活動，不顯示重複活動的實例
       const myEvents = await getEvents({ organizerId: user.id, excludeInstances: true });
       setEvents(myEvents);
     } catch (error) {
@@ -92,13 +88,33 @@ export default function MyEventsScreen() {
     router.push(`/(tabs)/event/${event.id}`);
   };
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'open': return '開放報名';
+      case 'closed': return '已截止';
+      case 'cancelled': return '已取消';
+      case 'finished': return '已結束';
+      default: return '草稿';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'open': return colors.statusSuccess;
+      case 'cancelled': return colors.error;
+      default: return colors.textSecondary;
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <ScreenLayout>
         <PageHeader title="我的活動" />
         <ThemedView style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].primary} />
-          <ThemedText style={styles.loadingText}>載入中...</ThemedText>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <ThemedText type="caption" style={{ color: colors.textSecondary, marginTop: Spacing.md }}>
+            載入中...
+          </ThemedText>
         </ThemedView>
       </ScreenLayout>
     );
@@ -118,85 +134,88 @@ export default function MyEventsScreen() {
         }
       >
         {events.length === 0 ? (
-          <ThemedView style={styles.emptyContainer}>
-            <ThemedText style={styles.emptyText}>您尚未建立任何活動</ThemedText>
+          <View style={styles.emptyContainer}>
+            <ThemedText style={{ color: colors.textSecondary, marginBottom: Spacing.lg }}>
+              您尚未建立任何活動
+            </ThemedText>
             <TouchableOpacity
-              style={[
-                styles.createButton,
-                colorScheme === 'dark' ? styles.createButtonDark : styles.createButtonLight,
-              ]}
+              style={[styles.createButton, { backgroundColor: colors.primary }, Shadows.sm]}
               onPress={() => router.push('/(tabs)/event/new')}
+              activeOpacity={0.7}
             >
-              <ThemedText style={styles.createButtonText}>➕ 建立第一個活動</ThemedText>
+              <IconSymbol name="plus" size={16} color={colors.primaryText} />
+              <ThemedText style={{ color: colors.primaryText, fontWeight: '600', fontSize: 15 }}>
+                建立第一個活動
+              </ThemedText>
             </TouchableOpacity>
-          </ThemedView>
+          </View>
         ) : (
           <View style={styles.eventsList}>
             {events.map((event) => (
               <View
                 key={event.id}
-                style={[
-                  styles.eventCard,
-                  colorScheme === 'dark' ? styles.eventCardDark : styles.eventCardLight,
-                ]}
+                style={[styles.eventCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
               >
+                {/* Header */}
                 <View style={styles.eventHeader}>
                   <View style={styles.eventInfo}>
                     <ThemedText style={styles.eventTitle}>{event.title}</ThemedText>
-                    <ThemedText style={styles.eventDate}>
+                    <ThemedText type="caption" style={{ color: colors.textSecondary }}>
                       {formatDateChinese(new Date(event.scheduled_at))}
                     </ThemedText>
-                    <ThemedText style={styles.eventLocation}>📍 {event.location}</ThemedText>
+                    <View style={styles.locationRow}>
+                      <IconSymbol name="location.fill" size={12} color={colors.textSecondary} />
+                      <ThemedText type="caption" style={{ color: colors.textSecondary, marginLeft: 4 }}>
+                        {event.location}
+                      </ThemedText>
+                    </View>
                   </View>
-                  <View style={styles.statusBadge}>
-                    <ThemedText
-                      style={[
-                        styles.statusText,
-                        event.status === 'open' && { color: Colors[colorScheme ?? 'light'].statusSuccess },
-                        event.status === 'closed' && { color: Colors[colorScheme ?? 'light'].statusSecondary },
-                        event.status === 'cancelled' && { color: Colors[colorScheme ?? 'light'].error },
-                      ]}
-                    >
-                      {event.status === 'open'
-                        ? '開放報名'
-                        : event.status === 'closed'
-                        ? '已截止'
-                        : event.status === 'cancelled'
-                        ? '已取消'
-                        : event.status === 'finished'
-                        ? '已結束'
-                        : '草稿'}
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(event.status) + '15' }]}>
+                    <ThemedText type="label" style={{ color: getStatusColor(event.status) }}>
+                      {getStatusLabel(event.status)}
                     </ThemedText>
                   </View>
                 </View>
 
+                {/* Description */}
                 {event.description && (
-                  <ThemedText style={styles.eventDescription} numberOfLines={2}>
+                  <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={2}>
                     {event.description}
                   </ThemedText>
                 )}
 
+                {/* Footer */}
                 <View style={styles.eventFooter}>
-                  <ThemedText style={styles.eventMeta}>
-                    人數上限：{event.quota} 人 | 費用：NT$ {event.fee}
+                  <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+                    {event.quota} 人上限 · NT$ {event.fee}
                   </ThemedText>
                   {event.recurrence_rule && (
-                    <ThemedText style={[styles.recurrenceBadge, { color: Colors[colorScheme ?? 'light'].primary }]}>🔄 重複活動</ThemedText>
+                    <View style={styles.recurrenceBadge}>
+                      <IconSymbol name="arrow.clockwise" size={12} color={colors.primary} />
+                      <ThemedText type="caption" style={{ color: colors.primary, fontWeight: '600' }}>
+                        重複
+                      </ThemedText>
+                    </View>
                   )}
                 </View>
 
-                <View style={[styles.actionButtons, { borderTopColor: Colors[colorScheme ?? 'light'].border }]}>
+                {/* Actions */}
+                <View style={[styles.actionButtons, { borderTopColor: colors.border }]}>
                   <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: Colors[colorScheme ?? 'light'].primary }]}
+                    style={[styles.actionButton, { borderColor: colors.border }]}
                     onPress={() => handleEdit(event)}
+                    activeOpacity={0.6}
                   >
-                    <ThemedText style={[styles.actionButtonText, { color: Colors[colorScheme ?? 'light'].primaryText }]}>編輯</ThemedText>
+                    <IconSymbol name="pencil" size={14} color={colors.text} />
+                    <ThemedText style={styles.actionButtonText}>編輯</ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: Colors[colorScheme ?? 'light'].error }]}
+                    style={[styles.actionButton, { borderColor: colors.border }]}
                     onPress={() => handleDelete(event)}
+                    activeOpacity={0.6}
                   >
-                    <ThemedText style={[styles.actionButtonText, { color: Colors[colorScheme ?? 'light'].primaryText }]}>刪除</ThemedText>
+                    <IconSymbol name="trash" size={14} color={colors.error} />
+                    <ThemedText style={[styles.actionButtonText, { color: colors.error }]}>刪除</ThemedText>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -216,52 +235,28 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    marginTop: 12,
-    opacity: 0.7,
   },
   emptyContainer: {
-    padding: 32,
+    padding: Spacing.xxxl,
     alignItems: 'center',
-    gap: 16,
-  },
-  emptyText: {
-    fontSize: 16,
-    opacity: 0.6,
-    textAlign: 'center',
   },
   createButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  createButtonLight: {
-    backgroundColor: Colors.light.primary,
-  },
-  createButtonDark: {
-    backgroundColor: Colors.dark.primary,
-  },
-  createButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: Radius.sm,
   },
   eventsList: {
-    gap: 16,
-    paddingBottom: 16,
+    gap: Spacing.md,
+    paddingBottom: Spacing.lg,
   },
   eventCard: {
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
-  },
-  eventCardLight: {
-    backgroundColor: Colors.light.card,
-  },
-  eventCardDark: {
-    backgroundColor: Colors.dark.card,
+    borderRadius: Radius.md,
+    padding: Spacing.lg,
+    gap: Spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   eventHeader: {
     flexDirection: 'row',
@@ -270,66 +265,51 @@ const styles = StyleSheet.create({
   },
   eventInfo: {
     flex: 1,
-    gap: 4,
+    gap: Spacing.xs,
   },
   eventTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
+    letterSpacing: -0.3,
   },
-  eventDate: {
-    fontSize: 14,
-    opacity: 0.7,
-  },
-  eventLocation: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginTop: 4,
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Spacing.xs,
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  eventDescription: {
-    fontSize: 14,
-    opacity: 0.8,
-    marginTop: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.sm,
   },
   eventFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
-  },
-  eventMeta: {
-    fontSize: 12,
-    opacity: 0.6,
   },
   recurrenceBadge: {
-    fontSize: 12,
-    fontWeight: '600',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
+    gap: Spacing.sm,
+    paddingTop: Spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   actionButton: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   actionButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
   },
 });
-
