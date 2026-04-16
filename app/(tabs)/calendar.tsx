@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   ScrollView,
   StyleSheet,
+  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -145,7 +146,7 @@ export default function CalendarScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
-        <PageHeader title="日曆" showBack={false} />
+        <Text style={[styles.pageTitle, { color: colors.text }]}>日曆</Text>
 
         {/* Date strip */}
         <View style={styles.dateStripWrapper}>
@@ -280,6 +281,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  pageTitle: {
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -1.5,
+    marginBottom: Spacing.lg,
   },
   dateStripWrapper: {
     marginBottom: Spacing.md,

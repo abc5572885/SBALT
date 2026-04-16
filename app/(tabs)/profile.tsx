@@ -48,18 +48,16 @@ export default function ProfileScreen() {
 
   return (
     <ScreenLayout scrollable>
-      <PageHeader title="個人資料" showBack={false} />
-
       {/* Avatar & Info */}
       <View style={styles.profileSection}>
-        <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-          <Text style={styles.avatarText}>
+        <View style={[styles.avatar, { backgroundColor: colors.text }]}>
+          <Text style={[styles.avatarText, { color: colors.background }]}>
             {(user.displayName || user.email)?.[0]?.toUpperCase() || '?'}
           </Text>
         </View>
-        <ThemedText style={styles.displayName}>
+        <Text style={[styles.displayName, { color: colors.text }]}>
           {user.displayName || '未設定'}
-        </ThemedText>
+        </Text>
         <ThemedText type="caption" style={{ color: colors.textSecondary }}>
           {user.email}
         </ThemedText>
@@ -155,9 +153,9 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   displayName: {
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.8,
   },
   statsRow: {
     flexDirection: 'row',

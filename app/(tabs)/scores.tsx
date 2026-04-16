@@ -15,6 +15,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -101,7 +102,7 @@ export default function EventsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
-        <PageHeader title="活動" showBack={false} />
+        <Text style={[styles.pageTitle, { color: colors.text }]}>活動</Text>
 
         {/* Sport filter */}
         <ScrollView
@@ -243,6 +244,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  pageTitle: {
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -1.5,
+    marginBottom: Spacing.lg,
   },
   // Filter
   filterScroll: {

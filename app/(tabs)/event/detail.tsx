@@ -24,6 +24,7 @@ import {
   ScrollView,
   Share,
   StyleSheet,
+  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -247,10 +248,10 @@ export default function EventDetailScreen() {
                 <View key={s.id}>
                   {i > 0 && <View style={[styles.scoreDivider, { backgroundColor: colors.border }]} />}
                   <View style={styles.scoreRow}>
-                    <ThemedText style={styles.scoreLabel}>{s.label}</ThemedText>
-                    <ThemedText style={[styles.scoreValue, i === 0 && scores[0].score >= (scores[1]?.score ?? 0) ? { color: colors.primary } : {}]}>
+                    <Text style={[styles.scoreLabel, { color: colors.text }]}>{s.label}</Text>
+                    <Text style={[styles.scoreValue, { color: i === 0 && scores[0].score >= (scores[1]?.score ?? 0) ? colors.primary : colors.text }]}>
                       {s.score}
-                    </ThemedText>
+                    </Text>
                   </View>
                 </View>
               ))}
@@ -403,6 +404,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     letterSpacing: -1,
+    lineHeight: 36,
   },
   scoreDivider: {
     height: StyleSheet.hairlineWidth,

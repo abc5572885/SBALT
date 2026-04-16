@@ -10,7 +10,7 @@ import { Event } from '@/types/database';
 import { formatDateChinese } from '@/utils/dateFormat';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
@@ -140,7 +140,8 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
-        <PageHeader title="SBALT" showBack={false} />
+        {/* Brand header */}
+        <Text style={[styles.brandTitle, { color: colors.text }]}>SBALT</Text>
 
         <ScrollView
           style={styles.scrollView}
@@ -226,6 +227,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  brandTitle: {
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -1.5,
+    marginBottom: Spacing.xl,
   },
   quickActions: {
     flexDirection: 'row',

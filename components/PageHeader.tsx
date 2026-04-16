@@ -1,10 +1,9 @@
-import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface PageHeaderProps {
   title: string;
@@ -17,7 +16,7 @@ export function PageHeader({ title, showBack = true }: PageHeaderProps) {
   const colors = Colors[colorScheme ?? 'light'];
 
   return (
-    <View style={[styles.header, { borderBottomColor: colors.border }]}>
+    <View style={styles.header}>
       {showBack ? (
         <TouchableOpacity
           style={styles.backButton}
@@ -25,14 +24,14 @@ export function PageHeader({ title, showBack = true }: PageHeaderProps) {
           activeOpacity={0.6}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <IconSymbol name="chevron.left" size={20} color={colors.text} />
+          <IconSymbol name="chevron.left" size={22} color={colors.text} />
         </TouchableOpacity>
       ) : (
         <View style={styles.backButton} />
       )}
-      <ThemedText style={styles.headerTitle} numberOfLines={1}>
+      <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
         {title}
-      </ThemedText>
+      </Text>
       <View style={styles.backButton} />
     </View>
   );
@@ -43,22 +42,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.sm,
     paddingTop: Spacing.sm,
-    paddingBottom: Spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: Spacing.lg,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
     flex: 1,
     textAlign: 'center',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
   },
 });
