@@ -5,8 +5,9 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useRouter } from 'expo-router';
-import React from 'react';
+import { getUserStats } from '@/services/database';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
@@ -14,6 +15,15 @@ export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const [stats, setStats] = useState({ organized: 0, joined: 0 });
+
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        getUserStats(user.id).then(setStats).catch(() => {});
+      }
+    }, [user])
+  );
 
   const handleLogout = async () => {
     await logout();
@@ -55,6 +65,34 @@ export default function ProfileScreen() {
         <ThemedText type="caption" style={{ color: colors.textSecondary }}>
           {user.email}
         </ThemedText>
+      </View>
+
+      {/* Stats */}
+      <View style={styles.statsRow}>
+        <TouchableOpacity
+          style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+          onPress={() => router.push('/(tabs)/event/my-events')}
+          activeOpacity={0.7}
+        >
+          <ThemedText style={[styles.statNumber, { color: colors.primary }]}>
+            {stats.organized}
+          </ThemedText>
+          <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+            主辦活動
+          </ThemedText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+          onPress={() => router.push('/(tabs)/event/joined')}
+          activeOpacity={0.7}
+        >
+          <ThemedText style={[styles.statNumber, { color: colors.primary }]}>
+            {stats.joined}
+          </ThemedText>
+          <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+            參加活動
+          </ThemedText>
+        </TouchableOpacity>
       </View>
 
       {/* Menu */}
@@ -101,7 +139,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   profileSection: {
     alignItems: 'center',
-    marginBottom: Spacing.xxl,
+    marginBottom: Spacing.xl,
     gap: Spacing.sm,
   },
   avatar: {
@@ -122,6 +160,24 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     letterSpacing: -0.3,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginBottom: Spacing.xxl,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: Spacing.lg,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.xs,
+  },
+  statNumber: {
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
   menuSection: {
     gap: Spacing.sm,

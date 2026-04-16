@@ -1,5 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatDateChinese } from '@/utils/dateFormat';
 import { RecurrenceConfig, generateRRULE } from '@/utils/rrule';

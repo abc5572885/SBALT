@@ -317,6 +317,26 @@ export async function updateRegistrationStatus(
   return data;
 }
 
+export async function getUserStats(userId: string) {
+  const [organized, registered] = await Promise.all([
+    supabase
+      .from('events')
+      .select('id', { count: 'exact', head: true })
+      .eq('organizer_id', userId)
+      .or('is_recurring_instance.is.null,is_recurring_instance.eq.false'),
+    supabase
+      .from('registrations')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'registered'),
+  ]);
+
+  return {
+    organized: organized.count || 0,
+    joined: registered.count || 0,
+  };
+}
+
 export async function getMyRegisteredEvents(userId: string) {
   const { data: registrations, error: regError } = await supabase
     .from('registrations')
