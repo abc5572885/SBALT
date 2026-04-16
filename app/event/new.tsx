@@ -7,12 +7,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createEvent } from '@/services/database';
 import { Event } from '@/types/database';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet } from 'react-native';
 
 export default function NewEventScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    templateTitle?: string;
+    templateDescription?: string;
+    templateLocation?: string;
+    templateQuota?: string;
+    templateFee?: string;
+    templateSportType?: string;
+  }>();
   const colorScheme = useColorScheme();
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -110,7 +118,19 @@ export default function NewEventScreen() {
   return (
     <ScreenLayout scrollable>
       <PageHeader title="建立活動" />
-      <EventForm onSubmit={handleSubmit} onCancel={handleCancel} loading={loading} />
+      <EventForm
+        event={params.templateTitle ? {
+          title: params.templateTitle,
+          description: params.templateDescription || null,
+          location: params.templateLocation || '',
+          quota: parseInt(params.templateQuota || '20', 10),
+          fee: parseFloat(params.templateFee || '0'),
+          sport_type: params.templateSportType || 'other',
+        } as any : undefined}
+        onSubmit={handleSubmit}
+        onCancel={handleCancel}
+        loading={loading}
+      />
     </ScreenLayout>
   );
 }

@@ -86,7 +86,21 @@ export default function MyEventsScreen() {
   };
 
   const handleEdit = (event: Event) => {
-    router.push(`/(tabs)/event/${event.id}`);
+    router.push(`/event/${event.id}`);
+  };
+
+  const handleDuplicate = (event: Event) => {
+    router.push({
+      pathname: '/event/new',
+      params: {
+        templateTitle: event.title,
+        templateDescription: event.description || '',
+        templateLocation: event.location,
+        templateQuota: event.quota.toString(),
+        templateFee: event.fee.toString(),
+        templateSportType: event.sport_type || 'other',
+      },
+    });
   };
 
   const handleShare = async (event: Event) => {
@@ -154,7 +168,7 @@ export default function MyEventsScreen() {
             </ThemedText>
             <TouchableOpacity
               style={[styles.createButton, { backgroundColor: colors.primary }, Shadows.sm]}
-              onPress={() => router.push('/(tabs)/event/new')}
+              onPress={() => router.push('/event/new')}
               activeOpacity={0.7}
             >
               <IconSymbol name="plus" size={16} color={colors.primaryText} />
@@ -214,47 +228,39 @@ export default function MyEventsScreen() {
                 </View>
 
                 {/* Actions */}
-                <View style={[styles.actionButtons, { borderTopColor: colors.border }]}>
-                  <TouchableOpacity
-                    style={[styles.actionButton, { borderColor: colors.border }]}
-                    onPress={() => router.push({ pathname: '/(tabs)/event/registrations', params: { eventId: event.id } })}
-                    activeOpacity={0.6}
-                  >
-                    <IconSymbol name="person.fill" size={14} color={colors.primary} />
-                    <ThemedText style={[styles.actionButtonText, { color: colors.primary }]}>報名</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButton, { borderColor: colors.border }]}
-                    onPress={() => router.push({ pathname: '/(tabs)/event/scores', params: { eventId: event.id } })}
-                    activeOpacity={0.6}
-                  >
-                    <IconSymbol name="chart.bar.fill" size={14} color={colors.text} />
-                    <ThemedText style={styles.actionButtonText}>記分</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButton, { borderColor: colors.border }]}
-                    onPress={() => handleShare(event)}
-                    activeOpacity={0.6}
-                  >
-                    <IconSymbol name="paperplane.fill" size={14} color={colors.text} />
-                    <ThemedText style={styles.actionButtonText}>分享</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButton, { borderColor: colors.border }]}
-                    onPress={() => handleEdit(event)}
-                    activeOpacity={0.6}
-                  >
-                    <IconSymbol name="pencil" size={14} color={colors.text} />
-                    <ThemedText style={styles.actionButtonText}>編輯</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButton, { borderColor: colors.border }]}
-                    onPress={() => handleDelete(event)}
-                    activeOpacity={0.6}
-                  >
-                    <IconSymbol name="trash" size={14} color={colors.error} />
-                    <ThemedText style={[styles.actionButtonText, { color: colors.error }]}>刪除</ThemedText>
-                  </TouchableOpacity>
+                <View style={[styles.actionSection, { borderTopColor: colors.border }]}>
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity style={[styles.actionButton, { borderColor: colors.border }]} onPress={() => router.push({ pathname: '/event/registrations', params: { eventId: event.id } })} activeOpacity={0.6}>
+                      <IconSymbol name="person.fill" size={16} color={colors.primary} />
+                      <ThemedText style={[styles.actionButtonText, { color: colors.primary }]}>報名</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.actionButton, { borderColor: colors.border }]} onPress={() => router.push({ pathname: '/event/checkin', params: { eventId: event.id } })} activeOpacity={0.6}>
+                      <IconSymbol name="magnifyingglass" size={16} color={colors.text} />
+                      <ThemedText style={styles.actionButtonText}>簽到</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.actionButton, { borderColor: colors.border }]} onPress={() => router.push({ pathname: '/event/scores', params: { eventId: event.id } })} activeOpacity={0.6}>
+                      <IconSymbol name="chart.bar.fill" size={16} color={colors.text} />
+                      <ThemedText style={styles.actionButtonText}>記分</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.actionButton, { borderColor: colors.border }]} onPress={() => handleShare(event)} activeOpacity={0.6}>
+                      <IconSymbol name="paperplane.fill" size={16} color={colors.text} />
+                      <ThemedText style={styles.actionButtonText}>分享</ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity style={[styles.actionButton, { borderColor: colors.border }]} onPress={() => handleDuplicate(event)} activeOpacity={0.6}>
+                      <IconSymbol name="plus" size={16} color={colors.text} />
+                      <ThemedText style={styles.actionButtonText}>複製</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.actionButton, { borderColor: colors.border }]} onPress={() => handleEdit(event)} activeOpacity={0.6}>
+                      <IconSymbol name="pencil" size={16} color={colors.text} />
+                      <ThemedText style={styles.actionButtonText}>編輯</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.actionButton, { borderColor: colors.border }]} onPress={() => handleDelete(event)} activeOpacity={0.6}>
+                      <IconSymbol name="trash" size={16} color={colors.error} />
+                      <ThemedText style={[styles.actionButtonText, { color: colors.error }]}>刪除</ThemedText>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             ))}
@@ -330,18 +336,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.xs,
   },
-  actionButtons: {
-    flexDirection: 'row',
+  actionSection: {
     gap: Spacing.sm,
     paddingTop: Spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
+    gap: Spacing.xs,
     paddingVertical: Spacing.sm,
     borderRadius: Radius.sm,
     borderWidth: StyleSheet.hairlineWidth,

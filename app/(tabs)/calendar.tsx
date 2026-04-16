@@ -224,7 +224,7 @@ export default function CalendarScreen() {
                   <TouchableOpacity
                     key={evt.id}
                     style={[styles.eventCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-                    onPress={() => router.push({ pathname: '/(tabs)/event/detail', params: { eventId: evt.id } })}
+                    onPress={() => router.push({ pathname: '/event/detail', params: { eventId: evt.id } })}
                     activeOpacity={0.7}
                   >
                     <View style={styles.timeColumn}>

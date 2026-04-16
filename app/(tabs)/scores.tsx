@@ -154,7 +154,7 @@ export default function EventsScreen() {
                   <TouchableOpacity
                     key={evt.id}
                     style={[styles.eventCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-                    onPress={() => router.push({ pathname: '/(tabs)/event/detail', params: { eventId: evt.id } })}
+                    onPress={() => router.push({ pathname: '/event/detail', params: { eventId: evt.id } })}
                     activeOpacity={0.7}
                   >
                     <View style={styles.cardTop}>
@@ -211,7 +211,7 @@ export default function EventsScreen() {
               </ThemedText>
               <TouchableOpacity
                 style={[styles.createBtn, { backgroundColor: colors.primary }, Shadows.sm]}
-                onPress={() => router.push('/(tabs)/event/new')}
+                onPress={() => router.push('/event/new')}
                 activeOpacity={0.7}
               >
                 <IconSymbol name="plus" size={16} color={colors.primaryText} />

@@ -1,7 +1,5 @@
 /**
  * Protected Tabs Layout
- * Handles authentication guard for protected routes
- * Redirects to /login if not authenticated
  */
 
 import { Redirect, Tabs } from 'expo-router';
@@ -17,12 +15,10 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { session, loading } = useAuth();
 
-  // Show loading state while checking authentication
   if (loading) {
-    return null; // Or return a loading skeleton component
+    return null;
   }
 
-  // Redirect to login if not authenticated
   if (!session) {
     return <Redirect href="/login" />;
   }
@@ -65,55 +61,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="event/new"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="event/my-events"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="event/[id]"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="event/registrations"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="event/detail"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="event/scores"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="event/joined"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="event/history"
-        options={{
-          href: null, // Hide from tab bar
+          href: null,
         }}
       />
     </Tabs>

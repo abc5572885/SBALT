@@ -368,14 +368,73 @@ export async function getOpenEvents() {
   return data || [];
 }
 
+export async function createWaitlistEntry(data: Registration) {
+  const { data: entry, error } = await supabase
+    .from('registrations')
+    .insert({ ...data, status: 'waitlisted' as any })
+    .select()
+    .single();
+  if (error) throw error;
+  return entry;
+}
+
+export async function getWaitlistPosition(userId: string, eventId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('registrations')
+    .select('id, created_at')
+    .eq('event_id', eventId)
+    .eq('status', 'waitlisted')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  const index = (data || []).findIndex((r) => r.id === userId);
+  return index >= 0 ? index + 1 : 0;
+}
+
+export async function promoteFirstWaitlisted(eventId: string): Promise<string | null> {
+  // Find first waitlisted person
+  const { data, error } = await supabase
+    .from('registrations')
+    .select('*')
+    .eq('event_id', eventId)
+    .eq('status', 'waitlisted')
+    .order('created_at', { ascending: true })
+    .limit(1);
+  if (error || !data || data.length === 0) return null;
+
+  // Promote to registered
+  const { error: updateError } = await supabase
+    .from('registrations')
+    .update({ status: 'registered' })
+    .eq('id', data[0].id);
+  if (updateError) return null;
+
+  return data[0].user_id;
+}
+
 export async function cancelRegistration(userId: string, eventId: string) {
   const { error } = await supabase
     .from('registrations')
     .update({ status: 'cancelled' })
     .eq('user_id', userId)
     .eq('event_id', eventId)
-    .eq('status', 'registered');
+    .in('status', ['registered', 'waitlisted']);
   if (error) throw error;
+
+  // Auto-promote first waitlisted person
+  await promoteFirstWaitlisted(eventId);
+}
+
+export async function checkInRegistration(userId: string, eventId: string) {
+  const { data, error } = await supabase
+    .from('registrations')
+    .update({ form_data: { checked_in: true, checked_in_at: new Date().toISOString() } })
+    .eq('user_id', userId)
+    .eq('event_id', eventId)
+    .eq('status', 'registered')
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 export async function updatePaymentStatus(

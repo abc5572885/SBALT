@@ -6,11 +6,13 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   cancelRegistration,
   createRegistration,
+  createWaitlistEntry,
   getComments,
   getEventById,
   getEventScores,
@@ -41,6 +43,7 @@ export default function EventDetailScreen() {
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [registered, setRegistered] = useState(false);
+  const [waitlisted, setWaitlisted] = useState(false);
   const [regCount, setRegCount] = useState(0);
   const [scores, setScores] = useState<EventScore[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -72,6 +75,17 @@ export default function EventDetailScreen() {
       if (user) {
         const isRegistered = await hasUserRegistered(user.id, eventId);
         setRegistered(isRegistered);
+        // Check if waitlisted
+        if (!isRegistered) {
+          const { data: wl } = await supabase
+            .from('registrations')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('event_id', eventId)
+            .eq('status', 'waitlisted')
+            .single();
+          setWaitlisted(!!wl);
+        }
       }
     } catch (error) {
       console.error('載入活動失敗:', error);
@@ -87,32 +101,39 @@ export default function EventDetailScreen() {
     }
     if (!event) return;
 
-    if (regCount >= event.quota) {
-      Alert.alert('名額已滿', '此活動報名人數已達上限');
-      return;
-    }
-
     try {
       setSubmitting(true);
-      await createRegistration({
-        event_id: event.id,
-        user_id: user.id,
-        payment_status: 'pending',
-        status: 'registered',
-      });
-      setRegistered(true);
-      setRegCount((prev) => prev + 1);
 
-      // Schedule reminder 1 hour before
-      scheduleEventReminder(
-        event.id,
-        event.title,
-        event.location,
-        new Date(event.scheduled_at),
-        60
-      );
+      if (regCount >= event.quota) {
+        // Full — add to waitlist
+        await createWaitlistEntry({
+          event_id: event.id,
+          user_id: user.id,
+          payment_status: 'pending',
+          status: 'registered', // will be overridden to 'waitlisted' in function
+        });
+        setWaitlisted(true);
+        Alert.alert('已加入候補', '名額已滿，您已加入候補名單。有人取消時會自動遞補並通知您');
+      } else {
+        await createRegistration({
+          event_id: event.id,
+          user_id: user.id,
+          payment_status: 'pending',
+          status: 'registered',
+        });
+        setRegistered(true);
+        setRegCount((prev) => prev + 1);
 
-      Alert.alert('報名成功', '您已成功報名此活動，開始前 1 小時會提醒您');
+        scheduleEventReminder(
+          event.id,
+          event.title,
+          event.location,
+          new Date(event.scheduled_at),
+          60
+        );
+
+        Alert.alert('報名成功', '您已成功報名此活動，開始前 1 小時會提醒您');
+      }
     } catch (error: any) {
       if (error?.code === '23505') {
         Alert.alert('重複報名', '您已經報名過此活動');
@@ -334,20 +355,32 @@ export default function EventDetailScreen() {
                 {submitting ? '處理中...' : '取消報名'}
               </ThemedText>
             </TouchableOpacity>
+          ) : waitlisted ? (
+            <TouchableOpacity
+              style={[styles.actionBtn, { borderColor: colors.textSecondary, borderWidth: 1 }]}
+              onPress={handleCancel}
+              disabled={submitting}
+              activeOpacity={0.7}
+            >
+              <ThemedText style={[styles.actionBtnText, { color: colors.textSecondary }]}>
+                {submitting ? '處理中...' : '候補中 — 點擊取消'}
+              </ThemedText>
+            </TouchableOpacity>
           ) : (
             <TouchableOpacity
               style={[
                 styles.actionBtn,
-                { backgroundColor: colors.primary },
-                Shadows.md,
-                (isFull || submitting) && { backgroundColor: colors.disabled },
+                isFull
+                  ? { backgroundColor: colors.secondary }
+                  : { backgroundColor: colors.primary },
+                !isFull && Shadows.md,
               ]}
               onPress={handleRegister}
-              disabled={isFull || submitting}
+              disabled={submitting}
               activeOpacity={0.7}
             >
-              <ThemedText style={[styles.actionBtnText, { color: colors.primaryText }]}>
-                {submitting ? '處理中...' : isFull ? '名額已滿' : '立即報名'}
+              <ThemedText style={[styles.actionBtnText, { color: isFull ? colors.text : colors.primaryText }]}>
+                {submitting ? '處理中...' : isFull ? '加入候補' : '立即報名'}
               </ThemedText>
             </TouchableOpacity>
           )}

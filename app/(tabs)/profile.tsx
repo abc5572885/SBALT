@@ -66,8 +66,8 @@ export default function ProfileScreen() {
   }
 
   const menuItems = [
-    { icon: 'chart.bar.fill' as const, label: '歷史戰績', onPress: () => router.push('/(tabs)/event/history') },
-    { icon: 'plus' as const, label: '建立活動', onPress: () => router.push('/(tabs)/event/new') },
+    { icon: 'chart.bar.fill' as const, label: '歷史戰績', onPress: () => router.push('/event/history') },
+    { icon: 'plus' as const, label: '建立活動', onPress: () => router.push('/event/new') },
     { icon: 'gearshape.fill' as const, label: '設定', onPress: () => router.push('/(tabs)/settings') },
   ];
 
@@ -106,7 +106,7 @@ export default function ProfileScreen() {
       <View style={styles.statsRow}>
         <TouchableOpacity
           style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-          onPress={() => router.push('/(tabs)/event/my-events')}
+          onPress={() => router.push('/event/my-events')}
           activeOpacity={0.7}
         >
           <Text style={[styles.statNumber, { color: colors.primary }]}>
@@ -118,7 +118,7 @@ export default function ProfileScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-          onPress={() => router.push('/(tabs)/event/joined')}
+          onPress={() => router.push('/event/joined')}
           activeOpacity={0.7}
         >
           <Text style={[styles.statNumber, { color: colors.primary }]}>

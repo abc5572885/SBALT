@@ -15,12 +15,21 @@ export function PageHeader({ title, showBack = true }: PageHeaderProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      // Fallback: go to profile tab since most sub-pages are accessed from there
+      router.replace('/(tabs)/profile');
+    }
+  };
+
   return (
     <View style={styles.header}>
       {showBack ? (
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={handleBack}
           activeOpacity={0.6}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
