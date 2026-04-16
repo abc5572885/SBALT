@@ -1,3 +1,5 @@
+import { CommentInput } from '@/components/CommentInput';
+import { CommentList } from '@/components/CommentList';
 import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
@@ -9,12 +11,13 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   cancelRegistration,
   createRegistration,
+  getComments,
   getEventById,
   getEventScores,
   getRegistrationCount,
   hasUserRegistered,
 } from '@/services/database';
-import { Event, EventScore } from '@/types/database';
+import { Comment, Event, EventScore } from '@/types/database';
 import { formatDateChinese, formatTime } from '@/utils/dateFormat';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -39,6 +42,7 @@ export default function EventDetailScreen() {
   const [registered, setRegistered] = useState(false);
   const [regCount, setRegCount] = useState(0);
   const [scores, setScores] = useState<EventScore[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -56,6 +60,7 @@ export default function EventDetailScreen() {
       ]);
       setRegCount(count);
       setScores(eventScores);
+      loadComments();
 
       if (user) {
         const isRegistered = await hasUserRegistered(user.id, eventId);
@@ -147,6 +152,15 @@ export default function EventDetailScreen() {
       </ScreenLayout>
     );
   }
+
+  const loadComments = async () => {
+    try {
+      const data = await getComments('event', eventId);
+      setComments(data);
+    } catch (err) {
+      console.error('載入留言失敗:', err);
+    }
+  };
 
   const isFull = regCount >= event.quota;
   const isOrganizer = user?.id === event.organizer_id;
@@ -268,6 +282,23 @@ export default function EventDetailScreen() {
             <ThemedText style={styles.description}>{event.description}</ThemedText>
           </View>
         )}
+
+        {/* Comments */}
+        <View style={styles.descSection}>
+          <ThemedText type="label" style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+            留言 ({comments.length})
+          </ThemedText>
+          <CommentInput
+            entityType="event"
+            entityId={eventId}
+            onCommentAdded={loadComments}
+          />
+          {comments.length > 0 && (
+            <View style={{ marginTop: Spacing.md }}>
+              <CommentList comments={comments} onCommentDeleted={loadComments} />
+            </View>
+          )}
+        </View>
 
         <View style={{ height: Spacing.xxxl }} />
       </ScrollView>

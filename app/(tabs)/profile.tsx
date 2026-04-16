@@ -42,6 +42,7 @@ export default function ProfileScreen() {
   }
 
   const menuItems = [
+    { icon: 'chart.bar.fill' as const, label: '歷史戰績', onPress: () => router.push('/(tabs)/event/history') },
     { icon: 'plus' as const, label: '建立活動', onPress: () => router.push('/(tabs)/event/new') },
     { icon: 'gearshape.fill' as const, label: '設定', onPress: () => router.push('/(tabs)/settings') },
   ];
