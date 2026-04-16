@@ -32,9 +32,10 @@ export default function ProfileScreen() {
   }
 
   const menuItems = [
-    { icon: 'gearshape.fill' as const, label: '設定', onPress: () => router.push('/(tabs)/settings') },
-    { icon: 'calendar' as const, label: '我的活動', onPress: () => router.push('/(tabs)/event/my-events') },
+    { icon: 'calendar' as const, label: '我報名的活動', onPress: () => router.push('/(tabs)/event/joined') },
+    { icon: 'pencil' as const, label: '我建立的活動', onPress: () => router.push('/(tabs)/event/my-events') },
     { icon: 'plus' as const, label: '建立活動', onPress: () => router.push('/(tabs)/event/new') },
+    { icon: 'gearshape.fill' as const, label: '設定', onPress: () => router.push('/(tabs)/settings') },
   ];
 
   return (

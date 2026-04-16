@@ -198,6 +198,13 @@ export default function EventDetailScreen() {
               </View>
             </>
           )}
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={styles.infoRow}>
+            <IconSymbol name="person.fill" size={16} color={colors.textSecondary} />
+            <ThemedText style={styles.infoText}>
+              {isOrganizer ? '我主辦的' : '主辦人'}
+            </ThemedText>
+          </View>
         </View>
 
         {/* Scores */}

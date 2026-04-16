@@ -1,27 +1,26 @@
 import { PageHeader } from '@/components/PageHeader';
-import { ScoreCard } from '@/components/ScoreCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { SPORT_OPTIONS } from '@/constants/sports';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { getOpenEvents } from '@/services/database';
-import { getLiveGames, getTodayGames } from '@/services/scoreApi';
-import { Event, Game } from '@/types/database';
+import { getOpenEvents, getRegistrationCounts } from '@/services/database';
+import { Event } from '@/types/database';
 import { formatDateChinese } from '@/utils/dateFormat';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const [liveGames, setLiveGames] = React.useState<Game[]>([]);
-  const [todayGames, setTodayGames] = React.useState<Game[]>([]);
-  const [openEvents, setOpenEvents] = React.useState<Event[]>([]);
+  const [events, setEvents] = React.useState<Event[]>([]);
+  const [regCounts, setRegCounts] = React.useState<Record<string, number>>({});
   const [loading, setLoading] = React.useState(true);
+  const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState(false);
 
   React.useEffect(() => {
@@ -31,21 +30,31 @@ export default function HomeScreen() {
   const loadData = async () => {
     try {
       setError(false);
-      const [live, today, events] = await Promise.all([
-        getLiveGames(),
-        getTodayGames(),
-        getOpenEvents(),
-      ]);
-      setLiveGames(live);
-      setTodayGames(today);
-      setOpenEvents(events);
+      const data = await getOpenEvents();
+      setEvents(data);
+      if (data.length > 0) {
+        const counts = await getRegistrationCounts(data.map((e) => e.id));
+        setRegCounts(counts);
+      }
     } catch (err) {
       console.error('載入資料失敗:', err);
       setError(true);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
+  };
+
+  // Split events: upcoming (within 7 days) vs later
+  const now = new Date();
+  const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const upcomingEvents = events.filter((e) => new Date(e.scheduled_at) <= weekLater);
+  const laterEvents = events.filter((e) => new Date(e.scheduled_at) > weekLater);
 
   if (loading) {
     return (
@@ -78,12 +87,66 @@ export default function HomeScreen() {
     );
   }
 
+  const renderEventCard = (evt: Event) => {
+    const sportLabel = SPORT_OPTIONS.find((s) => s.key === evt.sport_type)?.label || '';
+    const count = regCounts[evt.id] || 0;
+
+    return (
+      <TouchableOpacity
+        key={evt.id}
+        style={[styles.eventCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+        onPress={() => router.push({ pathname: '/(tabs)/event/detail', params: { eventId: evt.id } })}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardHeader}>
+          <ThemedText style={styles.cardTitle} numberOfLines={1}>{evt.title}</ThemedText>
+          {sportLabel && (
+            <View style={[styles.sportTag, { backgroundColor: colors.primary + '12' }]}>
+              <ThemedText type="label" style={{ color: colors.primary }}>{sportLabel}</ThemedText>
+            </View>
+          )}
+        </View>
+        <View style={styles.cardInfo}>
+          <View style={styles.cardInfoItem}>
+            <IconSymbol name="calendar" size={13} color={colors.textSecondary} />
+            <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+              {formatDateChinese(new Date(evt.scheduled_at))}
+            </ThemedText>
+          </View>
+          <View style={styles.cardInfoItem}>
+            <IconSymbol name="location.fill" size={13} color={colors.textSecondary} />
+            <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={1}>
+              {evt.location}
+            </ThemedText>
+          </View>
+        </View>
+        <View style={styles.cardFooter}>
+          <View style={styles.cardInfoItem}>
+            <IconSymbol name="person.fill" size={13} color={colors.primary} />
+            <ThemedText type="caption" style={{ color: colors.primary, fontWeight: '600' }}>
+              {count}/{evt.quota}
+            </ThemedText>
+          </View>
+          {evt.fee > 0 && (
+            <ThemedText type="label" style={{ color: colors.text }}>
+              NT$ {evt.fee}
+            </ThemedText>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
         <PageHeader title="SBALT" showBack={false} />
 
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
           {/* Quick Actions */}
           <View style={styles.quickActions}>
             <TouchableOpacity
@@ -99,94 +162,49 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/scores')}
               activeOpacity={0.7}
             >
-              <IconSymbol name="chart.bar.fill" size={20} color={colors.primary} />
-              <ThemedText style={styles.actionText}>查看比分</ThemedText>
+              <IconSymbol name="magnifyingglass" size={20} color={colors.primary} />
+              <ThemedText style={styles.actionText}>瀏覽活動</ThemedText>
             </TouchableOpacity>
           </View>
 
-          {/* Live Games */}
-          {liveGames.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <View style={[styles.liveDot, { backgroundColor: colors.error }]} />
-                <ThemedText type="subtitle">即時比分</ThemedText>
-              </View>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalList}
-              >
-                {liveGames.slice(0, 3).map((item) => (
-                  <View key={item.id} style={{ width: 280, marginRight: Spacing.md }}>
-                    <ScoreCard game={item} />
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          {/* Open Events */}
-          {openEvents.length > 0 && (
+          {/* Upcoming events (within 7 days) */}
+          {upcomingEvents.length > 0 && (
             <View style={styles.section}>
               <ThemedText type="subtitle" style={styles.sectionTitle}>
-                開放報名的活動
+                即將開始
               </ThemedText>
-              {openEvents.slice(0, 5).map((evt) => (
-                <TouchableOpacity
-                  key={evt.id}
-                  style={[styles.eventCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-                  onPress={() => router.push({ pathname: '/(tabs)/event/detail', params: { eventId: evt.id } })}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.eventCardHeader}>
-                    <ThemedText style={styles.eventCardTitle} numberOfLines={1}>{evt.title}</ThemedText>
-                    <ThemedText type="caption" style={{ color: colors.statusSuccess }}>
-                      {evt.quota} 人
-                    </ThemedText>
-                  </View>
-                  <View style={styles.eventCardInfo}>
-                    <View style={styles.eventCardRow}>
-                      <IconSymbol name="calendar" size={13} color={colors.textSecondary} />
-                      <ThemedText type="caption" style={{ color: colors.textSecondary }}>
-                        {formatDateChinese(new Date(evt.scheduled_at))}
-                      </ThemedText>
-                    </View>
-                    <View style={styles.eventCardRow}>
-                      <IconSymbol name="location.fill" size={13} color={colors.textSecondary} />
-                      <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={1}>
-                        {evt.location}
-                      </ThemedText>
-                    </View>
-                  </View>
-                  {evt.fee > 0 && (
-                    <ThemedText type="caption" style={{ color: colors.primary, fontWeight: '600' }}>
-                      NT$ {evt.fee}
-                    </ThemedText>
-                  )}
-                </TouchableOpacity>
-              ))}
+              {upcomingEvents.slice(0, 5).map(renderEventCard)}
             </View>
           )}
 
-          {/* Today's Games */}
-          <View style={styles.section}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              今日比賽
-            </ThemedText>
-            {todayGames.length > 0 ? (
-              <View>
-                {todayGames.slice(0, 5).map((item) => (
-                  <ScoreCard key={item.id} game={item} />
-                ))}
-              </View>
-            ) : (
-              <View style={[styles.emptyContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <ThemedText type="caption" style={{ color: colors.textSecondary }}>
-                  今日尚無比賽
-                </ThemedText>
-              </View>
-            )}
-          </View>
+          {/* Later events */}
+          {laterEvents.length > 0 && (
+            <View style={styles.section}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                更多活動
+              </ThemedText>
+              {laterEvents.slice(0, 5).map(renderEventCard)}
+            </View>
+          )}
+
+          {/* Empty state */}
+          {events.length === 0 && (
+            <View style={[styles.emptyContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <ThemedText style={{ color: colors.textSecondary, marginBottom: Spacing.md }}>
+                目前尚無公開活動
+              </ThemedText>
+              <TouchableOpacity
+                style={[styles.createBtn, { backgroundColor: colors.primary }, Shadows.sm]}
+                onPress={() => router.push('/(tabs)/event/new')}
+                activeOpacity={0.7}
+              >
+                <IconSymbol name="plus" size={16} color={colors.primaryText} />
+                <ThemedText style={{ color: colors.primaryText, fontWeight: '600' }}>建立活動</ThemedText>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={{ height: Spacing.xxxl }} />
         </ScrollView>
       </ThemedView>
     </SafeAreaView>
@@ -231,34 +249,10 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: Spacing.xxl,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
   sectionTitle: {
     marginBottom: Spacing.md,
   },
-  horizontalList: {
-    paddingRight: Spacing.lg,
-  },
-  emptyContainer: {
-    padding: Spacing.xxl,
-    alignItems: 'center',
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  retryButton: {
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.sm,
-  },
+  // Event card
   eventCard: {
     padding: Spacing.lg,
     borderRadius: Radius.md,
@@ -266,24 +260,54 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     gap: Spacing.sm,
   },
-  eventCardHeader: {
+  cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
   },
-  eventCardTitle: {
+  cardTitle: {
     fontSize: 16,
     fontWeight: '600',
     flex: 1,
-    marginRight: Spacing.sm,
   },
-  eventCardInfo: {
+  sportTag: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.sm,
+  },
+  cardInfo: {
     flexDirection: 'row',
     gap: Spacing.lg,
   },
-  eventCardRow: {
+  cardInfoItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  // Empty
+  emptyContainer: {
+    padding: Spacing.xxxl,
+    alignItems: 'center',
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  createBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: Radius.sm,
+  },
+  retryButton: {
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.sm,
   },
 });

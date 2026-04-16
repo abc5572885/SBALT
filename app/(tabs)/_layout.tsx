@@ -44,7 +44,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="scores"
         options={{
-          title: '比分',
+          title: '活動',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="sportscourt.fill" color={color} />,
         }}
       />
@@ -100,6 +100,12 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="event/scores"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="event/joined"
         options={{
           href: null, // Hide from tab bar
         }}

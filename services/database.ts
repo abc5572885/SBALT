@@ -265,6 +265,22 @@ export async function getRegistrations(eventId: string) {
   return data || [];
 }
 
+export async function getRegistrationCounts(eventIds: string[]): Promise<Record<string, number>> {
+  if (eventIds.length === 0) return {};
+  const { data, error } = await supabase
+    .from('registrations')
+    .select('event_id')
+    .in('event_id', eventIds)
+    .eq('status', 'registered');
+  if (error) throw error;
+
+  const counts: Record<string, number> = {};
+  for (const row of data || []) {
+    counts[row.event_id] = (counts[row.event_id] || 0) + 1;
+  }
+  return counts;
+}
+
 export async function getRegistrationCount(eventId: string): Promise<number> {
   const { count, error } = await supabase
     .from('registrations')
@@ -299,6 +315,26 @@ export async function updateRegistrationStatus(
     .single();
   if (error) throw error;
   return data;
+}
+
+export async function getMyRegisteredEvents(userId: string) {
+  const { data: registrations, error: regError } = await supabase
+    .from('registrations')
+    .select('event_id')
+    .eq('user_id', userId)
+    .eq('status', 'registered');
+  if (regError) throw regError;
+
+  if (!registrations || registrations.length === 0) return [];
+
+  const eventIds = registrations.map((r) => r.event_id);
+  const { data: events, error: evtError } = await supabase
+    .from('events')
+    .select('*')
+    .in('id', eventIds)
+    .order('scheduled_at', { ascending: true });
+  if (evtError) throw evtError;
+  return events || [];
 }
 
 export async function getOpenEvents() {
