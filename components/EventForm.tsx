@@ -1,6 +1,7 @@
 import { DateTimePickerButton } from '@/components/DateTimePickerButton';
 import { RecurrenceSelector } from '@/components/RecurrenceSelector';
 import { ThemedText } from '@/components/themed-text';
+import { SPORT_OPTIONS } from '@/constants/sports';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Event } from '@/types/database';
@@ -22,6 +23,7 @@ export function EventForm({ event, onSubmit, onCancel, loading = false }: EventF
   const [location, setLocation] = React.useState(event?.location || '');
   const [quota, setQuota] = React.useState(event?.quota?.toString() || '');
   const [fee, setFee] = React.useState(event?.fee?.toString() || '0');
+  const [sportType, setSportType] = React.useState(event?.sport_type || 'basketball');
   const [recurrenceRule, setRecurrenceRule] = React.useState<string | null>(null);
   const [recurrenceEndDate, setRecurrenceEndDate] = React.useState<Date | null>(null);
   const [recurrenceCount, setRecurrenceCount] = React.useState<number | null>(null);
@@ -81,6 +83,7 @@ export function EventForm({ event, onSubmit, onCancel, loading = false }: EventF
       location: location.trim(),
       quota: parseInt(quota, 10),
       fee: parseFloat(fee) || 0,
+      sport_type: sportType,
       scheduled_at: scheduledAt.toISOString(),
       recurrence_rule: recurrenceRule,
       recurrence_end_date: recurrenceEndDate ? recurrenceEndDate.toISOString() : null,
@@ -130,6 +133,36 @@ export function EventForm({ event, onSubmit, onCancel, loading = false }: EventF
             numberOfLines={4}
             editable={!loading}
           />
+        </View>
+
+        <View>
+          <ThemedText type="label" style={[styles.label, { color: colors.textSecondary }]}>
+            運動類型 *
+          </ThemedText>
+          <View style={styles.sportOptions}>
+            {SPORT_OPTIONS.filter((s) => s.key !== 'other').map((sport) => (
+              <TouchableOpacity
+                key={sport.key}
+                style={[
+                  styles.sportOption,
+                  { borderColor: colors.border, backgroundColor: colors.surface },
+                  sportType === sport.key && { borderColor: colors.primary, backgroundColor: colors.primary + '10' },
+                ]}
+                onPress={() => setSportType(sport.key)}
+                disabled={loading}
+                activeOpacity={0.6}
+              >
+                <ThemedText
+                  style={[
+                    styles.sportOptionText,
+                    sportType === sport.key && { color: colors.primary, fontWeight: '600' as const },
+                  ]}
+                >
+                  {sport.label}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         <View>
@@ -281,5 +314,19 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  sportOptions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  sportOption: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  sportOptionText: {
+    fontSize: 14,
   },
 });

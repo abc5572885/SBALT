@@ -5,8 +5,10 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { getOpenEvents } from '@/services/database';
 import { getLiveGames, getTodayGames } from '@/services/scoreApi';
-import { Game } from '@/types/database';
+import { Event, Game } from '@/types/database';
+import { formatDateChinese } from '@/utils/dateFormat';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -18,6 +20,7 @@ export default function HomeScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const [liveGames, setLiveGames] = React.useState<Game[]>([]);
   const [todayGames, setTodayGames] = React.useState<Game[]>([]);
+  const [openEvents, setOpenEvents] = React.useState<Event[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(false);
 
@@ -28,12 +31,14 @@ export default function HomeScreen() {
   const loadData = async () => {
     try {
       setError(false);
-      const [live, today] = await Promise.all([
+      const [live, today, events] = await Promise.all([
         getLiveGames(),
         getTodayGames(),
+        getOpenEvents(),
       ]);
       setLiveGames(live);
       setTodayGames(today);
+      setOpenEvents(events);
     } catch (err) {
       console.error('載入資料失敗:', err);
       setError(true);
@@ -117,6 +122,49 @@ export default function HomeScreen() {
                   </View>
                 ))}
               </ScrollView>
+            </View>
+          )}
+
+          {/* Open Events */}
+          {openEvents.length > 0 && (
+            <View style={styles.section}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                開放報名的活動
+              </ThemedText>
+              {openEvents.slice(0, 5).map((evt) => (
+                <TouchableOpacity
+                  key={evt.id}
+                  style={[styles.eventCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+                  onPress={() => router.push({ pathname: '/(tabs)/event/detail', params: { eventId: evt.id } })}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.eventCardHeader}>
+                    <ThemedText style={styles.eventCardTitle} numberOfLines={1}>{evt.title}</ThemedText>
+                    <ThemedText type="caption" style={{ color: colors.statusSuccess }}>
+                      {evt.quota} 人
+                    </ThemedText>
+                  </View>
+                  <View style={styles.eventCardInfo}>
+                    <View style={styles.eventCardRow}>
+                      <IconSymbol name="calendar" size={13} color={colors.textSecondary} />
+                      <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+                        {formatDateChinese(new Date(evt.scheduled_at))}
+                      </ThemedText>
+                    </View>
+                    <View style={styles.eventCardRow}>
+                      <IconSymbol name="location.fill" size={13} color={colors.textSecondary} />
+                      <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={1}>
+                        {evt.location}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  {evt.fee > 0 && (
+                    <ThemedText type="caption" style={{ color: colors.primary, fontWeight: '600' }}>
+                      NT$ {evt.fee}
+                    </ThemedText>
+                  )}
+                </TouchableOpacity>
+              ))}
             </View>
           )}
 
@@ -210,5 +258,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
     borderRadius: Radius.sm,
+  },
+  eventCard: {
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  eventCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  eventCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+    marginRight: Spacing.sm,
+  },
+  eventCardInfo: {
+    flexDirection: 'row',
+    gap: Spacing.lg,
+  },
+  eventCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
 });

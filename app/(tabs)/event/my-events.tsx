@@ -203,6 +203,22 @@ export default function MyEventsScreen() {
                 <View style={[styles.actionButtons, { borderTopColor: colors.border }]}>
                   <TouchableOpacity
                     style={[styles.actionButton, { borderColor: colors.border }]}
+                    onPress={() => router.push({ pathname: '/(tabs)/event/registrations', params: { eventId: event.id } })}
+                    activeOpacity={0.6}
+                  >
+                    <IconSymbol name="person.fill" size={14} color={colors.primary} />
+                    <ThemedText style={[styles.actionButtonText, { color: colors.primary }]}>報名</ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionButton, { borderColor: colors.border }]}
+                    onPress={() => router.push({ pathname: '/(tabs)/event/scores', params: { eventId: event.id } })}
+                    activeOpacity={0.6}
+                  >
+                    <IconSymbol name="chart.bar.fill" size={14} color={colors.text} />
+                    <ThemedText style={styles.actionButtonText}>記分</ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionButton, { borderColor: colors.border }]}
                     onPress={() => handleEdit(event)}
                     activeOpacity={0.6}
                   >

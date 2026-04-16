@@ -170,6 +170,7 @@ export interface Database {
           recurrence_count: number | null;
           parent_event_id: string | null;
           is_recurring_instance: boolean | null;
+          sport_type: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -189,6 +190,7 @@ export interface Database {
           recurrence_count?: number | null;
           parent_event_id?: string | null;
           is_recurring_instance?: boolean | null;
+          sport_type?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -207,6 +209,7 @@ export interface Database {
           recurrence_count?: number | null;
           parent_event_id?: string | null;
           is_recurring_instance?: boolean | null;
+          sport_type?: string | null;
           updated_at?: string;
         };
       };
@@ -286,6 +289,31 @@ export interface Database {
         };
       };
     };
+      event_scores: {
+        Row: {
+          id: string;
+          event_id: string;
+          label: string;
+          score: number;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          label: string;
+          score?: number;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          label?: string;
+          score?: number;
+          sort_order?: number;
+        };
+      };
+    };
     Views: {
       [_ in never]: never;
     };
@@ -311,4 +339,5 @@ export type Event = Database['public']['Tables']['events']['Row'];
 export type Registration = Database['public']['Tables']['registrations']['Row'];
 export type Comment = Database['public']['Tables']['comments']['Row'];
 export type Like = Database['public']['Tables']['likes']['Row'];
+export type EventScore = Database['public']['Tables']['event_scores']['Row'];
 

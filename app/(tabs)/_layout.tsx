@@ -87,6 +87,24 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="event/registrations"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="event/detail"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="event/scores"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      <Tabs.Screen
         name="game/[id]"
         options={{
           href: null, // Hide from tab bar

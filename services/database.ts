@@ -12,6 +12,7 @@ type Comment = Tables['comments']['Insert'];
 type Like = Tables['likes']['Insert'];
 type Event = Tables['events']['Insert'];
 type Registration = Tables['registrations']['Insert'];
+type EventScoreInsert = Tables['event_scores']['Insert'];
 
 // ============================================================================
 // COMMENTS
@@ -260,6 +261,117 @@ export async function getRegistrations(eventId: string) {
     .select('*')
     .eq('event_id', eventId)
     .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getRegistrationCount(eventId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('registrations')
+    .select('*', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .eq('status', 'registered');
+  if (error) throw error;
+  return count || 0;
+}
+
+export async function hasUserRegistered(userId: string, eventId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('registrations')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('event_id', eventId)
+    .eq('status', 'registered')
+    .single();
+  if (error && error.code !== 'PGRST116') throw error;
+  return !!data;
+}
+
+export async function updateRegistrationStatus(
+  registrationId: string,
+  status: 'registered' | 'cancelled'
+) {
+  const { data, error } = await supabase
+    .from('registrations')
+    .update({ status })
+    .eq('id', registrationId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function getOpenEvents() {
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('status', 'open')
+    .or('is_recurring_instance.is.null,is_recurring_instance.eq.false')
+    .order('scheduled_at', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function cancelRegistration(userId: string, eventId: string) {
+  const { error } = await supabase
+    .from('registrations')
+    .update({ status: 'cancelled' })
+    .eq('user_id', userId)
+    .eq('event_id', eventId)
+    .eq('status', 'registered');
+  if (error) throw error;
+}
+
+export async function updatePaymentStatus(
+  registrationId: string,
+  paymentStatus: 'pending' | 'paid' | 'refunded'
+) {
+  const { data, error } = await supabase
+    .from('registrations')
+    .update({ payment_status: paymentStatus })
+    .eq('id', registrationId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// ============================================================================
+// EVENT SCORES
+// ============================================================================
+
+export async function getEventScores(eventId: string) {
+  const { data, error } = await supabase
+    .from('event_scores')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('sort_order', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function saveEventScores(eventId: string, scores: { label: string; score: number }[]) {
+  // Delete existing scores for this event
+  const { error: deleteError } = await supabase
+    .from('event_scores')
+    .delete()
+    .eq('event_id', eventId);
+  if (deleteError) throw deleteError;
+
+  if (scores.length === 0) return [];
+
+  // Insert new scores
+  const inserts: EventScoreInsert[] = scores.map((s, i) => ({
+    event_id: eventId,
+    label: s.label,
+    score: s.score,
+    sort_order: i,
+  }));
+
+  const { data, error } = await supabase
+    .from('event_scores')
+    .insert(inserts)
+    .select();
   if (error) throw error;
   return data || [];
 }

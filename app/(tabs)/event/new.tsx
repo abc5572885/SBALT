@@ -58,6 +58,7 @@ export default function NewEventScreen() {
         recurrence_count: data.recurrence_count || null,
         parent_event_id: null,
         is_recurring_instance: null,
+        sport_type: data.sport_type || 'other',
       };
 
       const newEvent = await createEvent(eventData);
