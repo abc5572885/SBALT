@@ -524,7 +524,7 @@ export function RecurrenceSelector({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 16,
+    gap: Spacing.lg,
   },
   switchRow: {
     flexDirection: 'row',
@@ -536,41 +536,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   recurrenceOptions: {
-    gap: 16,
-    paddingTop: 8,
+    gap: Spacing.lg,
+    paddingTop: Spacing.sm,
   },
   frequencySection: {
-    gap: 8,
+    gap: Spacing.sm,
   },
   sectionLabel: {
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   frequencyButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Spacing.sm,
     flexWrap: 'wrap',
   },
   frequencyButton: {
     flex: 1,
     minWidth: 80,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.sm,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   frequencyButtonLight: {
-    backgroundColor: Colors.light.card,
+    backgroundColor: Colors.light.surface,
     borderColor: Colors.light.border,
   },
   frequencyButtonDark: {
-    backgroundColor: Colors.dark.card,
+    backgroundColor: Colors.dark.surface,
     borderColor: Colors.dark.border,
   },
   frequencyButtonActive: {
-    borderWidth: 2,
+    borderWidth: 1,
   },
   frequencyButtonActiveLight: {
     backgroundColor: Colors.light.primary,
@@ -589,32 +589,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   weekdaySection: {
-    gap: 8,
+    gap: Spacing.sm,
   },
   weekdayButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Spacing.sm,
     flexWrap: 'wrap',
   },
   weekdayButton: {
     flex: 1,
     minWidth: 50,
-    paddingVertical: 10,
+    paddingVertical: Spacing.md,
     paddingHorizontal: 8,
-    borderRadius: 8,
+    borderRadius: Radius.sm,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   weekdayButtonLight: {
-    backgroundColor: Colors.light.card,
+    backgroundColor: Colors.light.surface,
     borderColor: Colors.light.border,
   },
   weekdayButtonDark: {
-    backgroundColor: Colors.dark.card,
+    backgroundColor: Colors.dark.surface,
     borderColor: Colors.dark.border,
   },
   weekdayButtonActive: {
-    borderWidth: 2,
+    borderWidth: 1,
   },
   weekdayButtonActiveLight: {
     backgroundColor: Colors.light.primary,
@@ -633,41 +633,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   monthlySection: {
-    gap: 8,
+    gap: Spacing.sm,
   },
   pickerGroup: {
-    gap: 8,
+    gap: Spacing.sm,
   },
   pickerContainer: {
-    gap: 8,
+    gap: Spacing.sm,
   },
   pickerScroll: {
     maxHeight: 120,
   },
   pickerScrollContent: {
-    paddingHorizontal: 4,
-    paddingVertical: 8,
-    gap: 8,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
   },
   pickerItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 60,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   pickerItemLight: {
-    backgroundColor: Colors.light.card,
+    backgroundColor: Colors.light.surface,
     borderColor: Colors.light.border,
   },
   pickerItemDark: {
-    backgroundColor: Colors.dark.card,
+    backgroundColor: Colors.dark.surface,
     borderColor: Colors.dark.border,
   },
   pickerItemActive: {
-    borderWidth: 2,
+    borderWidth: 1,
   },
   pickerItemText: {
     fontSize: 14,
@@ -678,9 +678,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   pickerIndicator: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.sm,
     alignItems: 'center',
   },
   pickerIndicatorText: {
@@ -688,41 +688,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   yearlySection: {
-    gap: 16,
+    gap: Spacing.lg,
   },
   yearlySelector: {
-    gap: 16,
+    gap: Spacing.lg,
   },
   selectorLabel: {
     fontSize: 13,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   endConditionSection: {
-    gap: 8,
+    gap: Spacing.sm,
   },
   endConditionButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Spacing.sm,
   },
   endConditionButton: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.sm,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   endConditionButtonLight: {
-    backgroundColor: Colors.light.card,
+    backgroundColor: Colors.light.surface,
     borderColor: Colors.light.border,
   },
   endConditionButtonDark: {
-    backgroundColor: Colors.dark.card,
+    backgroundColor: Colors.dark.surface,
     borderColor: Colors.dark.border,
   },
   endConditionButtonActive: {
-    borderWidth: 2,
+    borderWidth: 1,
   },
   endConditionButtonActiveLight: {
     backgroundColor: Colors.light.primary,
@@ -741,10 +741,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   dateButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   dateButtonLight: {
     backgroundColor: Colors.light.background,
@@ -761,8 +761,8 @@ const styles = StyleSheet.create({
   countInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 8,
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   countLabel: {
     fontSize: 14,
@@ -770,7 +770,7 @@ const styles = StyleSheet.create({
   countControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: Spacing.lg,
   },
   countButton: {
     width: 36,
@@ -796,16 +796,16 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 20,
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
+    paddingBottom: Spacing.xl,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
+    padding: Spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   modalTitle: {
     fontSize: 18,
@@ -818,7 +818,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   pickerContainerModal: {
-    paddingVertical: 8,
+    paddingVertical: Spacing.sm,
   },
 });
 
