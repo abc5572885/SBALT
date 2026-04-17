@@ -171,6 +171,7 @@ export interface Database {
           parent_event_id: string | null;
           is_recurring_instance: boolean | null;
           sport_type: string | null;
+          image_url: string | null;
           created_at: string;
           updated_at: string;
         };

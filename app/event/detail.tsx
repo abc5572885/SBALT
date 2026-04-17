@@ -7,6 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+import { Image } from 'expo-image';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -20,6 +21,7 @@ import {
   hasUserRegistered,
 } from '@/services/database';
 import { Comment, Event, EventScore } from '@/types/database';
+import { pickAndUploadEventImage } from '@/services/eventImage';
 import { scheduleEventReminder, sendLocalNotification } from '@/services/notifications';
 import { getWeatherForDate } from '@/services/weather';
 import { formatDateChinese, formatTime } from '@/utils/dateFormat';
@@ -50,6 +52,7 @@ export default function EventDetailScreen() {
   const [regCount, setRegCount] = useState(0);
   const [scores, setScores] = useState<EventScore[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [eventImage, setEventImage] = useState<string | null>(null);
   const [weather, setWeather] = useState<{ temperature: number; description: string; icon: string; isRainy: boolean } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -61,6 +64,7 @@ export default function EventDetailScreen() {
     try {
       const eventData = await getEventById(eventId);
       setEvent(eventData);
+      setEventImage(eventData.image_url || null);
 
       const [count, eventScores] = await Promise.all([
         getRegistrationCount(eventId),
@@ -237,6 +241,32 @@ export default function EventDetailScreen() {
     <ScreenLayout>
       <PageHeader title="活動詳情" />
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Cover Image */}
+        {eventImage ? (
+          <TouchableOpacity
+            onPress={isOrganizer ? async () => {
+              const url = await pickAndUploadEventImage(event.id);
+              if (url) setEventImage(url + '?t=' + Date.now());
+            } : undefined}
+            activeOpacity={isOrganizer ? 0.8 : 1}
+            style={styles.imageContainer}
+          >
+            <Image source={{ uri: eventImage }} style={styles.coverImage} />
+          </TouchableOpacity>
+        ) : isOrganizer ? (
+          <TouchableOpacity
+            style={[styles.addImageBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={async () => {
+              const url = await pickAndUploadEventImage(event.id);
+              if (url) setEventImage(url + '?t=' + Date.now());
+            }}
+            activeOpacity={0.7}
+          >
+            <IconSymbol name="plus" size={20} color={colors.textSecondary} />
+            <ThemedText type="caption" style={{ color: colors.textSecondary }}>新增封面圖片</ThemedText>
+          </TouchableOpacity>
+        ) : null}
+
         {/* Title & Status & Share */}
         <View style={styles.titleSection}>
           <View style={styles.titleTopRow}>
@@ -448,6 +478,26 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  imageContainer: {
+    marginBottom: Spacing.lg,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+  },
+  coverImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: Radius.md,
+  },
+  addImageBtn: {
+    height: 120,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
   },
   titleSection: {
     marginBottom: Spacing.xl,

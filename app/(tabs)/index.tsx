@@ -8,6 +8,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { autoExpireEvents, getOpenEvents, getRegistrationCounts } from '@/services/database';
 import { Event } from '@/types/database';
 import { formatDateChinese } from '@/utils/dateFormat';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -99,6 +100,10 @@ export default function HomeScreen() {
         onPress={() => router.push({ pathname: '/event/detail', params: { eventId: evt.id } })}
         activeOpacity={0.7}
       >
+        {evt.image_url && (
+          <Image source={{ uri: evt.image_url }} style={styles.cardImage} />
+        )}
+        <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
           <ThemedText style={styles.cardTitle} numberOfLines={1}>{evt.title}</ThemedText>
           {sportLabel && (
@@ -133,6 +138,7 @@ export default function HomeScreen() {
               NT$ {evt.fee}
             </ThemedText>
           )}
+        </View>
         </View>
       </TouchableOpacity>
     );
@@ -262,10 +268,17 @@ const styles = StyleSheet.create({
   },
   // Event card
   eventCard: {
-    padding: Spacing.lg,
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: Spacing.sm,
+    overflow: 'hidden',
+  },
+  cardImage: {
+    width: '100%',
+    height: 140,
+  },
+  cardContent: {
+    padding: Spacing.lg,
     gap: Spacing.sm,
   },
   cardHeader: {
