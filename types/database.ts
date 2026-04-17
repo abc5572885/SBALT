@@ -330,6 +330,76 @@ export interface Database {
   };
 }
 
+      groups: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          sport_type: string | null;
+          creator_id: string;
+          avatar_url: string | null;
+          invite_code: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          sport_type?: string | null;
+          creator_id: string;
+          avatar_url?: string | null;
+          invite_code?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          description?: string | null;
+          sport_type?: string | null;
+          avatar_url?: string | null;
+          updated_at?: string;
+        };
+      };
+      group_members: {
+        Row: {
+          id: string;
+          group_id: string;
+          user_id: string;
+          role: 'admin' | 'member';
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          group_id: string;
+          user_id: string;
+          role?: 'admin' | 'member';
+          created_at?: string;
+        };
+        Update: {
+          role?: 'admin' | 'member';
+        };
+      };
+      group_posts: {
+        Row: {
+          id: string;
+          group_id: string;
+          user_id: string;
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          group_id: string;
+          user_id: string;
+          content: string;
+          created_at?: string;
+        };
+        Update: {
+          content?: string;
+        };
+      };
+
 // 匯出常用型別
 export type Team = Database['public']['Tables']['teams']['Row'];
 export type Player = Database['public']['Tables']['players']['Row'];
@@ -340,4 +410,7 @@ export type Registration = Database['public']['Tables']['registrations']['Row'];
 export type Comment = Database['public']['Tables']['comments']['Row'];
 export type Like = Database['public']['Tables']['likes']['Row'];
 export type EventScore = Database['public']['Tables']['event_scores']['Row'];
+export type Group = Database['public']['Tables']['groups']['Row'];
+export type GroupMember = Database['public']['Tables']['group_members']['Row'];
+export type GroupPost = Database['public']['Tables']['group_posts']['Row'];
 
