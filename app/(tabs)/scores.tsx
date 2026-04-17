@@ -16,6 +16,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -36,6 +37,7 @@ export default function EventsScreen() {
   const [regCounts, setRegCounts] = React.useState<Record<string, number>>({});
   const [error, setError] = React.useState(false);
   const [filter, setFilter] = React.useState('all');
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   React.useEffect(() => {
     loadEvents();
@@ -64,9 +66,13 @@ export default function EventsScreen() {
     loadEvents();
   };
 
-  const filteredEvents = filter === 'all'
-    ? events
-    : events.filter((e) => e.sport_type === filter);
+  const filteredEvents = events.filter((e) => {
+    const matchesFilter = filter === 'all' || e.sport_type === filter;
+    const matchesSearch = !searchQuery ||
+      e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.location.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
 
   if (loading) {
     return (
@@ -103,6 +109,23 @@ export default function EventsScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
         <Text style={[styles.pageTitle, { color: colors.text }]}>活動</Text>
+
+        {/* Search */}
+        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <IconSymbol name="magnifyingglass" size={16} color={colors.textSecondary} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="搜尋活動名稱或地點"
+            placeholderTextColor={colors.placeholder}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <IconSymbol name="chevron.right" size={14} color={colors.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Sport filter */}
         <ScrollView
@@ -244,6 +267,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: Spacing.md,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingVertical: Spacing.xs,
   },
   pageTitle: {
     fontSize: 32,

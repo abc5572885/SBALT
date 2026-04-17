@@ -96,9 +96,11 @@ export default function ProfileScreen() {
             <IconSymbol name="pencil" size={10} color="#FFF" />
           </View>
         </TouchableOpacity>
-        <Text style={[styles.displayName, { color: colors.text }]}>
-          {user.displayName || '未設定'}
-        </Text>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/edit-profile')} activeOpacity={0.7}>
+          <Text style={[styles.displayName, { color: colors.text }]}>
+            {user.displayName || '未設定'}
+          </Text>
+        </TouchableOpacity>
         <ThemedText type="caption" style={{ color: colors.textSecondary }}>
           {user.email}
         </ThemedText>

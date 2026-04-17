@@ -357,6 +357,15 @@ export async function getMyRegisteredEvents(userId: string) {
   return events || [];
 }
 
+export async function autoExpireEvents() {
+  const now = new Date().toISOString();
+  await supabase
+    .from('events')
+    .update({ status: 'finished' })
+    .eq('status', 'open')
+    .lt('scheduled_at', now);
+}
+
 export async function getOpenEvents() {
   const { data, error } = await supabase
     .from('events')

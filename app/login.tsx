@@ -4,6 +4,7 @@
  * Uses PKCE flow for secure authentication
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -36,7 +37,10 @@ export default function LoginScreen() {
       if (event === 'SIGNED_IN' && session && loggingRef.current) {
         loggingRef.current = false;
         setLoading(false);
-        router.replace('/(tabs)');
+        // Check if onboarding done
+        AsyncStorage.getItem('onboarding_done').then((done) => {
+          router.replace(done ? '/(tabs)' : '/onboarding');
+        });
       }
     });
 

@@ -5,7 +5,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SPORT_OPTIONS } from '@/constants/sports';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { getOpenEvents, getRegistrationCounts } from '@/services/database';
+import { autoExpireEvents, getOpenEvents, getRegistrationCounts } from '@/services/database';
 import { Event } from '@/types/database';
 import { formatDateChinese } from '@/utils/dateFormat';
 import { useRouter } from 'expo-router';
@@ -30,6 +30,7 @@ export default function HomeScreen() {
   const loadData = async () => {
     try {
       setError(false);
+      await autoExpireEvents();
       const data = await getOpenEvents();
       setEvents(data);
       if (data.length > 0) {
