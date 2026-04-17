@@ -429,8 +429,9 @@ export async function cancelRegistration(userId: string, eventId: string) {
     .in('status', ['registered', 'waitlisted']);
   if (error) throw error;
 
-  // Auto-promote first waitlisted person
-  await promoteFirstWaitlisted(eventId);
+  // Auto-promote first waitlisted person and return their user_id
+  const promotedUserId = await promoteFirstWaitlisted(eventId);
+  return { promotedUserId };
 }
 
 export async function checkInRegistration(userId: string, eventId: string) {

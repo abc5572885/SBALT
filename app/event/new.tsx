@@ -20,6 +20,7 @@ export default function NewEventScreen() {
     templateQuota?: string;
     templateFee?: string;
     templateSportType?: string;
+    groupId?: string;
   }>();
   const colorScheme = useColorScheme();
   const { user, loading: authLoading } = useAuth();
@@ -67,7 +68,8 @@ export default function NewEventScreen() {
         parent_event_id: null,
         is_recurring_instance: null,
         sport_type: data.sport_type || 'other',
-      };
+        group_id: params.groupId || null,
+      } as any;
 
       const newEvent = await createEvent(eventData);
 

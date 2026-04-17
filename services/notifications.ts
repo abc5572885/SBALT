@@ -76,3 +76,21 @@ export async function cancelEventReminder(notificationId: string) {
 export async function cancelAllReminders() {
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
+
+/**
+ * Send an immediate local notification
+ */
+export async function sendLocalNotification(title: string, body: string, data?: Record<string, any>) {
+  const hasPermission = await hasNotificationPermission();
+  if (!hasPermission) return;
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title,
+      body,
+      data: data || {},
+      sound: true,
+    },
+    trigger: null, // immediate
+  });
+}

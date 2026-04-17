@@ -20,7 +20,7 @@ import {
   hasUserRegistered,
 } from '@/services/database';
 import { Comment, Event, EventScore } from '@/types/database';
-import { scheduleEventReminder } from '@/services/notifications';
+import { scheduleEventReminder, sendLocalNotification } from '@/services/notifications';
 import { getWeatherForDate } from '@/services/weather';
 import { formatDateChinese, formatTime } from '@/utils/dateFormat';
 import { useLocalSearchParams } from 'expo-router';

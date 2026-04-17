@@ -6,7 +6,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { deleteEvent, getEvents } from '@/services/database';
+import { deleteEvent, getEvents, getRegistrationCounts, updateEvent } from '@/services/database';
 import { Event } from '@/types/database';
 import { formatDateChinese } from '@/utils/dateFormat';
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
@@ -28,6 +28,7 @@ export default function MyEventsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [events, setEvents] = useState<Event[]>([]);
+  const [regCounts, setRegCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -47,6 +48,10 @@ export default function MyEventsScreen() {
       setLoading(true);
       const myEvents = await getEvents({ organizerId: user.id, excludeInstances: true });
       setEvents(myEvents);
+      if (myEvents.length > 0) {
+        const counts = await getRegistrationCounts(myEvents.map((e) => e.id));
+        setRegCounts(counts);
+      }
     } catch (error) {
       console.error('載入活動失敗:', error);
       Alert.alert('錯誤', '無法載入活動列表');
@@ -87,6 +92,36 @@ export default function MyEventsScreen() {
 
   const handleEdit = (event: Event) => {
     router.push(`/event/${event.id}`);
+  };
+
+  const handleChangeStatus = (event: Event) => {
+    const options: { text: string; status: string }[] = [];
+    if (event.status === 'open') {
+      options.push({ text: '關閉報名', status: 'closed' });
+      options.push({ text: '取消活動', status: 'cancelled' });
+    } else if (event.status === 'closed') {
+      options.push({ text: '重新開放報名', status: 'open' });
+      options.push({ text: '標記為已結束', status: 'finished' });
+    } else if (event.status === 'cancelled') {
+      options.push({ text: '重新開放', status: 'open' });
+    }
+
+    if (options.length === 0) return;
+
+    Alert.alert('變更狀態', `目前：${getStatusLabel(event.status)}`, [
+      { text: '取消', style: 'cancel' },
+      ...options.map((opt) => ({
+        text: opt.text,
+        onPress: async () => {
+          try {
+            await updateEvent(event.id, { status: opt.status as any });
+            loadEvents();
+          } catch (error: any) {
+            Alert.alert('錯誤', error.message || '操作失敗');
+          }
+        },
+      })),
+    ]);
   };
 
   const handleDuplicate = (event: Event) => {
@@ -198,11 +233,15 @@ export default function MyEventsScreen() {
                       </ThemedText>
                     </View>
                   </View>
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(event.status) + '15' }]}>
+                  <TouchableOpacity
+                    style={[styles.statusBadge, { backgroundColor: getStatusColor(event.status) + '15' }]}
+                    onPress={() => handleChangeStatus(event)}
+                    activeOpacity={0.6}
+                  >
                     <ThemedText type="label" style={{ color: getStatusColor(event.status) }}>
                       {getStatusLabel(event.status)}
                     </ThemedText>
-                  </View>
+                  </TouchableOpacity>
                 </View>
 
                 {/* Description */}
@@ -215,7 +254,10 @@ export default function MyEventsScreen() {
                 {/* Footer */}
                 <View style={styles.eventFooter}>
                   <ThemedText type="caption" style={{ color: colors.textSecondary }}>
-                    {event.quota} 人上限 · NT$ {event.fee}
+                    <ThemedText type="caption" style={{ color: colors.primary, fontWeight: '600' }}>
+                      {regCounts[event.id] || 0}/{event.quota}
+                    </ThemedText>
+                    {' 人 · NT$ '}{event.fee}
                   </ThemedText>
                   {event.recurrence_rule && (
                     <View style={styles.recurrenceBadge}>
