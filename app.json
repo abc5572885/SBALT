@@ -17,7 +17,8 @@
             "CFBundleURLSchemes": ["sbalt", "exp"]
           }
         ],
-        "NSPhotoLibraryUsageDescription": "SBALT 需要存取您的照片來設定頭像"
+        "NSPhotoLibraryUsageDescription": "SBALT 需要存取您的照片來設定頭像",
+        "LSApplicationQueriesSchemes": ["comgooglemaps"]
       }
     },
     "android": {

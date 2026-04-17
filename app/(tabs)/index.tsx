@@ -160,11 +160,11 @@ export default function HomeScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-              onPress={() => router.push('/(tabs)/scores')}
+              onPress={() => router.push('/event/venues')}
               activeOpacity={0.7}
             >
-              <IconSymbol name="magnifyingglass" size={20} color={colors.primary} />
-              <ThemedText style={styles.actionText}>瀏覽活動</ThemedText>
+              <IconSymbol name="location.fill" size={20} color={colors.primary} />
+              <ThemedText style={styles.actionText}>附近場地</ThemedText>
             </TouchableOpacity>
           </View>
 

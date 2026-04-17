@@ -21,12 +21,15 @@ import {
 } from '@/services/database';
 import { Comment, Event, EventScore } from '@/types/database';
 import { scheduleEventReminder } from '@/services/notifications';
+import { getWeatherForDate } from '@/services/weather';
 import { formatDateChinese, formatTime } from '@/utils/dateFormat';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
+  Platform,
   ScrollView,
   Share,
   StyleSheet,
@@ -47,6 +50,7 @@ export default function EventDetailScreen() {
   const [regCount, setRegCount] = useState(0);
   const [scores, setScores] = useState<EventScore[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [weather, setWeather] = useState<{ temperature: number; description: string; icon: string; isRainy: boolean } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -70,6 +74,13 @@ export default function EventDetailScreen() {
         const commentsData = await getComments('event', eventId);
         setComments(commentsData);
       } catch {}
+
+      // Load weather (only for events within 7 days)
+      const eventDate = new Date(eventData.scheduled_at);
+      const daysUntil = (eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+      if (daysUntil >= 0 && daysUntil <= 7) {
+        getWeatherForDate(eventDate).then(setWeather).catch(() => {});
+      }
 
 
       if (user) {
@@ -255,10 +266,30 @@ export default function EventDetailScreen() {
             </ThemedText>
           </View>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <View style={styles.infoRow}>
-            <IconSymbol name="location.fill" size={16} color={colors.textSecondary} />
-            <ThemedText style={styles.infoText}>{event.location}</ThemedText>
-          </View>
+          <TouchableOpacity
+            style={styles.infoRow}
+            onPress={async () => {
+              const query = encodeURIComponent(event.location);
+              try {
+                const hasGoogle = await Linking.canOpenURL('comgooglemaps://');
+                if (hasGoogle) {
+                  Linking.openURL(`comgooglemaps://?q=${query}`);
+                  return;
+                }
+              } catch {}
+              const fallback = Platform.select({
+                ios: `maps:?q=${query}`,
+                android: `geo:0,0?q=${query}`,
+                default: `https://maps.google.com/?q=${query}`,
+              });
+              Linking.openURL(fallback);
+            }}
+            activeOpacity={0.6}
+          >
+            <IconSymbol name="location.fill" size={16} color={colors.primary} />
+            <ThemedText style={[styles.infoText, { color: colors.primary }]}>{event.location}</ThemedText>
+            <IconSymbol name="chevron.right" size={14} color={colors.disabled} />
+          </TouchableOpacity>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.infoRow}>
             <IconSymbol name="person.fill" size={16} color={colors.textSecondary} />
@@ -288,6 +319,25 @@ export default function EventDetailScreen() {
             </ThemedText>
           </View>
         </View>
+
+        {/* Weather */}
+        {weather && (
+          <View style={[
+            styles.weatherCard,
+            { backgroundColor: weather.isRainy ? colors.error + '08' : colors.primary + '08', borderColor: weather.isRainy ? colors.error + '20' : colors.border },
+            Shadows.sm,
+          ]}>
+            <Text style={styles.weatherIcon}>{weather.icon}</Text>
+            <View style={styles.weatherInfo}>
+              <ThemedText style={styles.weatherTemp}>{weather.temperature}°C · {weather.description}</ThemedText>
+              {weather.isRainy && (
+                <ThemedText type="caption" style={{ color: colors.error }}>
+                  注意：活動當天可能下雨
+                </ThemedText>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Scores */}
         {scores.length > 0 && (
@@ -464,6 +514,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  weatherCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: Spacing.xl,
+    gap: Spacing.md,
+  },
+  weatherIcon: {
+    fontSize: 32,
+  },
+  weatherInfo: {
+    flex: 1,
+    gap: Spacing.xs,
+  },
+  weatherTemp: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   scoresCard: {
     borderRadius: Radius.md,

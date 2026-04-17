@@ -1,4 +1,5 @@
 import { DateTimePickerButton } from '@/components/DateTimePickerButton';
+import { LocationInput } from '@/components/LocationInput';
 import { RecurrenceSelector } from '@/components/RecurrenceSelector';
 import { ThemedText } from '@/components/themed-text';
 import { SPORT_OPTIONS } from '@/constants/sports';
@@ -190,17 +191,15 @@ export function EventForm({ event, onSubmit, onCancel, loading = false }: EventF
           />
         </View>
 
-        <View>
+        <View style={{ zIndex: 10 }}>
           <ThemedText type="label" style={[styles.label, { color: colors.textSecondary }]}>
             地點 *
           </ThemedText>
-          <TextInput
-            style={inputStyle}
+          <LocationInput
             value={location}
-            onChangeText={setLocation}
-            placeholder="輸入活動地點"
-            placeholderTextColor={colors.placeholder}
-            editable={!loading}
+            onChange={setLocation}
+            placeholder="搜尋場地或地址"
+            disabled={loading}
           />
         </View>
 
