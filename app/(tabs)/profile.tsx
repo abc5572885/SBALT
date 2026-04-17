@@ -67,6 +67,7 @@ export default function ProfileScreen() {
 
   const menuItems = [
     { icon: 'person.fill' as const, label: '我的群組', onPress: () => router.push('/group') },
+    { icon: 'bolt.fill' as const, label: '成就', onPress: () => router.push('/event/achievements') },
     { icon: 'chart.bar.fill' as const, label: '歷史戰績', onPress: () => router.push('/event/history') },
     { icon: 'plus' as const, label: '建立活動', onPress: () => router.push('/event/new') },
     { icon: 'gearshape.fill' as const, label: '設定', onPress: () => router.push('/(tabs)/settings') },
