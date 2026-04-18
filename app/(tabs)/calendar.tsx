@@ -1,4 +1,4 @@
-import { BarChart } from '@/components/SimpleChart';
+import { LineChart } from '@/components/SimpleChart';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -163,7 +163,7 @@ export default function StatsScreen() {
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Period selector */}
           <View style={styles.periodRow}>
-            {(['week', 'month', 'year'] as const).map((p) => (
+            {(['year', 'month', 'week'] as const).map((p) => (
               <TouchableOpacity
                 key={p}
                 style={[styles.periodBtn, period === p && { backgroundColor: colors.text }]}
@@ -183,7 +183,7 @@ export default function StatsScreen() {
               <ThemedText type="caption" style={{ color: colors.textSecondary, marginBottom: Spacing.md }}>
                 {isRunning || selectedSport === 'all' ? '跑步距離 (km)' : '活動場次'}
               </ThemedText>
-              <BarChart data={chartData} />
+              <LineChart data={chartData} />
             </View>
           )}
 

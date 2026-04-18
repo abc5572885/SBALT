@@ -1,64 +1,110 @@
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Line, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
-interface BarChartProps {
+interface ChartProps {
   data: { label: string; value: number }[];
-  unit?: string;
   height?: number;
 }
 
-export function BarChart({ data, unit = '', height = 160 }: BarChartProps) {
+export function LineChart({ data, height = 160 }: ChartProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
   if (data.length === 0) return null;
 
   const maxValue = Math.max(...data.map((d) => d.value), 1);
-  const barWidth = Math.min(32, (300 - data.length * 4) / data.length);
-  const chartWidth = data.length * (barWidth + 8);
+  const paddingTop = 20;
+  const paddingBottom = 24;
+  const chartH = height - paddingTop - paddingBottom;
+  const stepX = data.length > 1 ? 280 / (data.length - 1) : 280;
+  const chartWidth = data.length > 1 ? (data.length - 1) * stepX + 40 : 320;
+
+  // Build path
+  const points = data.map((d, i) => {
+    const x = 20 + i * stepX;
+    const y = paddingTop + chartH - (d.value / maxValue) * chartH;
+    return { x, y, value: d.value };
+  });
+
+  let linePath = '';
+  points.forEach((p, i) => {
+    linePath += i === 0 ? `M ${p.x} ${p.y}` : ` L ${p.x} ${p.y}`;
+  });
+
+  // Fill path (area under line)
+  const fillPath = `${linePath} L ${points[points.length - 1].x} ${paddingTop + chartH} L ${points[0].x} ${paddingTop + chartH} Z`;
 
   return (
     <View style={styles.container}>
       <View style={[styles.chartArea, { height }]}>
         <Svg width={chartWidth} height={height}>
-          {data.map((item, i) => {
-            const barHeight = (item.value / maxValue) * (height - 30);
-            const x = i * (barWidth + 8) + 4;
-            const y = height - 20 - barHeight;
-
+          {/* Grid lines */}
+          {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
+            const y = paddingTop + chartH - ratio * chartH;
             return (
-              <React.Fragment key={i}>
-                <Rect
-                  x={x}
-                  y={y}
-                  width={barWidth}
-                  height={barHeight}
-                  rx={4}
-                  fill={item.value > 0 ? colors.primary : colors.disabled}
-                  opacity={item.value > 0 ? 1 : 0.3}
-                />
-              </React.Fragment>
+              <Line
+                key={i}
+                x1={20}
+                y1={y}
+                x2={chartWidth - 20}
+                y2={y}
+                stroke={colors.border}
+                strokeWidth={0.5}
+                strokeDasharray={ratio > 0 && ratio < 1 ? '4,4' : undefined}
+              />
             );
           })}
-          {/* Baseline */}
-          <Line
-            x1={0}
-            y1={height - 20}
-            x2={chartWidth}
-            y2={height - 20}
-            stroke={colors.border}
-            strokeWidth={1}
+
+          {/* Area fill */}
+          <Path d={fillPath} fill={colors.primary + '15'} />
+
+          {/* Line */}
+          <Path
+            d={linePath}
+            stroke={colors.primary}
+            strokeWidth={2.5}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
+
+          {/* Dots */}
+          {points.map((p, i) => (
+            <React.Fragment key={i}>
+              <Circle cx={p.x} cy={p.y} r={4} fill={colors.background} stroke={colors.primary} strokeWidth={2} />
+              {p.value > 0 && (
+                <React.Fragment>
+                  <Rect x={p.x - 14} y={p.y - 20} width={28} height={14} rx={3} fill={colors.primary} />
+                </React.Fragment>
+              )}
+            </React.Fragment>
+          ))}
         </Svg>
-        {/* Labels */}
+
+        {/* Value labels on dots */}
+        {points.map((p, i) => (
+          p.value > 0 ? (
+            <Text
+              key={`val-${i}`}
+              style={[styles.dotValue, { left: p.x - 14, top: p.y - 19, width: 28 }]}
+            >
+              {p.value % 1 === 0 ? p.value : p.value.toFixed(1)}
+            </Text>
+          ) : null
+        ))}
+
+        {/* X labels */}
         <View style={[styles.labels, { width: chartWidth }]}>
           {data.map((item, i) => (
             <Text
               key={i}
-              style={[styles.label, { color: colors.textSecondary, width: barWidth + 8 }]}
+              style={[
+                styles.label,
+                { color: colors.textSecondary, position: 'absolute', left: 20 + i * stepX - 15, width: 30 },
+              ]}
             >
               {item.label}
             </Text>
@@ -72,17 +118,26 @@ export function BarChart({ data, unit = '', height = 160 }: BarChartProps) {
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
+    overflow: 'hidden',
   },
   chartArea: {
     position: 'relative',
+    width: '100%',
   },
   labels: {
-    flexDirection: 'row',
     position: 'absolute',
     bottom: 0,
+    height: 20,
   },
   label: {
     fontSize: 10,
+    textAlign: 'center',
+  },
+  dotValue: {
+    position: 'absolute',
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#FFF',
     textAlign: 'center',
   },
 });
