@@ -5,7 +5,8 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SPORT_OPTIONS } from '@/constants/sports';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { autoExpireEvents, getOpenEvents, getRegistrationCounts } from '@/services/database';
+import { autoExpireEvents, getOpenEvents, getRegistrationCounts, getUserStats, getMyRegisteredEvents } from '@/services/database';
+import { useAuth } from '@/contexts/AuthContext';
 import { Event } from '@/types/database';
 import { formatDateChinese } from '@/utils/dateFormat';
 import { Image } from 'expo-image';
@@ -16,10 +17,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [events, setEvents] = React.useState<Event[]>([]);
+  const [myNextEvent, setMyNextEvent] = React.useState<Event | null>(null);
   const [regCounts, setRegCounts] = React.useState<Record<string, number>>({});
+  const [stats, setStats] = React.useState({ organized: 0, joined: 0 });
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState(false);
@@ -37,6 +41,14 @@ export default function HomeScreen() {
       if (data.length > 0) {
         const counts = await getRegistrationCounts(data.map((e) => e.id));
         setRegCounts(counts);
+      }
+      // Load user stats and next event
+      if (user) {
+        getUserStats(user.id).then(setStats).catch(() => {});
+        getMyRegisteredEvents(user.id).then((myEvents) => {
+          const upcoming = myEvents.find((e) => new Date(e.scheduled_at) > new Date());
+          setMyNextEvent(upcoming || null);
+        }).catch(() => {});
       }
     } catch (err) {
       console.error('載入資料失敗:', err);
@@ -147,14 +159,42 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
-        {/* Brand header */}
-        <Text style={[styles.brandTitle, { color: colors.text }]}>SBALT</Text>
+        {/* Header */}
+        <View style={styles.greetingSection}>
+          <Text style={[styles.brandTitle, { color: colors.text }]}>SBALT</Text>
+          <View style={styles.miniStats}>
+            <View style={styles.miniStat}>
+              <Text style={[styles.miniStatNumber, { color: colors.primary }]}>{stats.organized}</Text>
+              <ThemedText type="caption" style={{ color: colors.textSecondary }}>主辦</ThemedText>
+            </View>
+            <View style={[styles.miniStatDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.miniStat}>
+              <Text style={[styles.miniStatNumber, { color: colors.primary }]}>{stats.joined}</Text>
+              <ThemedText type="caption" style={{ color: colors.textSecondary }}>參加</ThemedText>
+            </View>
+          </View>
+        </View>
 
         <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
+          {/* Next event reminder */}
+          {myNextEvent && (
+            <TouchableOpacity
+              style={[styles.nextEventCard, { backgroundColor: colors.primary }, Shadows.md]}
+              onPress={() => router.push({ pathname: '/event/detail', params: { eventId: myNextEvent.id } })}
+              activeOpacity={0.8}
+            >
+              <ThemedText type="caption" style={{ color: 'rgba(255,255,255,0.7)' }}>下一場活動</ThemedText>
+              <Text style={styles.nextEventTitle}>{myNextEvent.title}</Text>
+              <Text style={styles.nextEventInfo}>
+                {formatDateChinese(new Date(myNextEvent.scheduled_at))} · {myNextEvent.location}
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {/* Quick Actions */}
           <View style={styles.quickActions}>
             <TouchableOpacity
@@ -235,11 +275,52 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  brandTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: -1.5,
+  greetingSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
     marginBottom: Spacing.xl,
+  },
+  greeting: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: Spacing.xs,
+  },
+  brandTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -1,
+  },
+  miniStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  miniStat: {
+    alignItems: 'center',
+  },
+  miniStatNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  miniStatDivider: {
+    width: 1,
+    height: 24,
+  },
+  nextEventCard: {
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    marginBottom: Spacing.xl,
+    gap: Spacing.xs,
+  },
+  nextEventTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  nextEventInfo: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.8)',
   },
   quickActions: {
     flexDirection: 'row',

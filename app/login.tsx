@@ -5,6 +5,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -13,7 +14,7 @@ import * as AuthSession from 'expo-auth-session';
 import { Redirect, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -60,6 +61,39 @@ export default function LoginScreen() {
   if (session) {
     return <Redirect href="/(tabs)" />;
   }
+
+  const handleAppleLogin = async () => {
+    try {
+      setLoading(true);
+      loggingRef.current = true;
+
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (credential.identityToken) {
+        const { error } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+        });
+
+        if (error) {
+          Alert.alert('登入失敗', error.message);
+          setLoading(false);
+          loggingRef.current = false;
+        }
+      }
+    } catch (e: any) {
+      if (e.code !== 'ERR_REQUEST_CANCELED') {
+        Alert.alert('登入失敗', e?.message || 'Unknown error');
+      }
+      setLoading(false);
+      loggingRef.current = false;
+    }
+  };
 
   const handleGoogleLogin = async () => {
     try {
@@ -144,15 +178,28 @@ export default function LoginScreen() {
             </Text>
           </View>
         ) : (
-          <TouchableOpacity
-            style={[styles.loginButton, { backgroundColor: colors.text }, Shadows.md]}
-            onPress={handleGoogleLogin}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.loginButtonText, { color: colors.background }]}>
-              Sign in with Google
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.loginButtons}>
+            <TouchableOpacity
+              style={[styles.loginButton, { backgroundColor: colors.text }, Shadows.md]}
+              onPress={handleGoogleLogin}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.loginButtonText, { color: colors.background }]}>
+                Sign in with Google
+              </Text>
+            </TouchableOpacity>
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                style={[styles.loginButton, { backgroundColor: colors.text }, Shadows.md]}
+                onPress={handleAppleLogin}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.loginButtonText, { color: colors.background }]}>
+                  Sign in with Apple
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
       </View>
     </View>
@@ -189,6 +236,9 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
+  },
+  loginButtons: {
+    gap: Spacing.md,
   },
   loginButton: {
     width: '100%',

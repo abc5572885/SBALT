@@ -9,6 +9,8 @@ interface WeatherData {
   description: string;
   icon: string;
   isRainy: boolean;
+  uvIndex: number | null;
+  uvLevel: string | null;
 }
 
 // WMO Weather interpretation codes
@@ -39,7 +41,7 @@ export async function getWeatherForDate(
     const dateStr = date.toISOString().split('T')[0];
     const hour = date.getHours();
 
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m,weather_code&start_date=${dateStr}&end_date=${dateStr}&timezone=Asia/Taipei`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m,weather_code,uv_index&start_date=${dateStr}&end_date=${dateStr}&timezone=Asia/Taipei`;
 
     const response = await fetch(url);
     if (!response.ok) return null;
@@ -52,11 +54,23 @@ export async function getWeatherForDate(
     const index = Math.min(hour, data.hourly.temperature_2m.length - 1);
     const temperature = Math.round(data.hourly.temperature_2m[index]);
     const weatherCode = data.hourly.weather_code[index];
+    const uvIndex = data.hourly.uv_index?.[index] ?? null;
     const info = getWeatherInfo(weatherCode);
+
+    let uvLevel: string | null = null;
+    if (uvIndex !== null) {
+      if (uvIndex <= 2) uvLevel = '低';
+      else if (uvIndex <= 5) uvLevel = '中';
+      else if (uvIndex <= 7) uvLevel = '高';
+      else if (uvIndex <= 10) uvLevel = '很高';
+      else uvLevel = '極高';
+    }
 
     return {
       temperature,
       weatherCode,
+      uvIndex: uvIndex !== null ? Math.round(uvIndex) : null,
+      uvLevel,
       ...info,
     };
   } catch (error) {

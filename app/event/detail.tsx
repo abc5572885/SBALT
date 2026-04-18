@@ -53,7 +53,7 @@ export default function EventDetailScreen() {
   const [scores, setScores] = useState<EventScore[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [eventImage, setEventImage] = useState<string | null>(null);
-  const [weather, setWeather] = useState<{ temperature: number; description: string; icon: string; isRainy: boolean } | null>(null);
+  const [weather, setWeather] = useState<{ temperature: number; description: string; icon: string; isRainy: boolean; uvIndex: number | null; uvLevel: string | null } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -360,11 +360,18 @@ export default function EventDetailScreen() {
             <Text style={styles.weatherIcon}>{weather.icon}</Text>
             <View style={styles.weatherInfo}>
               <ThemedText style={styles.weatherTemp}>{weather.temperature}°C · {weather.description}</ThemedText>
-              {weather.isRainy && (
-                <ThemedText type="caption" style={{ color: colors.error }}>
-                  注意：活動當天可能下雨
-                </ThemedText>
-              )}
+              <View style={styles.weatherDetails}>
+                {weather.uvIndex !== null && (
+                  <ThemedText type="caption" style={{ color: weather.uvIndex >= 6 ? colors.error : colors.textSecondary }}>
+                    UV {weather.uvIndex}（{weather.uvLevel}）
+                  </ThemedText>
+                )}
+                {weather.isRainy && (
+                  <ThemedText type="caption" style={{ color: colors.error }}>
+                    可能下雨
+                  </ThemedText>
+                )}
+              </View>
             </View>
           </View>
         )}
@@ -584,6 +591,10 @@ const styles = StyleSheet.create({
   weatherTemp: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  weatherDetails: {
+    flexDirection: 'row',
+    gap: Spacing.md,
   },
   scoresCard: {
     borderRadius: Radius.md,
