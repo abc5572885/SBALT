@@ -6,6 +6,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getActivePromotions } from '@/services/promotions';
 import { getProfile, getProfilesByIds, AccountType } from '@/services/profile';
+import { getPublicTournaments, Tournament } from '@/services/tournaments';
+import { getPublicVenues, Venue } from '@/services/venues';
+import { getStatusLabel } from '@/constants/tournaments';
+import { SPORT_OPTIONS } from '@/constants/sports';
 import { Promotion } from '@/types/database';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -24,7 +28,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const TYPE_CONFIG = {
-  event: { label: '賽事', icon: 'calendar' as const },
   venue: { label: '場地', icon: 'location.fill' as const },
   brand: { label: '品牌', icon: 'star.fill' as const },
 } as const;
@@ -35,9 +38,11 @@ export default function DiscoverScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAuth();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [venues, setVenues] = useState<Venue[]>([]);
   const [publishers, setPublishers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'all' | 'event' | 'venue' | 'brand'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'tournament' | 'venue' | 'brand'>('all');
   const [accountType, setAccountType] = useState<AccountType>('regular');
 
   useFocusEffect(
@@ -53,11 +58,17 @@ export default function DiscoverScreen() {
 
   const loadPromotions = async () => {
     try {
-      const data = await getActivePromotions();
-      setPromotions(data);
+      const [promoData, tournamentData, venueData] = await Promise.all([
+        getActivePromotions(),
+        getPublicTournaments({ limit: 20 }),
+        getPublicVenues({ limit: 20 }),
+      ]);
+      setPromotions(promoData);
+      setTournaments(tournamentData);
+      setVenues(venueData);
 
       // Load publisher names
-      const userIds = [...new Set(data.map((p) => p.user_id))];
+      const userIds = [...new Set(promoData.map((p) => p.user_id))];
       if (userIds.length > 0) {
         const profiles = await getProfilesByIds(userIds);
         const names: Record<string, string> = {};
@@ -73,12 +84,22 @@ export default function DiscoverScreen() {
     }
   };
 
+  // 篩掉舊的 event 類型（已合併到 tournaments）；venue 促銷類也改用真實 venues 資料
+  const visiblePromotions = promotions.filter((p) => p.type !== 'event' && p.type !== 'venue');
   const filtered = activeTab === 'all'
-    ? promotions
-    : promotions.filter((p) => p.type === activeTab);
+    ? visiblePromotions
+    : activeTab === 'tournament' || activeTab === 'venue'
+      ? []
+      : visiblePromotions.filter((p) => p.type === activeTab);
 
   const featured = filtered.filter((p) => p.is_featured);
   const regular = filtered.filter((p) => !p.is_featured);
+  const showTournaments = activeTab === 'all' || activeTab === 'tournament';
+  const showVenues = activeTab === 'all' || activeTab === 'venue';
+  const hasAnyContent =
+    (showTournaments && tournaments.length > 0) ||
+    (showVenues && venues.length > 0) ||
+    filtered.length > 0;
 
   const handlePress = async (item: Promotion) => {
     if (item.link_url && /^https?:\/\//.test(item.link_url)) {
@@ -141,8 +162,13 @@ export default function DiscoverScreen() {
         </View>
 
         {/* Tab filter */}
-        <View style={styles.tabRow}>
-          {(['all', 'event', 'venue', 'brand'] as const).map((tab) => (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabScroll}
+          contentContainerStyle={styles.tabRow}
+        >
+          {(['all', 'tournament', 'venue', 'brand'] as const).map((tab) => (
             <TouchableOpacity
               key={tab}
               style={[styles.tab, activeTab === tab && { backgroundColor: colors.text }]}
@@ -153,25 +179,55 @@ export default function DiscoverScreen() {
                 styles.tabText,
                 { color: activeTab === tab ? colors.background : colors.textSecondary },
               ]}>
-                {tab === 'all' ? '全部' : TYPE_CONFIG[tab].label}
+                {tab === 'all' ? '全部' : tab === 'tournament' ? '比賽' : TYPE_CONFIG[tab].label}
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
 
         {loading ? (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" />
           </View>
-        ) : filtered.length === 0 ? (
+        ) : !hasAnyContent ? (
           <View style={styles.emptyContainer}>
             <IconSymbol name="magnifyingglass" size={40} color={colors.disabled} />
             <ThemedText type="caption" style={{ color: colors.textSecondary, marginTop: Spacing.md }}>
-              目前沒有推廣資訊
+              {activeTab === 'tournament' ? '目前沒有進行中的比賽' : '目前沒有推廣資訊'}
             </ThemedText>
           </View>
         ) : (
           <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Tournaments */}
+            {showTournaments && tournaments.length > 0 && (
+              <View style={styles.section}>
+                <ThemedText type="subtitle" style={styles.sectionTitle}>進行中的比賽</ThemedText>
+                {tournaments.map((t) => (
+                  <TournamentCard
+                    key={t.id}
+                    tournament={t}
+                    colors={colors}
+                    onPress={() => router.push({ pathname: '/tournament/[id]', params: { id: t.id } })}
+                  />
+                ))}
+              </View>
+            )}
+
+            {/* Venues */}
+            {showVenues && venues.length > 0 && (
+              <View style={styles.section}>
+                <ThemedText type="subtitle" style={styles.sectionTitle}>可預約場地</ThemedText>
+                {venues.map((v) => (
+                  <VenueCard
+                    key={v.id}
+                    venue={v}
+                    colors={colors}
+                    onPress={() => router.push({ pathname: '/venue/[id]', params: { id: v.id } })}
+                  />
+                ))}
+              </View>
+            )}
+
             {/* Featured */}
             {featured.length > 0 && (
               <View style={styles.section}>
@@ -231,6 +287,145 @@ export default function DiscoverScreen() {
   );
 }
 
+function TournamentCard({
+  tournament,
+  colors,
+  onPress,
+}: {
+  tournament: Tournament;
+  colors: typeof Colors.light;
+  onPress: () => void;
+}) {
+  const sportLabel = SPORT_OPTIONS.find((s) => s.key === tournament.sport_type)?.label || '';
+  const startStr = new Date(tournament.start_date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
+  const deadlineStr = tournament.registration_deadline
+    ? new Date(tournament.registration_deadline).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })
+    : null;
+
+  return (
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      {tournament.cover_image_url && (
+        <Image source={{ uri: tournament.cover_image_url }} style={styles.cardImage} contentFit="cover" />
+      )}
+      <View style={styles.cardBody}>
+        <View style={styles.cardTopRow}>
+          <View style={[styles.typeBadge, { backgroundColor: colors.statusSuccess + '15' }]}>
+            <IconSymbol name="star.fill" size={11} color={colors.statusSuccess} />
+            <ThemedText type="label" style={{ color: colors.statusSuccess }}>
+              {getStatusLabel(tournament.status)}
+            </ThemedText>
+          </View>
+          {tournament.entry_fee > 0 ? (
+            <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>
+              NT$ {tournament.entry_fee}
+            </Text>
+          ) : (
+            <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600' }}>免費</Text>
+          )}
+        </View>
+
+        <Text style={[styles.cardTitle, { color: colors.text }]}>{tournament.title}</Text>
+
+        {tournament.prize_pool && (
+          <ThemedText type="caption" style={{ color: colors.primary }} numberOfLines={1}>
+            獎金：{tournament.prize_pool}
+          </ThemedText>
+        )}
+
+        <View style={styles.cardMeta}>
+          <View style={styles.metaItem}>
+            <IconSymbol name="calendar" size={12} color={colors.textSecondary} />
+            <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+              {startStr}
+              {deadlineStr && ` · 截止 ${deadlineStr}`}
+            </ThemedText>
+          </View>
+          <View style={styles.metaItem}>
+            <IconSymbol name="location.fill" size={12} color={colors.textSecondary} />
+            <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+              {tournament.location}
+            </ThemedText>
+          </View>
+          {sportLabel && (
+            <View style={styles.metaItem}>
+              <IconSymbol name="sportscourt.fill" size={12} color={colors.textSecondary} />
+              <ThemedText type="caption" style={{ color: colors.textSecondary }}>{sportLabel}</ThemedText>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.linkHint}>
+          <ThemedText type="caption" style={{ color: colors.primary }}>查看賽事</ThemedText>
+          <IconSymbol name="chevron.right" size={12} color={colors.primary} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function VenueCard({
+  venue,
+  colors,
+  onPress,
+}: {
+  venue: Venue;
+  colors: typeof Colors.light;
+  onPress: () => void;
+}) {
+  const sportLabels = venue.sport_types.map((k) => SPORT_OPTIONS.find((s) => s.key === k)?.label || k).join('、');
+
+  return (
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      {venue.cover_image_url && (
+        <Image source={{ uri: venue.cover_image_url }} style={styles.cardImage} contentFit="cover" />
+      )}
+      <View style={styles.cardBody}>
+        <View style={styles.cardTopRow}>
+          <View style={[styles.typeBadge, { backgroundColor: colors.primary + '15' }]}>
+            <IconSymbol name="location.fill" size={11} color={colors.primary} />
+            <ThemedText type="label" style={{ color: colors.primary }}>場地</ThemedText>
+          </View>
+          {venue.hourly_rate !== null && (
+            <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>
+              NT$ {venue.hourly_rate}/hr
+            </Text>
+          )}
+        </View>
+
+        <Text style={[styles.cardTitle, { color: colors.text }]}>{venue.name}</Text>
+
+        <View style={styles.cardMeta}>
+          <View style={styles.metaItem}>
+            <IconSymbol name="location.fill" size={12} color={colors.textSecondary} />
+            <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={1}>
+              {venue.address}
+            </ThemedText>
+          </View>
+          {sportLabels && (
+            <View style={styles.metaItem}>
+              <IconSymbol name="sportscourt.fill" size={12} color={colors.textSecondary} />
+              <ThemedText type="caption" style={{ color: colors.textSecondary }}>{sportLabels}</ThemedText>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.linkHint}>
+          <ThemedText type="caption" style={{ color: colors.primary }}>查看場地</ThemedText>
+          <IconSymbol name="chevron.right" size={12} color={colors.primary} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 function PromotionCard({
   item,
   publisher,
@@ -250,7 +445,7 @@ function PromotionCard({
   onDelete?: () => void;
   featured?: boolean;
 }) {
-  const typeConfig = TYPE_CONFIG[item.type as keyof typeof TYPE_CONFIG];
+  const typeConfig = TYPE_CONFIG[item.type as keyof typeof TYPE_CONFIG] || TYPE_CONFIG.brand;
 
   return (
     <View
@@ -358,16 +553,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  tabScroll: {
+    flexGrow: 0,
+    marginBottom: Spacing.lg,
+  },
   tabRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
-    marginBottom: Spacing.lg,
+    paddingVertical: Spacing.xs,
   },
   tab: {
-    flex: 1,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: Radius.sm,
     alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'transparent',
   },
   tabText: {
     fontSize: 14,

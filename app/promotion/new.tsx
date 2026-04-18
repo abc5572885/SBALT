@@ -22,7 +22,6 @@ import {
 } from 'react-native';
 
 const TYPE_OPTIONS = [
-  { key: 'event', label: '賽事' },
   { key: 'venue', label: '場地' },
   { key: 'brand', label: '品牌' },
 ] as const;
@@ -45,8 +44,8 @@ export default function NewPromotionScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const { user, loading: authLoading } = useAuth();
 
-  const [type, setType] = useState<'event' | 'venue' | 'brand'>(
-    (params.editType as any) || 'event'
+  const [type, setType] = useState<'venue' | 'brand'>(
+    (params.editType === 'venue' || params.editType === 'brand') ? params.editType : 'venue'
   );
   const [title, setTitle] = useState(params.editTitle || '');
   const [description, setDescription] = useState(params.editDescription || '');
@@ -189,7 +188,7 @@ export default function NewPromotionScreen() {
           style={inputStyle}
           value={title}
           onChangeText={setTitle}
-          placeholder={type === 'event' ? '例：2026 新竹城市馬拉松' : type === 'venue' ? '例：竹北國民運動中心' : '例：Nike 運動裝備'}
+          placeholder={type === 'venue' ? '例：竹北國民運動中心' : '例：Nike 運動裝備'}
           placeholderTextColor={colors.disabled}
         />
       </View>

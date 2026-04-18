@@ -21,6 +21,8 @@ import {
   hasUserRegistered,
 } from '@/services/database';
 import { Comment, Event, EventScore } from '@/types/database';
+import { getEventPlayerSummaries, PlayerEventSummary } from '@/services/playerStats';
+import { getProfilesByIds, Profile, getDisplayName } from '@/services/profile';
 import { addToDeviceCalendar } from '@/services/calendar';
 import { pickAndUploadEventImage } from '@/services/eventImage';
 import { scheduleEventReminder, sendLocalNotification } from '@/services/notifications';
@@ -53,6 +55,8 @@ export default function EventDetailScreen() {
   const [waitlisted, setWaitlisted] = useState(false);
   const [regCount, setRegCount] = useState(0);
   const [scores, setScores] = useState<EventScore[]>([]);
+  const [playerSummaries, setPlayerSummaries] = useState<PlayerEventSummary[]>([]);
+  const [statProfiles, setStatProfiles] = useState<Record<string, Profile>>({});
   const [comments, setComments] = useState<Comment[]>([]);
   const [eventImage, setEventImage] = useState<string | null>(null);
   const [weather, setWeather] = useState<{ temperature: number; description: string; icon: string; isRainy: boolean; uvIndex: number | null; uvLevel: string | null } | null>(null);
@@ -71,6 +75,13 @@ export default function EventDetailScreen() {
       const [count, eventScores] = await Promise.all([
         getRegistrationCount(eventId),
         getEventScores(eventId),
+        getEventPlayerSummaries(eventId).then(async (summaries) => {
+          setPlayerSummaries(summaries);
+          if (summaries.length > 0) {
+            const p = await getProfilesByIds(summaries.map((s) => s.user_id));
+            setStatProfiles(p);
+          }
+        }).catch(() => {}),
       ]);
       setRegCount(count);
       setScores(eventScores);
@@ -420,6 +431,48 @@ export default function EventDetailScreen() {
                   </View>
                 </View>
               ))}
+            </View>
+          </View>
+        )}
+
+        {/* Player Rankings */}
+        {playerSummaries.length > 0 && (
+          <View style={styles.descSection}>
+            <ThemedText type="label" style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+              球員得分
+            </ThemedText>
+            <View style={[styles.scoresCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
+              {playerSummaries.map((p, i) => {
+                const name = getDisplayName(statProfiles[p.user_id], p.user_id, p.user_id === user?.id);
+                return (
+                  <View key={p.user_id}>
+                    {i > 0 && <View style={[styles.scoreDivider, { backgroundColor: colors.border }]} />}
+                    <TouchableOpacity
+                      style={styles.scoreRow}
+                      onPress={() => p.user_id !== user?.id && router.push(`/user/${p.user_id}`)}
+                      activeOpacity={p.user_id === user?.id ? 1 : 0.6}
+                      disabled={p.user_id === user?.id}
+                    >
+                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                        <Text style={[styles.scoreLabel, { color: colors.textSecondary, fontSize: 14 }]}>
+                          {i + 1}.
+                        </Text>
+                        <Text style={[styles.scoreLabel, { color: colors.text }]} numberOfLines={1}>
+                          {name}
+                        </Text>
+                        {p.team_label && (
+                          <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                            {p.team_label}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={[styles.scoreValue, { color: i === 0 ? colors.primary : colors.text, fontSize: 20 }]}>
+                        {p.points}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}

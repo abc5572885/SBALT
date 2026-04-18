@@ -33,7 +33,10 @@ export default function CreateGroupScreen() {
   }, [user]);
 
   const availableTypes = GROUP_TYPES.filter(
-    (t) => t.key !== 'competition_org' || accountType === 'official'
+    (t) => !t.officialOnly || accountType === 'official'
+  );
+  const lockedTypes = GROUP_TYPES.filter(
+    (t) => t.officialOnly && accountType !== 'official'
   );
 
   const handleCreate = async () => {
@@ -93,16 +96,16 @@ export default function CreateGroupScreen() {
                 </TouchableOpacity>
               );
             })}
-            {accountType !== 'official' && (
-              <View style={[styles.typeCard, styles.typeCardDisabled, { borderColor: colors.border }]}>
+            {lockedTypes.map((t) => (
+              <View key={t.key} style={[styles.typeCard, styles.typeCardDisabled, { borderColor: colors.border }]}>
                 <ThemedText style={[styles.typeLabel, { color: colors.disabled }]}>
-                  比賽方
+                  {t.label}
                 </ThemedText>
                 <ThemedText type="caption" style={{ color: colors.disabled }}>
-                  僅限官方帳號（賽事主辦單位）
+                  僅限官方帳號 · {t.description}
                 </ThemedText>
               </View>
-            )}
+            ))}
           </View>
         </View>
 

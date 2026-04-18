@@ -25,11 +25,24 @@
 
 ## 比賽系統（分步做，等真有比賽方再建新表）
 
-- [x] Step 1：`groups.type` 分類（casual / competition_org / team）+ UI 標籤 filter
-- [ ] Step 2：建 `tournaments` + `tournament_registrations` 表（個人報名 v1）
-- [ ] Step 3：建 `player_stats` 表 + 計分板加「個人得分」按鈕
-- [ ] Step 4：隊伍報名 / 賽制晉級（單敗淘汰 / 循環）
+- [x] Step 1：`groups.type` 分類（casual / competition_org / team / venue_operator）+ UI 標籤 filter
+- [x] Step 2：建 `tournaments` + `tournament_registrations` 表（個人報名 v1）
+- [x] Discover 加「比賽」+「場地」區塊
+- [x] Step 3：建 `player_stats` 表 + 計分板加「個人得分」按鈕
+- [x] Step 4a：隊伍報名（隊長建隊 + 邀請 + 接受/拒絕）
+- [ ] Step 4b：賽制晉級（單敗淘汰 / 循環的 bracket 顯示）
 - [ ] Step 5：金流 / 保險 / 免責聲明（需公司登記）
+
+## 場地方系統
+
+- [x] `venues` + `venue_bookings` 表 + RLS
+- [x] venue_operator 群組類型 + 群組頁「場地」tab
+- [x] 場地 CRUD（新增 / 詳情 / 編輯 / 刪除）
+- [x] 預約流程（選日期 / 時段 / 時長 / 衝突檢查）
+- [ ] 場地方管理預約（確認 / 拒絕 / 已完成）
+- [ ] 我的預約頁面（個人頁入口）
+- [ ] 場地 cover 圖片上傳
+- [ ] 與國民運動中心實際合作洽談
 
 ## 社群功能強化
 

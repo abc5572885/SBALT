@@ -15,6 +15,10 @@ import {
   getGroupPosts,
   leaveGroup,
 } from '@/services/groups';
+import { getTournamentsByGroup, Tournament } from '@/services/tournaments';
+import { getVenuesByOperator, Venue } from '@/services/venues';
+import { getStatusLabel } from '@/constants/tournaments';
+import { getGroupTypeLabel } from '@/constants/groupTypes';
 import { Event, Group, GroupMember, GroupPost } from '@/types/database';
 import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
@@ -44,11 +48,13 @@ export default function GroupDetailScreen() {
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [posts, setPosts] = useState<GroupPost[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [newPost, setNewPost] = useState('');
   const [posting, setPosting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'posts' | 'events' | 'members'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'events' | 'tournaments' | 'venues' | 'members'>('posts');
 
   useFocusEffect(
     useCallback(() => {
@@ -58,16 +64,26 @@ export default function GroupDetailScreen() {
 
   const loadData = async () => {
     try {
-      const [groupData, membersData, postsData, eventsData] = await Promise.all([
+      const [groupData, membersData, postsData, eventsData, tournamentsData, venuesData] = await Promise.all([
         getGroupById(id),
         getGroupMembers(id),
         getGroupPosts(id),
         getGroupEvents(id),
+        getTournamentsByGroup(id),
+        getVenuesByOperator(id),
       ]);
       setGroup(groupData);
       setMembers(membersData);
       setPosts(postsData);
       setEvents(eventsData);
+      setTournaments(tournamentsData);
+      setVenues(venuesData);
+      if (groupData?.type === 'competition_org' && activeTab === 'posts') {
+        setActiveTab('tournaments');
+      }
+      if (groupData?.type === 'venue_operator' && activeTab === 'posts') {
+        setActiveTab('venues');
+      }
 
       // Load profiles for all members
       const userIds = membersData.map((m: any) => m.user_id);
@@ -162,6 +178,11 @@ export default function GroupDetailScreen() {
       {/* Group header */}
       <View style={[styles.header, { paddingHorizontal: Spacing.lg }]}>
         <View style={styles.headerInfo}>
+          <View style={[styles.typeTag, { borderColor: colors.border }]}>
+            <ThemedText type="label" style={{ color: colors.textSecondary }}>
+              {getGroupTypeLabel(group.type)}
+            </ThemedText>
+          </View>
           {sportLabel && (
             <View style={[styles.sportTag, { backgroundColor: colors.primary + '12' }]}>
               <ThemedText type="label" style={{ color: colors.primary }}>{sportLabel}</ThemedText>
@@ -188,22 +209,45 @@ export default function GroupDetailScreen() {
       </View>
 
       {/* Tabs */}
-      <View style={[styles.tabs, { borderBottomColor: colors.border, marginHorizontal: Spacing.lg }]}>
-        {(['posts', 'events', 'members'] as const).map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-            onPress={() => setActiveTab(tab)}
-            activeOpacity={0.7}
-          >
-            <ThemedText
-              style={[styles.tabText, { color: activeTab === tab ? colors.primary : colors.textSecondary }]}
-            >
-              {tab === 'posts' ? '公告' : tab === 'events' ? '活動' : '成員'}
-            </ThemedText>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {(() => {
+        const isCompetitionOrg = group.type === 'competition_org';
+        const isVenueOperator = group.type === 'venue_operator';
+        const tabs: { key: 'tournaments' | 'posts' | 'events' | 'venues' | 'members'; label: string }[] = isCompetitionOrg
+          ? [
+              { key: 'tournaments', label: '賽事' },
+              { key: 'posts', label: '公告' },
+              { key: 'members', label: '成員' },
+            ]
+          : isVenueOperator
+          ? [
+              { key: 'venues', label: '場地' },
+              { key: 'posts', label: '公告' },
+              { key: 'members', label: '成員' },
+            ]
+          : [
+              { key: 'posts', label: '公告' },
+              { key: 'events', label: '活動' },
+              { key: 'members', label: '成員' },
+            ];
+        return (
+          <View style={[styles.tabs, { borderBottomColor: colors.border, marginHorizontal: Spacing.lg }]}>
+            {tabs.map((tab) => (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tab, activeTab === tab.key && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
+                onPress={() => setActiveTab(tab.key)}
+                activeOpacity={0.7}
+              >
+                <ThemedText
+                  style={[styles.tabText, { color: activeTab === tab.key ? colors.primary : colors.textSecondary }]}
+                >
+                  {tab.label}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </View>
+        );
+      })()}
 
       {/* Content */}
       <ScrollView style={styles.scrollView} contentContainerStyle={{ padding: Spacing.lg }}>
@@ -258,6 +302,96 @@ export default function GroupDetailScreen() {
                   <ThemedText style={styles.postContent}>{post.content}</ThemedText>
                 </View>
               ))
+            )}
+          </>
+        )}
+
+        {activeTab === 'tournaments' && (
+          <>
+            {isAdmin && (
+              <TouchableOpacity
+                style={[styles.createEventBtn, { backgroundColor: colors.primary }, Shadows.sm]}
+                onPress={() => router.push({ pathname: '/tournament/new', params: { groupId: id } })}
+                activeOpacity={0.7}
+              >
+                <IconSymbol name="plus" size={16} color="#FFF" />
+                <Text style={styles.createEventText}>建立賽事</Text>
+              </TouchableOpacity>
+            )}
+            {tournaments.length === 0 ? (
+              <View style={styles.emptySection}>
+                <ThemedText type="caption" style={{ color: colors.textSecondary }}>尚無賽事</ThemedText>
+              </View>
+            ) : (
+              tournaments.map((t) => {
+                const sportLabel2 = SPORT_OPTIONS.find((s) => s.key === t.sport_type)?.label || '';
+                const startStr = new Date(t.start_date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
+                return (
+                  <TouchableOpacity
+                    key={t.id}
+                    style={[styles.tournamentCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+                    onPress={() => router.push({ pathname: '/tournament/[id]', params: { id: t.id } })}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.tournamentTopRow}>
+                      <View style={[styles.statusPill, { backgroundColor: colors.statusSuccess + '15' }]}>
+                        <ThemedText type="label" style={{ color: colors.statusSuccess }}>
+                          {getStatusLabel(t.status)}
+                        </ThemedText>
+                      </View>
+                      {t.entry_fee > 0 && (
+                        <ThemedText type="label" style={{ color: colors.primary }}>
+                          NT$ {t.entry_fee}
+                        </ThemedText>
+                      )}
+                    </View>
+                    <ThemedText style={styles.tournamentTitle}>{t.title}</ThemedText>
+                    <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+                      {startStr} · {sportLabel2} · {t.location}
+                    </ThemedText>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </>
+        )}
+
+        {activeTab === 'venues' && (
+          <>
+            {isAdmin && (
+              <TouchableOpacity
+                style={[styles.createEventBtn, { backgroundColor: colors.primary }, Shadows.sm]}
+                onPress={() => router.push({ pathname: '/venue/new', params: { groupId: id } })}
+                activeOpacity={0.7}
+              >
+                <IconSymbol name="plus" size={16} color="#FFF" />
+                <Text style={styles.createEventText}>新增場地</Text>
+              </TouchableOpacity>
+            )}
+            {venues.length === 0 ? (
+              <View style={styles.emptySection}>
+                <ThemedText type="caption" style={{ color: colors.textSecondary }}>尚無場地</ThemedText>
+              </View>
+            ) : (
+              venues.map((v) => {
+                const sportLabels = v.sport_types.map((k) => SPORT_OPTIONS.find((s) => s.key === k)?.label || k).join('、');
+                return (
+                  <TouchableOpacity
+                    key={v.id}
+                    style={[styles.tournamentCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+                    onPress={() => router.push({ pathname: '/venue/[id]', params: { id: v.id } })}
+                    activeOpacity={0.7}
+                  >
+                    <ThemedText style={styles.tournamentTitle}>{v.name}</ThemedText>
+                    <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={1}>
+                      {v.address}
+                    </ThemedText>
+                    <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+                      {sportLabels}{v.hourly_rate ? ` · NT$ ${v.hourly_rate}/hr` : ''}
+                    </ThemedText>
+                  </TouchableOpacity>
+                );
+              })
             )}
           </>
         )}
@@ -344,6 +478,30 @@ const styles = StyleSheet.create({
   },
   inviteCode: { fontSize: 16, fontWeight: '700', letterSpacing: 2 },
   sportTag: { paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.sm },
+  typeTag: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  tournamentCard: {
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  tournamentTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statusPill: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+  },
+  tournamentTitle: { fontSize: 16, fontWeight: '700' },
   // Tabs
   tabs: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, marginBottom: Spacing.sm },
   tab: { flex: 1, alignItems: 'center', paddingVertical: Spacing.md },

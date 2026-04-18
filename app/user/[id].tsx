@@ -9,6 +9,7 @@ import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getUserStats } from '@/services/database';
+import { CareerStats, getUserCareerStats } from '@/services/playerStats';
 import { getProfile, Profile, SportPositions } from '@/services/profile';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -31,6 +32,7 @@ export default function UserProfileScreen() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [stats, setStats] = useState({ organized: 0, joined: 0 });
+  const [career, setCareer] = useState<CareerStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,10 +42,11 @@ export default function UserProfileScreen() {
       router.replace('/profile');
       return;
     }
-    Promise.all([getProfile(id), getUserStats(id)])
-      .then(([p, s]) => {
+    Promise.all([getProfile(id), getUserStats(id), getUserCareerStats(id)])
+      .then(([p, s, c]) => {
         setProfile(p);
         setStats(s);
+        setCareer(c);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -184,6 +187,48 @@ export default function UserProfileScreen() {
           <ThemedText type="caption" style={{ color: colors.textSecondary }}>參加活動</ThemedText>
         </View>
       </View>
+
+      {/* Career Stats */}
+      {career && career.totalEvents > 0 && (
+        <View style={styles.section}>
+          <ThemedText type="label" style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            生涯數據
+          </ThemedText>
+          <View style={[styles.careerCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
+            <View style={styles.careerTopRow}>
+              <View style={styles.careerStat}>
+                <Text style={[styles.careerNumber, { color: colors.primary }]}>{career.totalEvents}</Text>
+                <ThemedText type="caption" style={{ color: colors.textSecondary }}>場</ThemedText>
+              </View>
+              <View style={styles.careerStat}>
+                <Text style={[styles.careerNumber, { color: colors.primary }]}>{career.totalPoints}</Text>
+                <ThemedText type="caption" style={{ color: colors.textSecondary }}>總得分</ThemedText>
+              </View>
+              <View style={styles.careerStat}>
+                <Text style={[styles.careerNumber, { color: colors.primary }]}>
+                  {career.averagePoints.toFixed(1)}
+                </Text>
+                <ThemedText type="caption" style={{ color: colors.textSecondary }}>場均</ThemedText>
+              </View>
+            </View>
+            {Object.keys(career.bySport).length > 1 && (
+              <View style={[styles.careerBreak, { borderTopColor: colors.border }]}>
+                {Object.entries(career.bySport).map(([sport, s]) => {
+                  const sportLabel = SPORT_OPTIONS.find((o) => o.key === sport)?.label || sport;
+                  return (
+                    <View key={sport} style={styles.careerSportRow}>
+                      <Text style={[styles.careerSportLabel, { color: colors.text }]}>{sportLabel}</Text>
+                      <Text style={[styles.careerSportValue, { color: colors.textSecondary }]}>
+                        {s.events} 場 · {s.points} 分 · 場均 {s.average.toFixed(1)}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* Favorite sports */}
       {profile.favorite_sports && profile.favorite_sports.length > 0 && (
@@ -339,4 +384,25 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginLeft: Spacing.lg,
   },
+  careerCard: {
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.md,
+  },
+  careerTopRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  careerStat: { alignItems: 'center', gap: 4 },
+  careerNumber: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
+  careerBreak: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  careerSportRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  careerSportLabel: { fontSize: 13, fontWeight: '600' },
+  careerSportValue: { fontSize: 12 },
 });
