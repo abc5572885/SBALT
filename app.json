@@ -19,6 +19,7 @@
         ],
         "NSPhotoLibraryUsageDescription": "SBALT 需要存取您的照片來設定頭像",
         "NSCalendarsFullAccessUsageDescription": "SBALT 需要存取行事曆來新增活動提醒",
+        "NSLocationWhenInUseUsageDescription": "SBALT 需要定位來追蹤跑步路線",
         "LSApplicationQueriesSchemes": ["comgooglemaps"]
       }
     },

@@ -232,6 +232,20 @@ export default function HomeScreen() {
           </View>
 
           {/* Sport tools */}
+          {selectedSport === 'running' && (
+            <TouchableOpacity
+              style={[styles.toolCard, { backgroundColor: '#22C55E' }, Shadows.md]}
+              onPress={() => router.push('/sport/run')}
+              activeOpacity={0.8}
+            >
+              <View style={styles.toolCardContent}>
+                <Text style={styles.toolCardTitle}>開始跑步</Text>
+                <Text style={styles.toolCardSubtitle}>GPS 追蹤 · 配速 · 路線記錄</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={18} color="rgba(255,255,255,0.5)" />
+            </TouchableOpacity>
+          )}
+
           {(selectedSport === 'basketball' || selectedSport === 'volleyball') && (
             <TouchableOpacity
               style={[styles.toolCard, { backgroundColor: selectedSport === 'basketball' ? '#E87A2A' : '#2563EB' }, Shadows.md]}

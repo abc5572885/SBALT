@@ -3,6 +3,8 @@ import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import '@/lib/mapbox';
+import Mapbox from '@rnmapbox/maps';
 import React, { useState } from 'react';
 import {
   Linking,
@@ -12,7 +14,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface Venue {
@@ -24,56 +25,13 @@ interface Venue {
   sports: string[];
 }
 
-// Popular sports venues in Zhubei / Hsinchu area
 const VENUES: Venue[] = [
-  {
-    id: '1',
-    name: '新科國民運動中心',
-    address: '新竹縣竹北市科大一路2號',
-    latitude: 24.8098,
-    longitude: 121.0395,
-    sports: ['籃球', '排球', '羽球', '游泳'],
-  },
-  {
-    id: '2',
-    name: '竹北國民運動中心',
-    address: '新竹縣竹北市福興路1000號',
-    latitude: 24.8296,
-    longitude: 121.0133,
-    sports: ['籃球', '排球', '羽球'],
-  },
-  {
-    id: '3',
-    name: '新竹市立體育館',
-    address: '新竹市東區公園路295號',
-    latitude: 24.8015,
-    longitude: 120.9718,
-    sports: ['籃球', '排球'],
-  },
-  {
-    id: '4',
-    name: '十八尖山',
-    address: '新竹市東區寶山路',
-    latitude: 24.7870,
-    longitude: 120.9860,
-    sports: ['跑步', '健行'],
-  },
-  {
-    id: '5',
-    name: '頭前溪自行車道',
-    address: '新竹縣竹北市',
-    latitude: 24.8180,
-    longitude: 121.0050,
-    sports: ['跑步', '騎車'],
-  },
-  {
-    id: '6',
-    name: '竹北市立體育場',
-    address: '新竹縣竹北市光明六路10號',
-    latitude: 24.8370,
-    longitude: 121.0050,
-    sports: ['籃球', '跑步'],
-  },
+  { id: '1', name: '新科國民運動中心', address: '新竹縣竹北市科大一路2號', latitude: 24.8098, longitude: 121.0395, sports: ['籃球', '排球', '羽球', '游泳'] },
+  { id: '2', name: '竹北國民運動中心', address: '新竹縣竹北市福興路1000號', latitude: 24.8296, longitude: 121.0133, sports: ['籃球', '排球', '羽球'] },
+  { id: '3', name: '新竹市立體育館', address: '新竹市東區公園路295號', latitude: 24.8015, longitude: 120.9718, sports: ['籃球', '排球'] },
+  { id: '4', name: '十八尖山', address: '新竹市東區寶山路', latitude: 24.7870, longitude: 120.9860, sports: ['跑步', '健行'] },
+  { id: '5', name: '頭前溪自行車道', address: '新竹縣竹北市', latitude: 24.8180, longitude: 121.0050, sports: ['跑步', '騎車'] },
+  { id: '6', name: '竹北市立體育場', address: '新竹縣竹北市光明六路10號', latitude: 24.8370, longitude: 121.0050, sports: ['籃球', '跑步'] },
 ];
 
 export default function VenuesScreen() {
@@ -84,42 +42,50 @@ export default function VenuesScreen() {
   const openNavigation = (venue: Venue) => {
     const query = encodeURIComponent(venue.address);
     const url = Platform.select({
-      ios: `maps:?q=${query}&ll=${venue.latitude},${venue.longitude}`,
-      android: `geo:${venue.latitude},${venue.longitude}?q=${query}`,
+      ios: `maps:?q=${query}`,
+      android: `geo:0,0?q=${query}`,
       default: `https://maps.google.com/?q=${query}`,
     });
     Linking.openURL(url);
   };
 
+  const mapStyle = colorScheme === 'dark'
+    ? 'mapbox://styles/mapbox/dark-v11'
+    : 'mapbox://styles/mapbox/outdoors-v12';
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}>
       <PageHeader title="附近場地" />
 
-      {/* Map */}
       <View style={styles.mapContainer}>
-        <MapView
+        <Mapbox.MapView
           style={styles.map}
-          initialRegion={{
-            latitude: 24.8200,
-            longitude: 121.0100,
-            latitudeDelta: 0.08,
-            longitudeDelta: 0.08,
-          }}
-          showsUserLocation
+          styleURL={mapStyle}
+          logoEnabled={false}
+          attributionEnabled={false}
         >
+          <Mapbox.Camera
+            defaultSettings={{
+              centerCoordinate: [121.01, 24.82],
+              zoomLevel: 12,
+            }}
+          />
           {VENUES.map((venue) => (
-            <Marker
+            <Mapbox.PointAnnotation
               key={venue.id}
-              coordinate={{ latitude: venue.latitude, longitude: venue.longitude }}
+              id={venue.id}
+              coordinate={[venue.longitude, venue.latitude]}
               title={venue.name}
-              description={venue.sports.join(' · ')}
-              onPress={() => setSelectedVenue(venue)}
-            />
+              onSelected={() => setSelectedVenue(venue)}
+            >
+              <View style={styles.marker}>
+                <IconSymbol name="location.fill" size={20} color={colors.primary} />
+              </View>
+            </Mapbox.PointAnnotation>
           ))}
-        </MapView>
+        </Mapbox.MapView>
       </View>
 
-      {/* Venue list */}
       <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
         {(selectedVenue ? [selectedVenue] : VENUES).map((venue) => (
           <TouchableOpacity
@@ -146,11 +112,7 @@ export default function VenuesScreen() {
         ))}
 
         {selectedVenue && (
-          <TouchableOpacity
-            style={styles.clearButton}
-            onPress={() => setSelectedVenue(null)}
-            activeOpacity={0.6}
-          >
+          <TouchableOpacity style={styles.clearButton} onPress={() => setSelectedVenue(null)} activeOpacity={0.6}>
             <ThemedText type="caption" style={{ color: colors.primary }}>顯示全部場地</ThemedText>
           </TouchableOpacity>
         )}
@@ -162,9 +124,7 @@ export default function VenuesScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
+  safeArea: { flex: 1 },
   mapContainer: {
     height: 280,
     marginHorizontal: Spacing.lg,
@@ -172,13 +132,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: Spacing.lg,
   },
-  map: {
-    flex: 1,
+  map: { flex: 1 },
+  marker: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  listContainer: {
-    flex: 1,
-    paddingHorizontal: Spacing.lg,
-  },
+  listContainer: { flex: 1, paddingHorizontal: Spacing.lg },
   venueCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -187,26 +148,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: Spacing.sm,
   },
-  venueInfo: {
-    flex: 1,
-    gap: Spacing.xs,
-  },
-  venueName: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  sportTags: {
-    flexDirection: 'row',
-    gap: Spacing.xs,
-    marginTop: Spacing.xs,
-  },
-  sportTag: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: Radius.sm,
-  },
-  clearButton: {
-    alignItems: 'center',
-    paddingVertical: Spacing.md,
-  },
+  venueInfo: { flex: 1, gap: Spacing.xs },
+  venueName: { fontSize: 16, fontWeight: '600' },
+  sportTags: { flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.xs },
+  sportTag: { paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.sm },
+  clearButton: { alignItems: 'center', paddingVertical: Spacing.md },
 });
