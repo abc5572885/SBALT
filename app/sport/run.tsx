@@ -364,14 +364,6 @@ export default function RunScreen() {
                   <IconSymbol name="location.fill" size={16} color={colors.primary} />
                   <Text style={[styles.quickLinkText, { color: colors.text }]}>路線規劃</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.quickLink, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                  onPress={() => router.push('/sport/run-history')}
-                  activeOpacity={0.7}
-                >
-                  <IconSymbol name="chart.bar.fill" size={16} color={colors.primary} />
-                  <Text style={[styles.quickLinkText, { color: colors.text }]}>跑步紀錄</Text>
-                </TouchableOpacity>
               </View>
 
               {/* Target selector */}
