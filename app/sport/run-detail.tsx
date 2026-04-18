@@ -90,7 +90,7 @@ export default function RunDetailScreen() {
   };
 
   const mapStyle = colorScheme === 'dark'
-    ? 'mapbox://styles/mapbox/dark-v11'
+    ? 'mapbox://styles/mapbox/navigation-night-v1'
     : 'mapbox://styles/mapbox/outdoors-v12';
 
   // Bounds
@@ -135,7 +135,8 @@ export default function RunDetailScreen() {
                 <Mapbox.ShapeSource id="detail-route" shape={routeGeoJSON}>
                   <Mapbox.LineLayer
                     id="detail-line"
-                    style={{ lineColor: '#2563EB', lineWidth: 3, lineCap: 'round', lineJoin: 'round' }}
+                    slot="top"
+                    style={{ lineColor: colorScheme === 'dark' ? '#FF9224' : '#2563EB', lineWidth: 5, lineCap: 'round', lineJoin: 'round' }}
                   />
                 </Mapbox.ShapeSource>
                 <Mapbox.PointAnnotation id="start" coordinate={[route[0].longitude, route[0].latitude]}>
@@ -166,7 +167,7 @@ export default function RunDetailScreen() {
 
           {/* Main distance */}
           <View style={styles.mainStat}>
-            <Text style={[styles.mainDistance, { color: colors.text }]}>{distKm.toFixed(2)}</Text>
+            <Text style={[styles.mainDistance, { color: colors.primary }]}>{distKm.toFixed(2)}</Text>
             <ThemedText type="caption" style={{ color: colors.textSecondary }}>公里</ThemedText>
           </View>
 

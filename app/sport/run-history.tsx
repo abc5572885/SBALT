@@ -53,7 +53,7 @@ function RunRoutePreview({ route, colorScheme }: { route: any[]; colorScheme: st
     <View style={styles.mapPreview}>
       <Mapbox.MapView
         style={styles.mapPreviewInner}
-        styleURL={colorScheme === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/outdoors-v12'}
+        styleURL={colorScheme === 'dark' ? 'mapbox://styles/mapbox/navigation-night-v1' : 'mapbox://styles/mapbox/outdoors-v12'}
         logoEnabled={false}
         attributionEnabled={false}
         scaleBarEnabled={false}
@@ -71,10 +71,10 @@ function RunRoutePreview({ route, colorScheme }: { route: any[]; colorScheme: st
         />
         <Mapbox.ShapeSource id="preview-route" shape={geoJSON}>
           <Mapbox.LineLayer
-            id="preview-line"
+            id="preview-line" slot="top"
             style={{
-              lineColor: '#2563EB',
-              lineWidth: 3,
+              lineColor: colorScheme === 'dark' ? '#FF9224' : '#2563EB',
+              lineWidth: 5,
               lineCap: 'round',
               lineJoin: 'round',
             }}
@@ -184,7 +184,7 @@ export default function RunHistoryScreen() {
                   {/* Stats row */}
                   <View style={styles.runStatsRow}>
                     <View style={styles.runStatMain}>
-                      <Text style={[styles.runDistance, { color: colors.text }]}>
+                      <Text style={[styles.runDistance, { color: colors.primary }]}>
                         {distKm.toFixed(2)}
                       </Text>
                       <ThemedText type="caption" style={{ color: colors.textSecondary }}>公里</ThemedText>

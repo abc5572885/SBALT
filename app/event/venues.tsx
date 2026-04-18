@@ -50,7 +50,7 @@ export default function VenuesScreen() {
   };
 
   const mapStyle = colorScheme === 'dark'
-    ? 'mapbox://styles/mapbox/dark-v11'
+    ? 'mapbox://styles/mapbox/navigation-night-v1'
     : 'mapbox://styles/mapbox/outdoors-v12';
 
   return (
