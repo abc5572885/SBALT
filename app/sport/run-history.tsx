@@ -216,6 +216,31 @@ export default function RunHistoryScreen() {
 
                   {/* Route map preview */}
                   <RunRoutePreview route={run.route} colorScheme={colorScheme} />
+
+                  {/* Rerun button */}
+                  <TouchableOpacity
+                    style={[styles.rerunBtn, { borderTopColor: colors.border }]}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      const km = (dist / 1000).toFixed(1);
+                      const durMin = Math.round(run.duration / 60);
+                      const h = Math.floor(durMin / 60);
+                      const m = durMin % 60;
+                      router.push({
+                        pathname: '/sport/run',
+                        params: {
+                          targetType: 'distance',
+                          targetKm: km,
+                          targetHour: h.toString(),
+                          targetMin: m.toString(),
+                        },
+                      });
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <IconSymbol name="arrow.clockwise" size={14} color={colors.primary} />
+                    <Text style={[styles.rerunText, { color: colors.primary }]}>再跑一次</Text>
+                  </TouchableOpacity>
                 </TouchableOpacity>
               );
             })}
@@ -308,6 +333,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#DC2626',
     borderWidth: 2,
     borderColor: '#FFF',
+  },
+  rerunBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  rerunText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   emptyCard: {
     padding: Spacing.xxxl,

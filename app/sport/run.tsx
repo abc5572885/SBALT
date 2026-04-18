@@ -12,14 +12,16 @@ import {
   saveRun,
 } from '@/services/running';
 import Mapbox from '@rnmapbox/maps';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
+import * as Speech from 'expo-speech';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -33,6 +35,12 @@ interface Coord {
 
 export default function RunScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    targetType?: string;
+    targetKm?: string;
+    targetHour?: string;
+    targetMin?: string;
+  }>();
   const { user } = useAuth();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -41,11 +49,20 @@ export default function RunScreen() {
   const [coords, setCoords] = useState<Coord[]>([]);
   const [distance, setDistance] = useState(0);
   const [duration, setDuration] = useState(0);
+  // Target settings (pre-fill from params if coming from "再跑一次")
+  const [targetType, setTargetType] = useState<'none' | 'distance' | 'time'>(
+    (params.targetType as any) || 'none'
+  );
+  const [targetKm, setTargetKm] = useState(params.targetKm || '5');
+  const [targetHour, setTargetHour] = useState(params.targetHour || '0');
+  const [targetMin, setTargetMin] = useState(params.targetMin || '30');
 
   const cameraRef = useRef<Mapbox.Camera>(null);
   const locationSub = useRef<Location.LocationSubscription | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef<string>('');
+  const lastKmRef = useRef(0); // Track last announced km
+  const lastMinRef = useRef(0); // Track last announced minute
 
   useEffect(() => {
     return () => {
@@ -53,6 +70,45 @@ export default function RunScreen() {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
+
+  // Voice announcements
+  const announce = (text: string) => {
+    Speech.speak(text, { language: 'zh-TW', rate: 0.9 });
+  };
+
+  // Check milestones for voice
+  const checkMilestones = (dist: number, dur: number) => {
+    const currentKm = Math.floor(dist / 1000);
+    if (currentKm > lastKmRef.current && currentKm > 0) {
+      lastKmRef.current = currentKm;
+      const pace = calculatePace(dist / 1000, dur);
+      const paceMin = Math.floor(pace);
+      const paceSec = Math.round((pace - paceMin) * 60);
+      announce(`${currentKm}公里，配速${paceMin}分${paceSec}秒`);
+    }
+
+    // Every 5 minutes
+    const currentMin = Math.floor(dur / 300) * 5;
+    if (currentMin > lastMinRef.current && currentMin > 0) {
+      lastMinRef.current = currentMin;
+      const km = (dist / 1000).toFixed(1);
+      announce(`已跑${currentMin}分鐘，距離${km}公里`);
+    }
+
+    // Target reached
+    const distTarget = parseFloat(targetKm) || 0;
+    const timeTarget = (parseInt(targetHour) || 0) * 3600 + (parseInt(targetMin) || 0) * 60;
+    if (targetType === 'distance' && distTarget > 0 && dist / 1000 >= distTarget && (dist - 5) / 1000 < distTarget) {
+      announce(`恭喜！已達成${distTarget}公里目標`);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    if (targetType === 'time' && timeTarget > 0 && dur >= timeTarget && dur - 1 < timeTarget) {
+      const h = Math.floor(timeTarget / 3600);
+      const m = Math.floor((timeTarget % 3600) / 60);
+      announce(`恭喜！已達成${h > 0 ? h + '小時' : ''}${m}分鐘目標`);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
 
   const requestPermission = async () => {
     const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
@@ -68,10 +124,13 @@ export default function RunScreen() {
     if (!permitted) return;
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    announce('開始跑步');
     setStatus('running');
     setCoords([]);
     setDistance(0);
     setDuration(0);
+    lastKmRef.current = 0;
+    lastMinRef.current = 0;
     startedAtRef.current = new Date().toISOString();
 
     timerRef.current = setInterval(() => {
@@ -96,7 +155,14 @@ export default function RunScreen() {
           if (prev.length > 0) {
             const last = prev[prev.length - 1];
             const d = getDistanceBetween(last, newCoord);
-            setDistance((prevDist) => prevDist + d);
+            setDistance((prevDist) => {
+              const newDist = prevDist + d;
+              setDuration((dur) => {
+                checkMilestones(newDist, dur);
+                return dur;
+              });
+              return newDist;
+            });
           }
           cameraRef.current?.setCamera({
             centerCoordinate: [newCoord.longitude, newCoord.latitude],
@@ -218,9 +284,7 @@ export default function RunScreen() {
           <IconSymbol name="chevron.left" size={22} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>跑步</Text>
-        <TouchableOpacity onPress={() => router.push('/sport/run-history')}>
-          <IconSymbol name="chart.bar.fill" size={20} color={colors.text} />
-        </TouchableOpacity>
+        <View style={{ width: 22 }} />
       </View>
 
       {/* Map */}
@@ -289,13 +353,88 @@ export default function RunScreen() {
         {/* Controls */}
         <View style={styles.controls}>
           {status === 'idle' && (
-            <TouchableOpacity
-              style={[styles.startBtn, { backgroundColor: '#22C55E' }]}
-              onPress={startRun}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.startBtnText}>開始跑步</Text>
-            </TouchableOpacity>
+            <>
+              {/* Quick links */}
+              <View style={styles.quickLinks}>
+                <TouchableOpacity
+                  style={[styles.quickLink, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  onPress={() => router.push('/sport/plan-route')}
+                  activeOpacity={0.7}
+                >
+                  <IconSymbol name="location.fill" size={16} color={colors.primary} />
+                  <Text style={[styles.quickLinkText, { color: colors.text }]}>路線規劃</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.quickLink, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  onPress={() => router.push('/sport/run-history')}
+                  activeOpacity={0.7}
+                >
+                  <IconSymbol name="chart.bar.fill" size={16} color={colors.primary} />
+                  <Text style={[styles.quickLinkText, { color: colors.text }]}>跑步紀錄</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Target selector */}
+              <View style={styles.targetRow}>
+                {(['none', 'distance', 'time'] as const).map((t) => (
+                  <TouchableOpacity
+                    key={t}
+                    style={[styles.targetBtn, targetType === t && { backgroundColor: colors.text }]}
+                    onPress={() => setTargetType(t)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.targetBtnText, { color: targetType === t ? colors.background : colors.textSecondary }]}>
+                      {t === 'none' ? '自由跑' : t === 'distance' ? '距離' : '時間'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {targetType === 'distance' && (
+                <View style={styles.targetInputRow}>
+                  <TextInput
+                    style={[styles.targetInput, { color: colors.text, borderColor: colors.border }]}
+                    value={targetKm}
+                    onChangeText={setTargetKm}
+                    keyboardType="decimal-pad"
+                    placeholder="5"
+                    placeholderTextColor={colors.placeholder}
+                  />
+                  <Text style={[styles.targetUnit, { color: colors.textSecondary }]}>km</Text>
+                </View>
+              )}
+
+              {targetType === 'time' && (
+                <View style={styles.targetInputRow}>
+                  <TextInput
+                    style={[styles.targetInput, { color: colors.text, borderColor: colors.border }]}
+                    value={targetHour}
+                    onChangeText={setTargetHour}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                    placeholderTextColor={colors.placeholder}
+                  />
+                  <Text style={[styles.targetUnit, { color: colors.textSecondary }]}>時</Text>
+                  <TextInput
+                    style={[styles.targetInput, { color: colors.text, borderColor: colors.border }]}
+                    value={targetMin}
+                    onChangeText={setTargetMin}
+                    keyboardType="number-pad"
+                    placeholder="30"
+                    placeholderTextColor={colors.placeholder}
+                  />
+                  <Text style={[styles.targetUnit, { color: colors.textSecondary }]}>分</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.startBtn, { backgroundColor: '#22C55E' }]}
+                onPress={startRun}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.startBtnText}>開始跑步</Text>
+              </TouchableOpacity>
+            </>
           )}
 
           {status === 'running' && (
@@ -405,7 +544,56 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 32, fontWeight: '800', letterSpacing: -1 },
   statLabel: { fontSize: 12, fontWeight: '500', marginTop: Spacing.xs },
   statDivider: { width: 1, height: 40 },
-  controls: { alignItems: 'center' },
+  controls: { alignItems: 'center', gap: Spacing.md },
+  quickLinks: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    width: '100%',
+  },
+  quickLink: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  quickLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  targetRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    width: '100%',
+  },
+  targetBtn: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+  },
+  targetBtnText: { fontSize: 14, fontWeight: '600' },
+  targetInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+  },
+  targetInput: {
+    fontSize: 28,
+    fontWeight: '800',
+    textAlign: 'center',
+    width: 80,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 2,
+  },
+  targetUnit: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
   startBtn: {
     width: '100%',
     paddingVertical: Spacing.lg,
