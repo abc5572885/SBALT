@@ -198,7 +198,7 @@ export default function RunScreen() {
   };
 
   const mapStyle = colorScheme === 'dark'
-    ? 'mapbox://styles/mapbox/navigation-night-v1'
+    ? 'mapbox://styles/abc5572885/cmo4dgsy200ba01st1sxsg3ci'
     : 'mapbox://styles/mapbox/outdoors-v12';
 
   return (
@@ -248,7 +248,7 @@ export default function RunScreen() {
               <Mapbox.LineLayer
                 id="routeLine" slot="top"
                 style={{
-                  lineColor: colorScheme === 'dark' ? '#FF9224' : '#2563EB',
+                  lineColor: colorScheme === 'dark' ? '#FF9224' : '#2563EB', lineEmissiveStrength: 1,
                   lineWidth: 4,
                   lineCap: 'round',
                   lineJoin: 'round',

@@ -90,7 +90,7 @@ export default function RunDetailScreen() {
   };
 
   const mapStyle = colorScheme === 'dark'
-    ? 'mapbox://styles/mapbox/navigation-night-v1'
+    ? 'mapbox://styles/abc5572885/cmo4dgsy200ba01st1sxsg3ci'
     : 'mapbox://styles/mapbox/outdoors-v12';
 
   // Bounds
@@ -136,7 +136,7 @@ export default function RunDetailScreen() {
                   <Mapbox.LineLayer
                     id="detail-line"
                     slot="top"
-                    style={{ lineColor: colorScheme === 'dark' ? '#FF9224' : '#2563EB', lineWidth: 5, lineCap: 'round', lineJoin: 'round' }}
+                    style={{ lineColor: colorScheme === 'dark' ? '#FF9224' : '#2563EB', lineWidth: 5, lineEmissiveStrength: 1, lineCap: 'round', lineJoin: 'round' }}
                   />
                 </Mapbox.ShapeSource>
                 <Mapbox.PointAnnotation id="start" coordinate={[route[0].longitude, route[0].latitude]}>

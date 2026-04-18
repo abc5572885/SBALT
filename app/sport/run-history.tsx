@@ -53,7 +53,7 @@ function RunRoutePreview({ route, colorScheme }: { route: any[]; colorScheme: st
     <View style={styles.mapPreview}>
       <Mapbox.MapView
         style={styles.mapPreviewInner}
-        styleURL={colorScheme === 'dark' ? 'mapbox://styles/mapbox/navigation-night-v1' : 'mapbox://styles/mapbox/outdoors-v12'}
+        styleURL={colorScheme === 'dark' ? 'mapbox://styles/abc5572885/cmo4dgsy200ba01st1sxsg3ci' : 'mapbox://styles/mapbox/outdoors-v12'}
         logoEnabled={false}
         attributionEnabled={false}
         scaleBarEnabled={false}
@@ -77,6 +77,7 @@ function RunRoutePreview({ route, colorScheme }: { route: any[]; colorScheme: st
               lineWidth: 5,
               lineCap: 'round',
               lineJoin: 'round',
+              lineEmissiveStrength: 1,
             }}
           />
         </Mapbox.ShapeSource>
