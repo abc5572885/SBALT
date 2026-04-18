@@ -131,11 +131,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="discover"
         options={{
-          title: '個人',
-          tabBarIcon: ({ color }) => <IconSymbol size={24} name="person.fill" color={color} />,
+          title: '發現',
+          tabBarIcon: ({ color }) => <IconSymbol size={24} name="magnifyingglass" color={color} />,
         }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="settings"

@@ -69,7 +69,7 @@ export default function ProfileScreen() {
   if (!user) {
     return (
       <ScreenLayout>
-        <PageHeader title="個人資料" showBack={false} />
+        <PageHeader title="個人資料" showBack={true} />
         <ThemedText type="caption" style={{ color: colors.textSecondary, marginTop: Spacing.md }}>
           載入中...
         </ThemedText>
@@ -78,7 +78,8 @@ export default function ProfileScreen() {
   }
 
   const menuItems = [
-    { icon: 'bolt.fill' as const, label: '成就', onPress: () => router.push('/event/achievements') },
+    { icon: 'pencil' as const, label: '我建立的活動', onPress: () => router.push('/event/my-events') },
+    { icon: 'calendar' as const, label: '我報名的活動', onPress: () => router.push('/event/joined') },
     { icon: 'gearshape.fill' as const, label: '設定', onPress: () => router.push('/(tabs)/settings') },
   ];
 
@@ -124,33 +125,7 @@ export default function ProfileScreen() {
         </ThemedText>
       </View>
 
-      {/* Stats */}
-      <View style={styles.statsRow}>
-        <TouchableOpacity
-          style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-          onPress={() => router.push('/event/my-events')}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.statNumber, { color: colors.primary }]}>
-            {stats.organized}
-          </Text>
-          <ThemedText type="caption" style={{ color: colors.textSecondary }}>
-            主辦活動
-          </ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-          onPress={() => router.push('/event/joined')}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.statNumber, { color: colors.primary }]}>
-            {stats.joined}
-          </Text>
-          <ThemedText type="caption" style={{ color: colors.textSecondary }}>
-            參加活動
-          </ThemedText>
-        </TouchableOpacity>
-      </View>
+
 
       {/* Menu */}
       <View style={styles.menuSection}>

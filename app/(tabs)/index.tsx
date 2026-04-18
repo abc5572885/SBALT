@@ -178,17 +178,17 @@ export default function HomeScreen() {
               </ThemedText>
             )}
           </View>
-          <View style={styles.miniStats}>
-            <View style={styles.miniStat}>
-              <Text style={[styles.miniStatNumber, { color: colors.primary }]}>{stats.organized}</Text>
-              <ThemedText type="caption" style={{ color: colors.textSecondary }}>主辦</ThemedText>
-            </View>
-            <View style={[styles.miniStatDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.miniStat}>
-              <Text style={[styles.miniStatNumber, { color: colors.primary }]}>{stats.joined}</Text>
-              <ThemedText type="caption" style={{ color: colors.textSecondary }}>參加</ThemedText>
-            </View>
-          </View>
+          <TouchableOpacity onPress={() => router.push('/profile')} activeOpacity={0.7}>
+            {user?.avatarUrl ? (
+              <Image source={{ uri: user.avatarUrl }} style={styles.headerAvatar} />
+            ) : (
+              <View style={[styles.headerAvatar, { backgroundColor: colors.text }]}>
+                <Text style={[styles.headerAvatarText, { color: colors.background }]}>
+                  {(user?.displayName || user?.email)?.[0]?.toUpperCase() || '?'}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -341,21 +341,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -1,
   },
-  miniStats: {
-    flexDirection: 'row',
+  headerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
-    gap: Spacing.md,
+    justifyContent: 'center',
   },
-  miniStat: {
-    alignItems: 'center',
-  },
-  miniStatNumber: {
-    fontSize: 18,
+  headerAvatarText: {
+    fontSize: 16,
     fontWeight: '700',
-  },
-  miniStatDivider: {
-    width: 1,
-    height: 24,
   },
   nextEventCard: {
     padding: Spacing.lg,
