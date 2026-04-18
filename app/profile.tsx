@@ -80,6 +80,9 @@ export default function ProfileScreen() {
   const menuItems = [
     { icon: 'pencil' as const, label: '我建立的活動', onPress: () => router.push('/event/my-events') },
     { icon: 'calendar' as const, label: '我報名的活動', onPress: () => router.push('/event/joined') },
+    ...(accountType === 'official' ? [
+      { icon: 'star.fill' as const, label: '推廣資訊管理', onPress: () => router.push('/promotion/my-promotions') },
+    ] : []),
     { icon: 'gearshape.fill' as const, label: '設定', onPress: () => router.push('/(tabs)/settings') },
   ];
 

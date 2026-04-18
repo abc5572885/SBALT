@@ -1,13 +1,15 @@
 import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
+import { GROUP_TYPES, GroupType } from '@/constants/groupTypes';
 import { SPORT_OPTIONS } from '@/constants/sports';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createGroup } from '@/services/groups';
+import { AccountType, getProfile } from '@/services/profile';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function CreateGroupScreen() {
@@ -18,7 +20,21 @@ export default function CreateGroupScreen() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [sportType, setSportType] = useState('basketball');
+  const [groupType, setGroupType] = useState<GroupType>('casual');
+  const [accountType, setAccountType] = useState<AccountType>('regular');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      getProfile(user.id).then((p) => {
+        if (p) setAccountType(p.account_type);
+      }).catch(() => {});
+    }
+  }, [user]);
+
+  const availableTypes = GROUP_TYPES.filter(
+    (t) => t.key !== 'competition_org' || accountType === 'official'
+  );
 
   const handleCreate = async () => {
     if (!user) return;
@@ -33,6 +49,7 @@ export default function CreateGroupScreen() {
         name: name.trim(),
         description: description.trim() || null,
         sport_type: sportType,
+        type: groupType,
         creator_id: user.id,
       });
       Alert.alert('建立成功', `群組「${group.name}」已建立`, [
@@ -49,6 +66,46 @@ export default function CreateGroupScreen() {
     <ScreenLayout scrollable>
       <PageHeader title="建立群組" />
       <View style={styles.form}>
+        <View>
+          <ThemedText type="label" style={[styles.label, { color: colors.textSecondary }]}>
+            群組類型
+          </ThemedText>
+          <View style={styles.typeList}>
+            {availableTypes.map((t) => {
+              const selected = groupType === t.key;
+              return (
+                <TouchableOpacity
+                  key={t.key}
+                  style={[
+                    styles.typeCard,
+                    { borderColor: colors.border, backgroundColor: colors.surface },
+                    selected && { borderColor: colors.primary, backgroundColor: colors.primary + '08' },
+                  ]}
+                  onPress={() => setGroupType(t.key)}
+                  activeOpacity={0.7}
+                >
+                  <ThemedText style={[styles.typeLabel, selected && { color: colors.primary, fontWeight: '700' as const }]}>
+                    {t.label}
+                  </ThemedText>
+                  <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+                    {t.description}
+                  </ThemedText>
+                </TouchableOpacity>
+              );
+            })}
+            {accountType !== 'official' && (
+              <View style={[styles.typeCard, styles.typeCardDisabled, { borderColor: colors.border }]}>
+                <ThemedText style={[styles.typeLabel, { color: colors.disabled }]}>
+                  比賽方
+                </ThemedText>
+                <ThemedText type="caption" style={{ color: colors.disabled }}>
+                  僅限官方帳號（賽事主辦單位）
+                </ThemedText>
+              </View>
+            )}
+          </View>
+        </View>
+
         <View>
           <ThemedText type="label" style={[styles.label, { color: colors.textSecondary }]}>
             群組名稱 *
@@ -150,6 +207,22 @@ const styles = StyleSheet.create({
   textArea: {
     height: 80,
     textAlignVertical: 'top',
+  },
+  typeList: {
+    gap: Spacing.sm,
+  },
+  typeCard: {
+    padding: Spacing.md,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    gap: Spacing.xs,
+  },
+  typeCardDisabled: {
+    opacity: 0.5,
+  },
+  typeLabel: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   sportOptions: {
     flexDirection: 'row',

@@ -2,9 +2,19 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import React from 'react';
+import { getActivePromotions } from '@/services/promotions';
+import { getProfile, getProfilesByIds, AccountType } from '@/services/profile';
+import { Promotion } from '@/types/database';
+import { Image } from 'expo-image';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import { deletePromotion } from '@/services/promotions';
 import {
+  ActivityIndicator,
+  Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,136 +23,355 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const FEATURED_EVENTS = [
-  {
-    id: '1',
-    title: '2026 新竹城市馬拉松',
-    date: '2026年5月17日',
-    location: '新竹市政府前廣場',
-    category: '馬拉松',
-    image: null,
-  },
-  {
-    id: '2',
-    title: '竹北三對三籃球賽',
-    date: '2026年5月24日',
-    location: '竹北國民運動中心',
-    category: '籃球',
-    image: null,
-  },
-  {
-    id: '3',
-    title: '新竹羽球公開賽',
-    date: '2026年6月7日',
-    location: '新科國民運動中心',
-    category: '羽球',
-    image: null,
-  },
-];
-
-const NEWS = [
-  {
-    id: '1',
-    title: '跑步新手必看：如何避免常見運動傷害',
-    source: 'SBALT 運動誌',
-    time: '2 小時前',
-  },
-  {
-    id: '2',
-    title: '2026 台灣馬拉松賽事總整理',
-    source: 'SBALT 運動誌',
-    time: '5 小時前',
-  },
-  {
-    id: '3',
-    title: '籃球鞋推薦：適合戶外場地的 5 雙好鞋',
-    source: 'SBALT 運動誌',
-    time: '1 天前',
-  },
-];
+const TYPE_CONFIG = {
+  event: { label: '賽事', icon: 'calendar' as const },
+  venue: { label: '場地', icon: 'location.fill' as const },
+  brand: { label: '品牌', icon: 'star.fill' as const },
+} as const;
 
 export default function DiscoverScreen() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { user } = useAuth();
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [publishers, setPublishers] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'all' | 'event' | 'venue' | 'brand'>('all');
+  const [accountType, setAccountType] = useState<AccountType>('regular');
+
+  useFocusEffect(
+    useCallback(() => {
+      loadPromotions();
+      if (user) {
+        getProfile(user.id).then((p) => {
+          if (p) setAccountType(p.account_type);
+        }).catch(() => {});
+      }
+    }, [user])
+  );
+
+  const loadPromotions = async () => {
+    try {
+      const data = await getActivePromotions();
+      setPromotions(data);
+
+      // Load publisher names
+      const userIds = [...new Set(data.map((p) => p.user_id))];
+      if (userIds.length > 0) {
+        const profiles = await getProfilesByIds(userIds);
+        const names: Record<string, string> = {};
+        Object.values(profiles).forEach((p) => {
+          names[p.id] = p.display_name || p.username || '官方';
+        });
+        setPublishers(names);
+      }
+    } catch (error) {
+      console.error('載入推廣資訊失敗:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filtered = activeTab === 'all'
+    ? promotions
+    : promotions.filter((p) => p.type === activeTab);
+
+  const featured = filtered.filter((p) => p.is_featured);
+  const regular = filtered.filter((p) => !p.is_featured);
+
+  const handlePress = async (item: Promotion) => {
+    if (item.link_url && /^https?:\/\//.test(item.link_url)) {
+      const supported = await Linking.canOpenURL(item.link_url);
+      if (supported) {
+        Linking.openURL(item.link_url);
+      }
+    }
+  };
+
+  const handleEdit = (item: Promotion) => {
+    router.push({
+      pathname: '/promotion/new',
+      params: {
+        editId: item.id,
+        editType: item.type,
+        editTitle: item.title,
+        editDescription: item.description || '',
+        editLocation: item.location || '',
+        editLinkUrl: item.link_url || '',
+        editSportType: item.sport_type || '',
+        editImageUrl: item.image_url || '',
+      },
+    });
+  };
+
+  const handleDelete = (item: Promotion) => {
+    Alert.alert('確認刪除', `確定要刪除「${item.title}」嗎？`, [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '刪除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deletePromotion(item.id);
+            setPromotions((prev) => prev.filter((p) => p.id !== item.id));
+          } catch {
+            Alert.alert('錯誤', '刪除失敗');
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
-        <Text style={[styles.pageTitle, { color: colors.text }]}>發現</Text>
+        <View style={styles.headerRow}>
+          <Text style={[styles.pageTitle, { color: colors.text }]}>發現</Text>
+          {accountType === 'official' && (
+            <TouchableOpacity
+              style={[styles.publishBtn, { backgroundColor: colors.text }, Shadows.sm]}
+              onPress={() => router.push('/promotion/new')}
+              activeOpacity={0.8}
+            >
+              <IconSymbol name="plus" size={14} color={colors.background} />
+              <Text style={[styles.publishBtnText, { color: colors.background }]}>發布</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Featured events */}
-          <View style={styles.section}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>賽事資訊</ThemedText>
-            {FEATURED_EVENTS.map((event) => (
-              <TouchableOpacity
-                key={event.id}
-                style={[styles.eventCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.categoryBadge, { backgroundColor: colors.primary + '15' }]}>
-                  <ThemedText type="label" style={{ color: colors.primary }}>{event.category}</ThemedText>
-                </View>
-                <ThemedText style={styles.eventTitle}>{event.title}</ThemedText>
-                <View style={styles.eventMeta}>
-                  <View style={styles.metaItem}>
-                    <IconSymbol name="calendar" size={13} color={colors.textSecondary} />
-                    <ThemedText type="caption" style={{ color: colors.textSecondary }}>{event.date}</ThemedText>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <IconSymbol name="location.fill" size={13} color={colors.textSecondary} />
-                    <ThemedText type="caption" style={{ color: colors.textSecondary }}>{event.location}</ThemedText>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
+        {/* Tab filter */}
+        <View style={styles.tabRow}>
+          {(['all', 'event', 'venue', 'brand'] as const).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, activeTab === tab && { backgroundColor: colors.text }]}
+              onPress={() => setActiveTab(tab)}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.tabText,
+                { color: activeTab === tab ? colors.background : colors.textSecondary },
+              ]}>
+                {tab === 'all' ? '全部' : TYPE_CONFIG[tab].label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {loading ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" />
           </View>
-
-          {/* News / Articles */}
-          <View style={styles.section}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>運動新知</ThemedText>
-            {NEWS.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={[styles.newsCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-                activeOpacity={0.7}
-              >
-                <View style={styles.newsContent}>
-                  <ThemedText style={styles.newsTitle} numberOfLines={2}>{item.title}</ThemedText>
-                  <ThemedText type="caption" style={{ color: colors.textSecondary }}>
-                    {item.source} · {item.time}
-                  </ThemedText>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Brand section placeholder */}
-          <View style={[styles.brandSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <ThemedText type="label" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-              品牌合作
-            </ThemedText>
-            <ThemedText type="caption" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-              想在這裡展示您的品牌？聯繫我們
+        ) : filtered.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <IconSymbol name="magnifyingglass" size={40} color={colors.disabled} />
+            <ThemedText type="caption" style={{ color: colors.textSecondary, marginTop: Spacing.md }}>
+              目前沒有推廣資訊
             </ThemedText>
           </View>
+        ) : (
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Featured */}
+            {featured.length > 0 && (
+              <View style={styles.section}>
+                <ThemedText type="subtitle" style={styles.sectionTitle}>精選推薦</ThemedText>
+                {featured.map((item) => (
+                  <PromotionCard
+                    key={item.id}
+                    item={item}
+                    publisher={publishers[item.user_id]}
+                    colors={colors}
+                    onPress={() => handlePress(item)}
+                    isOwner={user?.id === item.user_id}
+                    onEdit={() => handleEdit(item)}
+                    onDelete={() => handleDelete(item)}
+                    featured
+                  />
+                ))}
+              </View>
+            )}
 
-          <View style={{ height: Spacing.xxl }} />
-        </ScrollView>
+            {/* Regular */}
+            {regular.length > 0 && (
+              <View style={styles.section}>
+                {featured.length > 0 && (
+                  <ThemedText type="subtitle" style={styles.sectionTitle}>最新資訊</ThemedText>
+                )}
+                {regular.map((item) => (
+                  <PromotionCard
+                    key={item.id}
+                    item={item}
+                    publisher={publishers[item.user_id]}
+                    colors={colors}
+                    onPress={() => handlePress(item)}
+                    isOwner={user?.id === item.user_id}
+                    onEdit={() => handleEdit(item)}
+                    onDelete={() => handleDelete(item)}
+                  />
+                ))}
+              </View>
+            )}
+
+            {/* Brand partnership CTA */}
+            <View style={[styles.ctaSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <ThemedText type="label" style={{ color: colors.textSecondary, textAlign: 'center' }}>
+                想在這裡展示您的賽事或場地？
+              </ThemedText>
+              <ThemedText type="caption" style={{ color: colors.textSecondary, textAlign: 'center' }}>
+                申請成為官方帳號即可發布推廣資訊
+              </ThemedText>
+            </View>
+
+            <View style={{ height: Spacing.xxl }} />
+          </ScrollView>
+        )}
       </ThemedView>
     </SafeAreaView>
+  );
+}
+
+function PromotionCard({
+  item,
+  publisher,
+  colors,
+  onPress,
+  isOwner,
+  onEdit,
+  onDelete,
+  featured,
+}: {
+  item: Promotion;
+  publisher?: string;
+  colors: typeof Colors.light;
+  onPress: () => void;
+  isOwner?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  featured?: boolean;
+}) {
+  const typeConfig = TYPE_CONFIG[item.type as keyof typeof TYPE_CONFIG];
+
+  return (
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+        Shadows.sm,
+      ]}
+    >
+      <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+        {item.image_url && (
+          <Image source={{ uri: item.image_url }} style={styles.cardImage} contentFit="cover" />
+        )}
+        <View style={styles.cardBody}>
+          <View style={styles.cardTopRow}>
+            <View style={[styles.typeBadge, { backgroundColor: colors.primary + '15' }]}>
+              <IconSymbol name={typeConfig.icon} size={11} color={colors.primary} />
+              <ThemedText type="label" style={{ color: colors.primary }}>{typeConfig.label}</ThemedText>
+            </View>
+            {featured && (
+              <View style={[styles.featuredBadge, { backgroundColor: colors.text }]}>
+                <Text style={[styles.featuredText, { color: colors.background }]}>精選</Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={[styles.cardTitle, { color: colors.text }]}>{item.title}</Text>
+
+          {item.description && (
+            <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={2}>
+              {item.description}
+            </ThemedText>
+          )}
+
+          <View style={styles.cardMeta}>
+            {item.location && (
+              <View style={styles.metaItem}>
+                <IconSymbol name="location.fill" size={12} color={colors.textSecondary} />
+                <ThemedText type="caption" style={{ color: colors.textSecondary }}>{item.location}</ThemedText>
+              </View>
+            )}
+            {publisher && (
+              <View style={styles.metaItem}>
+                <IconSymbol name="person.fill" size={12} color={colors.textSecondary} />
+                <ThemedText type="caption" style={{ color: colors.textSecondary }}>{publisher}</ThemedText>
+              </View>
+            )}
+          </View>
+
+          {item.link_url && /^https?:\/\//.test(item.link_url) && (
+            <View style={styles.linkHint}>
+              <ThemedText type="caption" style={{ color: colors.primary }}>查看詳情</ThemedText>
+              <IconSymbol name="chevron.right" size={12} color={colors.primary} />
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+
+      {isOwner && (
+        <View style={[styles.ownerActions, { borderTopColor: colors.border }]}>
+          {onEdit && (
+            <TouchableOpacity style={styles.ownerBtn} onPress={onEdit} activeOpacity={0.7}>
+              <IconSymbol name="pencil" size={14} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>編輯</Text>
+            </TouchableOpacity>
+          )}
+          {onDelete && (
+            <TouchableOpacity style={styles.ownerBtn} onPress={onDelete} activeOpacity={0.7}>
+              <IconSymbol name="trash" size={14} color={colors.error} />
+              <Text style={{ color: colors.error, fontSize: 13, fontWeight: '600' }}>刪除</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   container: { flex: 1, paddingHorizontal: Spacing.lg },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 120 },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
   pageTitle: {
     fontSize: 32,
     fontWeight: '800',
     letterSpacing: -1.5,
-    marginTop: Spacing.md,
+  },
+  publishBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.sm,
+  },
+  publishBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  tabRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
     marginBottom: Spacing.lg,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   section: {
     marginBottom: Spacing.xl,
@@ -150,24 +379,48 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: Spacing.md,
   },
-  eventCard: {
-    padding: Spacing.lg,
+  card: {
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: Spacing.sm,
+    overflow: 'hidden',
+  },
+  cardImage: {
+    width: '100%',
+    height: 160,
+  },
+  cardBody: {
+    padding: Spacing.lg,
     gap: Spacing.sm,
   },
-  categoryBadge: {
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     alignSelf: 'flex-start',
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: Radius.sm,
   },
-  eventTitle: {
+  featuredBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+  },
+  featuredText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  cardTitle: {
     fontSize: 16,
     fontWeight: '600',
   },
-  eventMeta: {
+  cardMeta: {
     flexDirection: 'row',
     gap: Spacing.lg,
   },
@@ -176,21 +429,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.xs,
   },
-  newsCard: {
-    padding: Spacing.lg,
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: Spacing.sm,
+  linkHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginTop: Spacing.xs,
   },
-  newsContent: {
-    gap: Spacing.sm,
+  ownerActions: {
+    flexDirection: 'row',
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  newsTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 22,
+  ownerBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
   },
-  brandSection: {
+  ctaSection: {
     padding: Spacing.xxl,
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,

@@ -35,6 +35,11 @@ const MAPPING = {
   'bolt.fill': 'flash-on',
   'chart.bar.fill': 'bar-chart',
   'hand.raised.fill': 'pan-tool',
+  'star.fill': 'star',
+  'ellipsis': 'more-horiz',
+  'camera.fill': 'photo-camera',
+  'f.square.fill': 'facebook',
+  'message.fill': 'chat',
 } as IconMapping;
 
 /**

@@ -65,7 +65,7 @@ export async function getGroupByInviteCode(code: string) {
   return data;
 }
 
-export async function updateGroup(groupId: string, data: { name?: string; description?: string | null; sport_type?: string | null }) {
+export async function updateGroup(groupId: string, data: { name?: string; description?: string | null; sport_type?: string | null; type?: 'casual' | 'competition_org' | 'team' }) {
   const { data: group, error } = await supabase
     .from('groups')
     .update({ ...data, updated_at: new Date().toISOString() })

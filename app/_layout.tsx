@@ -31,8 +31,11 @@ export default function RootLayout() {
           <Stack.Screen name="event" />
           <Stack.Screen name="group" />
           <Stack.Screen name="sport" />
+          <Stack.Screen name="promotion" />
           <Stack.Screen name="profile" />
+          <Stack.Screen name="user" />
           <Stack.Screen name="login" />
+          <Stack.Screen name="blocked-users" />
           <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
           <Stack.Screen name="open" />
         </Stack>

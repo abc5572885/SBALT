@@ -42,3 +42,7 @@ app-example
 /ios
 /android
 .env
+
+# Claude Code local
+.claude/settings.local.json
+.claude/skills/

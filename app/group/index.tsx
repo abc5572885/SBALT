@@ -3,6 +3,7 @@ import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { GROUP_TYPES, GroupType } from '@/constants/groupTypes';
 import { SPORT_OPTIONS } from '@/constants/sports';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,6 +31,7 @@ export default function GroupsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [groups, setGroups] = useState<Group[]>([]);
+  const [activeType, setActiveType] = useState<GroupType | 'all'>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -114,6 +116,40 @@ export default function GroupsScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Type filter tabs */}
+        {groups.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+            contentContainerStyle={styles.filterRow}
+          >
+            {([{ key: 'all' as const, label: '全部' }, ...GROUP_TYPES]).map((opt) => {
+              const selected = activeType === opt.key;
+              return (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[
+                    styles.filterChip,
+                    { borderColor: colors.border },
+                    selected && { backgroundColor: colors.text, borderColor: colors.text },
+                  ]}
+                  onPress={() => setActiveType(opt.key as GroupType | 'all')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.filterText,
+                    { color: colors.textSecondary },
+                    selected && { color: colors.background },
+                  ]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
         {/* Groups list */}
         {groups.length === 0 ? (
           <View style={[styles.emptyContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -126,37 +162,47 @@ export default function GroupsScreen() {
           </View>
         ) : (
           <View style={styles.list}>
-            {groups.map((group) => {
-              const sportLabel = SPORT_OPTIONS.find((s) => s.key === group.sport_type)?.label || '';
-              return (
-                <TouchableOpacity
-                  key={group.id}
-                  style={[styles.groupCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-                  onPress={() => router.push({ pathname: '/group/[id]', params: { id: group.id } })}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.groupAvatar, { backgroundColor: colors.primary }]}>
-                    <Text style={styles.groupAvatarText}>
-                      {group.name[0]?.toUpperCase()}
-                    </Text>
-                  </View>
-                  <View style={styles.groupInfo}>
-                    <ThemedText style={styles.groupName}>{group.name}</ThemedText>
-                    {group.description && (
-                      <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={1}>
-                        {group.description}
-                      </ThemedText>
-                    )}
-                    {sportLabel && (
-                      <View style={[styles.sportTag, { backgroundColor: colors.primary + '12' }]}>
-                        <ThemedText type="label" style={{ color: colors.primary }}>{sportLabel}</ThemedText>
+            {groups
+              .filter((g) => activeType === 'all' || g.type === activeType)
+              .map((group) => {
+                const sportLabel = SPORT_OPTIONS.find((s) => s.key === group.sport_type)?.label || '';
+                const typeConfig = GROUP_TYPES.find((t) => t.key === group.type);
+                return (
+                  <TouchableOpacity
+                    key={group.id}
+                    style={[styles.groupCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+                    onPress={() => router.push({ pathname: '/group/[id]', params: { id: group.id } })}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.groupAvatar, { backgroundColor: colors.primary }]}>
+                      <Text style={styles.groupAvatarText}>
+                        {group.name[0]?.toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={styles.groupInfo}>
+                      <ThemedText style={styles.groupName}>{group.name}</ThemedText>
+                      {group.description && (
+                        <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={1}>
+                          {group.description}
+                        </ThemedText>
+                      )}
+                      <View style={styles.tagRow}>
+                        {typeConfig && (
+                          <View style={[styles.typeTag, { borderColor: colors.border }]}>
+                            <ThemedText type="label" style={{ color: colors.textSecondary }}>{typeConfig.label}</ThemedText>
+                          </View>
+                        )}
+                        {sportLabel && (
+                          <View style={[styles.sportTag, { backgroundColor: colors.primary + '12' }]}>
+                            <ThemedText type="label" style={{ color: colors.primary }}>{sportLabel}</ThemedText>
+                          </View>
+                        )}
                       </View>
-                    )}
-                  </View>
-                  <IconSymbol name="chevron.right" size={16} color={colors.disabled} />
-                </TouchableOpacity>
-              );
-            })}
+                    </View>
+                    <IconSymbol name="chevron.right" size={16} color={colors.disabled} />
+                  </TouchableOpacity>
+                );
+              })}
           </View>
         )}
 
@@ -236,5 +282,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: Radius.sm,
+  },
+  typeTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    flexWrap: 'wrap',
+  },
+  filterScroll: {
+    marginBottom: Spacing.lg,
+  },
+  filterRow: {
+    gap: Spacing.sm,
+    paddingRight: Spacing.lg,
+  },
+  filterChip: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+  },
+  filterText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

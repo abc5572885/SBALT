@@ -56,5 +56,11 @@ export async function pickAndUploadAvatar(userId: string): Promise<string | null
     data: { avatar_url: publicUrl },
   });
 
+  // Mirror to profiles table so other users can see this avatar
+  await supabase
+    .from('profiles')
+    .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+
   return publicUrl;
 }

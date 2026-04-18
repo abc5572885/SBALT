@@ -6,9 +6,12 @@ import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { deleteComment } from '@/services/database';
+import { getBlockedUserIds } from '@/services/moderation';
 import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
 import { Comment } from '@/types/database';
+import { useRouter } from 'expo-router';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { UserActionMenu } from '@/components/UserActionMenu';
 
 interface CommentListProps {
   comments: Comment[];
@@ -17,9 +20,11 @@ interface CommentListProps {
 
 export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
   const { user } = useAuth();
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [profiles, setProfiles] = React.useState<Record<string, Profile>>({});
+  const [blockedIds, setBlockedIds] = React.useState<Set<string>>(new Set());
 
   React.useEffect(() => {
     const ids = [...new Set(comments.map((c) => c.user_id))];
@@ -27,6 +32,16 @@ export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
       getProfilesByIds(ids).then(setProfiles).catch(() => {});
     }
   }, [comments]);
+
+  React.useEffect(() => {
+    if (user) {
+      getBlockedUserIds(user.id)
+        .then((ids) => setBlockedIds(new Set(ids)))
+        .catch(() => {});
+    }
+  }, [user]);
+
+  const visibleComments = comments.filter((c) => !blockedIds.has(c.user_id));
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -63,7 +78,7 @@ export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
     ]);
   };
 
-  if (comments.length === 0) {
+  if (visibleComments.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <ThemedText type="caption" style={{ color: colors.textSecondary }}>
@@ -75,7 +90,7 @@ export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
 
   return (
     <View style={styles.container}>
-      {comments.map((comment) => {
+      {visibleComments.map((comment) => {
         const isOwner = user?.id === comment.user_id;
         return (
           <View
@@ -83,19 +98,26 @@ export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
             style={[styles.commentCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
           >
             <View style={styles.commentHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}
+                onPress={() => {
+                  if (!isOwner) router.push(`/user/${comment.user_id}`);
+                }}
+                activeOpacity={isOwner ? 1 : 0.6}
+                disabled={isOwner}
+              >
                 <ThemedText type="label">
                   {getDisplayName(profiles[comment.user_id], comment.user_id, isOwner)}
                 </ThemedText>
                 {profiles[comment.user_id]?.account_type !== 'regular' && (
                   <VerifiedBadge accountType={profiles[comment.user_id].account_type} size="small" />
                 )}
-              </View>
+              </TouchableOpacity>
               <View style={styles.headerRight}>
                 <ThemedText type="caption" style={{ color: colors.textSecondary }}>
                   {formatDate(comment.created_at)}
                 </ThemedText>
-                {isOwner && (
+                {isOwner ? (
                   <TouchableOpacity
                     style={styles.deleteButton}
                     onPress={() => handleDelete(comment.id)}
@@ -103,6 +125,15 @@ export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
                   >
                     <IconSymbol name="trash" size={14} color={colors.error} />
                   </TouchableOpacity>
+                ) : (
+                  <UserActionMenu
+                    targetUserId={comment.user_id}
+                    targetLabel={getDisplayName(profiles[comment.user_id], comment.user_id, false)}
+                    contentType="comment"
+                    contentId={comment.id}
+                    iconSize={14}
+                    onBlocked={() => setBlockedIds((prev) => new Set([...prev, comment.user_id]))}
+                  />
                 )}
               </View>
             </View>

@@ -3,6 +3,16 @@ import { supabase } from '@/lib/supabase';
 export type AccountType = 'regular' | 'verified' | 'official';
 export type VerificationStatus = 'unverified' | 'phone_verified' | 'id_verified';
 
+export type Gender = 'male' | 'female' | 'other';
+export type AgeRange = '18-24' | '25-34' | '35-44' | '45+';
+
+export interface SportPositions {
+  basketball?: string[];
+  volleyball?: string[];
+  badminton?: string[];
+  running?: string[];
+}
+
 export interface Profile {
   id: string;
   display_name: string | null;
@@ -12,6 +22,17 @@ export interface Profile {
   verification_status: VerificationStatus;
   official_title: string | null;
   bio: string | null;
+  height: number | null;
+  weight: number | null;
+  gender: Gender | null;
+  age_range: AgeRange | null;
+  favorite_sports: string[];
+  sport_positions: SportPositions;
+  region: string | null;
+  avatar_url: string | null;
+  instagram_url: string | null;
+  facebook_url: string | null;
+  line_id: string | null;
 }
 
 export async function isUsernameTaken(username: string): Promise<boolean> {

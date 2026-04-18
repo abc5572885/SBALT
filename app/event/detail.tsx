@@ -26,7 +26,7 @@ import { pickAndUploadEventImage } from '@/services/eventImage';
 import { scheduleEventReminder, sendLocalNotification } from '@/services/notifications';
 import { getWeatherForDate } from '@/services/weather';
 import { formatDateChinese, formatTime } from '@/utils/dateFormat';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -43,6 +43,7 @@ import {
 
 export default function EventDetailScreen() {
   const { eventId } = useLocalSearchParams<{ eventId: string }>();
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAuth();
@@ -357,12 +358,22 @@ export default function EventDetailScreen() {
             </>
           )}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <View style={styles.infoRow}>
+          <TouchableOpacity
+            style={styles.infoRow}
+            onPress={() => {
+              if (!isOrganizer && event.organizer_id) router.push(`/user/${event.organizer_id}`);
+            }}
+            activeOpacity={isOrganizer ? 1 : 0.6}
+            disabled={isOrganizer}
+          >
             <IconSymbol name="person.fill" size={16} color={colors.textSecondary} />
             <ThemedText style={styles.infoText}>
               {isOrganizer ? '我主辦的' : '主辦人'}
             </ThemedText>
-          </View>
+            {!isOrganizer && (
+              <IconSymbol name="chevron.right" size={14} color={colors.disabled} />
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Weather */}

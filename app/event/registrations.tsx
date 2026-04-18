@@ -12,8 +12,9 @@ import {
   updatePaymentStatus,
   updateRegistrationStatus,
 } from '@/services/database';
+import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
 import { Event, Registration } from '@/types/database';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -27,11 +28,13 @@ import {
 
 export default function RegistrationsScreen() {
   const { eventId } = useLocalSearchParams<{ eventId: string }>();
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -47,6 +50,10 @@ export default function RegistrationsScreen() {
       ]);
       setEvent(eventData);
       setRegistrations(regs);
+      const userIds = regs.map((r) => r.user_id);
+      if (userIds.length > 0) {
+        getProfilesByIds(userIds).then(setProfiles).catch(() => {});
+      }
     } catch (error) {
       console.error('載入報名資料失敗:', error);
       Alert.alert('錯誤', '無法載入報名資料');
@@ -172,14 +179,21 @@ export default function RegistrationsScreen() {
                     <View style={[styles.indexBadge, { backgroundColor: colors.primary }]}>
                       <ThemedText style={styles.indexText}>{index + 1}</ThemedText>
                     </View>
-                    <View style={styles.regDetails}>
+                    <TouchableOpacity
+                      style={styles.regDetails}
+                      onPress={() => {
+                        if (reg.user_id !== user?.id) router.push(`/user/${reg.user_id}`);
+                      }}
+                      activeOpacity={reg.user_id === user?.id ? 1 : 0.6}
+                      disabled={reg.user_id === user?.id}
+                    >
                       <ThemedText style={styles.regUser}>
-                        {reg.user_id === user?.id ? '我' : `用戶 ${reg.user_id.slice(0, 8)}`}
+                        {getDisplayName(profiles[reg.user_id], reg.user_id, reg.user_id === user?.id)}
                       </ThemedText>
                       <ThemedText type="caption" style={{ color: colors.textSecondary }}>
                         {new Date(reg.created_at).toLocaleString('zh-TW')}
                       </ThemedText>
-                    </View>
+                    </TouchableOpacity>
                   </View>
 
                   <View style={styles.regActions}>
@@ -232,7 +246,7 @@ export default function RegistrationsScreen() {
                   style={[styles.regCard, styles.cancelledCard, { borderColor: colors.border }]}
                 >
                   <ThemedText type="caption" style={{ color: colors.textSecondary }}>
-                    用戶 {reg.user_id.slice(0, 8)}
+                    {getDisplayName(profiles[reg.user_id], reg.user_id, reg.user_id === user?.id)}
                   </ThemedText>
                   <ThemedText type="caption" style={{ color: colors.error }}>
                     已取消

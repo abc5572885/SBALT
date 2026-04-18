@@ -46,7 +46,7 @@ export default function StatsScreen() {
     if (!user) return;
     try {
       const [evtStats, rStats] = await Promise.all([
-        getUserStats(user.id),
+        getUserStats(user.id, selectedSport),
         getUserRunStats(user.id),
       ]);
       setEventStats(evtStats);

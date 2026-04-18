@@ -2,13 +2,16 @@ import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { SwitchRow } from '@/components/SwitchRow';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ThemeMode, useAppStore } from '@/store/useAppStore';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const {
     themeMode,
     notificationPreferences,
@@ -90,6 +93,20 @@ export default function SettingsScreen() {
           onValueChange={(value) => setNotificationPreferences({ newsUpdate: value })}
         />
       </View>
+
+      <View style={styles.section}>
+        <ThemedText type="label" style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          隱私與安全
+        </ThemedText>
+        <TouchableOpacity
+          style={[styles.menuItem, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+          onPress={() => router.push('/blocked-users')}
+          activeOpacity={0.6}
+        >
+          <ThemedText style={styles.menuText}>封鎖的用戶</ThemedText>
+          <IconSymbol name="chevron.right" size={16} color={colors.disabled} />
+        </TouchableOpacity>
+      </View>
     </ScreenLayout>
   );
 }
@@ -116,5 +133,17 @@ const styles = StyleSheet.create({
   },
   optionText: {
     fontSize: 14,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  menuText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
 });

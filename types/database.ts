@@ -289,7 +289,6 @@ export interface Database {
           id?: string;
         };
       };
-    };
       event_scores: {
         Row: {
           id: string;
@@ -314,29 +313,64 @@ export interface Database {
           sort_order?: number;
         };
       };
-    };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      [_ in never]: never;
-    };
-    Enums: {
-      game_status: 'scheduled' | 'live' | 'finished' | 'cancelled';
-      event_status: 'draft' | 'open' | 'closed' | 'cancelled' | 'finished';
-      payment_status: 'pending' | 'paid' | 'refunded';
-      registration_status: 'registered' | 'cancelled';
-      entity_type: 'game' | 'team' | 'player' | 'news' | 'event' | 'comment';
-    };
-  };
-}
-
+      promotions: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: 'event' | 'venue' | 'brand';
+          title: string;
+          description: string | null;
+          image_url: string | null;
+          link_url: string | null;
+          location: string | null;
+          sport_type: string | null;
+          starts_at: string | null;
+          ends_at: string | null;
+          is_featured: boolean;
+          status: 'active' | 'expired' | 'draft';
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: 'event' | 'venue' | 'brand';
+          title: string;
+          description?: string | null;
+          image_url?: string | null;
+          link_url?: string | null;
+          location?: string | null;
+          sport_type?: string | null;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          is_featured?: boolean;
+          status?: 'active' | 'expired' | 'draft';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          type?: 'event' | 'venue' | 'brand';
+          title?: string;
+          description?: string | null;
+          image_url?: string | null;
+          link_url?: string | null;
+          location?: string | null;
+          sport_type?: string | null;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          is_featured?: boolean;
+          status?: 'active' | 'expired' | 'draft';
+          updated_at?: string;
+        };
+      };
       groups: {
         Row: {
           id: string;
           name: string;
           description: string | null;
           sport_type: string | null;
+          type: 'casual' | 'competition_org' | 'team';
           creator_id: string;
           avatar_url: string | null;
           invite_code: string;
@@ -348,6 +382,7 @@ export interface Database {
           name: string;
           description?: string | null;
           sport_type?: string | null;
+          type?: 'casual' | 'competition_org' | 'team';
           creator_id: string;
           avatar_url?: string | null;
           invite_code?: string;
@@ -358,6 +393,7 @@ export interface Database {
           name?: string;
           description?: string | null;
           sport_type?: string | null;
+          type?: 'casual' | 'competition_org' | 'team';
           avatar_url?: string | null;
           updated_at?: string;
         };
@@ -400,6 +436,24 @@ export interface Database {
           content?: string;
         };
       };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      [_ in never]: never;
+    };
+    Enums: {
+      game_status: 'scheduled' | 'live' | 'finished' | 'cancelled';
+      event_status: 'draft' | 'open' | 'closed' | 'cancelled' | 'finished';
+      payment_status: 'pending' | 'paid' | 'refunded';
+      registration_status: 'registered' | 'cancelled';
+      entity_type: 'game' | 'team' | 'player' | 'news' | 'event' | 'comment';
+      promotion_type: 'event' | 'venue' | 'brand';
+      promotion_status: 'active' | 'expired' | 'draft';
+    };
+  };
+}
 
 // 匯出常用型別
 export type Team = Database['public']['Tables']['teams']['Row'];
@@ -411,6 +465,7 @@ export type Registration = Database['public']['Tables']['registrations']['Row'];
 export type Comment = Database['public']['Tables']['comments']['Row'];
 export type Like = Database['public']['Tables']['likes']['Row'];
 export type EventScore = Database['public']['Tables']['event_scores']['Row'];
+export type Promotion = Database['public']['Tables']['promotions']['Row'];
 export type Group = Database['public']['Tables']['groups']['Row'];
 export type GroupMember = Database['public']['Tables']['group_members']['Row'];
 export type GroupPost = Database['public']['Tables']['group_posts']['Row'];

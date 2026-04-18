@@ -317,18 +317,45 @@ export async function updateRegistrationStatus(
   return data;
 }
 
-export async function getUserStats(userId: string) {
+export async function getUserStats(userId: string, sportType?: string) {
+  let organizedQuery = supabase
+    .from('events')
+    .select('id', { count: 'exact', head: true })
+    .eq('organizer_id', userId)
+    .or('is_recurring_instance.is.null,is_recurring_instance.eq.false');
+
+  if (sportType && sportType !== 'all') {
+    organizedQuery = organizedQuery.eq('sport_type', sportType);
+  }
+
   const [organized, registered] = await Promise.all([
-    supabase
-      .from('events')
-      .select('id', { count: 'exact', head: true })
-      .eq('organizer_id', userId)
-      .or('is_recurring_instance.is.null,is_recurring_instance.eq.false'),
-    supabase
-      .from('registrations')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('status', 'registered'),
+    organizedQuery,
+    (async () => {
+      // For joined count, need to join with events to filter by sport
+      if (sportType && sportType !== 'all') {
+        const { data: regs } = await supabase
+          .from('registrations')
+          .select('event_id')
+          .eq('user_id', userId)
+          .eq('status', 'registered');
+
+        if (!regs || regs.length === 0) return { count: 0 };
+
+        const { count } = await supabase
+          .from('events')
+          .select('id', { count: 'exact', head: true })
+          .in('id', regs.map((r) => r.event_id))
+          .eq('sport_type', sportType);
+
+        return { count };
+      }
+
+      return supabase
+        .from('registrations')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('status', 'registered');
+    })(),
   ]);
 
   return {

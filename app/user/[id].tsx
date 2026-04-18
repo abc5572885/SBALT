@@ -1,0 +1,342 @@
+import { PageHeader } from '@/components/PageHeader';
+import { ScreenLayout } from '@/components/ScreenLayout';
+import { ThemedText } from '@/components/themed-text';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { UserActionMenu } from '@/components/UserActionMenu';
+import { VerifiedBadge, VerifiedLabel } from '@/components/VerifiedBadge';
+import { SPORT_OPTIONS, SPORT_POSITIONS } from '@/constants/sports';
+import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { getUserStats } from '@/services/database';
+import { getProfile, Profile, SportPositions } from '@/services/profile';
+import { Image } from 'expo-image';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Linking,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
+export default function UserProfileScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const { user } = useAuth();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [stats, setStats] = useState({ organized: 0, joined: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+    // If trying to view own profile, redirect to /profile
+    if (user?.id === id) {
+      router.replace('/profile');
+      return;
+    }
+    Promise.all([getProfile(id), getUserStats(id)])
+      .then(([p, s]) => {
+        setProfile(p);
+        setStats(s);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [id, user?.id, router]);
+
+  const openUrl = (url: string | null) => {
+    if (!url) return;
+    Linking.openURL(url).catch(() => {});
+  };
+
+  const normalizeInstagram = (value: string): string => {
+    if (value.startsWith('http')) return value;
+    const handle = value.replace(/^@/, '').trim();
+    return `https://instagram.com/${handle}`;
+  };
+
+  const normalizeFacebook = (value: string): string => {
+    if (value.startsWith('http')) return value;
+    return `https://facebook.com/${value.trim()}`;
+  };
+
+  if (loading) {
+    return (
+      <ScreenLayout>
+        <PageHeader title="用戶資料" />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </ScreenLayout>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <ScreenLayout>
+        <PageHeader title="用戶資料" />
+        <View style={styles.center}>
+          <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+            找不到用戶
+          </ThemedText>
+        </View>
+      </ScreenLayout>
+    );
+  }
+
+  const hasSocial = !!(profile.instagram_url || profile.facebook_url || profile.line_id);
+  const displayName = profile.display_name || (profile.username ? `@${profile.username}` : `用戶 ${profile.id.slice(0, 8)}`);
+
+  return (
+    <ScreenLayout scrollable>
+      <PageHeader
+        title="用戶資料"
+        rightContent={
+          <View style={styles.socialRow}>
+            {profile.instagram_url && (
+              <TouchableOpacity
+                onPress={() => openUrl(normalizeInstagram(profile.instagram_url!))}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.6}
+              >
+                <IconSymbol name="camera.fill" size={20} color={colors.text} />
+              </TouchableOpacity>
+            )}
+            {profile.facebook_url && (
+              <TouchableOpacity
+                onPress={() => openUrl(normalizeFacebook(profile.facebook_url!))}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.6}
+              >
+                <IconSymbol name="f.square.fill" size={20} color={colors.text} />
+              </TouchableOpacity>
+            )}
+            {profile.line_id && (
+              <TouchableOpacity
+                onPress={() => openUrl(`https://line.me/ti/p/~${profile.line_id}`)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.6}
+              >
+                <IconSymbol name="message.fill" size={20} color={colors.text} />
+              </TouchableOpacity>
+            )}
+            <UserActionMenu
+              targetUserId={profile.id}
+              targetLabel={displayName}
+              contentType="user"
+              onBlocked={() => router.back()}
+            />
+          </View>
+        }
+      />
+
+      {/* Avatar & Info */}
+      <View style={styles.profileSection}>
+        {profile.avatar_url ? (
+          <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+        ) : (
+          <View style={[styles.avatar, { backgroundColor: colors.text }]}>
+            <Text style={[styles.avatarText, { color: colors.background }]}>
+              {displayName[0]?.toUpperCase() || '?'}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.nameRow}>
+          <Text style={[styles.displayName, { color: colors.text }]}>{displayName}</Text>
+          <VerifiedBadge accountType={profile.account_type} />
+        </View>
+
+        {profile.account_type === 'official' && profile.official_title && (
+          <VerifiedLabel accountType={profile.account_type} officialTitle={profile.official_title} />
+        )}
+
+        {profile.username && profile.display_name && (
+          <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+            @{profile.username}
+          </ThemedText>
+        )}
+
+        {profile.bio && (
+          <Text style={[styles.bio, { color: colors.textSecondary }]}>{profile.bio}</Text>
+        )}
+
+        {profile.region && (
+          <Text style={[styles.region, { color: colors.textSecondary }]}>
+            {profile.region}
+          </Text>
+        )}
+      </View>
+
+      {/* Stats */}
+      <View style={styles.statsRow}>
+        <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
+          <Text style={[styles.statNumber, { color: colors.primary }]}>{stats.organized}</Text>
+          <ThemedText type="caption" style={{ color: colors.textSecondary }}>主辦活動</ThemedText>
+        </View>
+        <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
+          <Text style={[styles.statNumber, { color: colors.primary }]}>{stats.joined}</Text>
+          <ThemedText type="caption" style={{ color: colors.textSecondary }}>參加活動</ThemedText>
+        </View>
+      </View>
+
+      {/* Favorite sports */}
+      {profile.favorite_sports && profile.favorite_sports.length > 0 && (
+        <View style={styles.section}>
+          <ThemedText type="label" style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            喜好運動
+          </ThemedText>
+          <View style={styles.chipGrid}>
+            {profile.favorite_sports.map((sportKey) => {
+              const sportLabel = SPORT_OPTIONS.find((s) => s.key === sportKey)?.label || sportKey;
+              return (
+                <View key={sportKey} style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <Text style={[styles.chipText, { color: colors.text }]}>{sportLabel}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {/* Sport positions */}
+      {profile.favorite_sports?.map((sportKey) => {
+        const positions = profile.sport_positions?.[sportKey as keyof SportPositions];
+        if (!positions || positions.length === 0) return null;
+        const sportLabel = SPORT_OPTIONS.find((s) => s.key === sportKey)?.label || sportKey;
+        const posOptions = SPORT_POSITIONS[sportKey] || [];
+        const posLabels = positions
+          .map((p) => posOptions.find((o) => o.key === p)?.label || p)
+          .join('、');
+        return (
+          <View key={sportKey} style={styles.detailRow}>
+            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{sportLabel}</Text>
+            <Text style={[styles.detailValue, { color: colors.text }]}>{posLabels}</Text>
+          </View>
+        );
+      })}
+
+      <View style={{ height: Spacing.xxl }} />
+    </ScreenLayout>
+  );
+}
+
+const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xxl,
+  },
+  socialRow: {
+    flexDirection: 'row',
+    gap: Spacing.lg,
+    alignItems: 'center',
+  },
+  profileSection: {
+    alignItems: 'center',
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  avatar: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+  },
+  avatarImage: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    marginBottom: Spacing.sm,
+  },
+  avatarText: {
+    fontSize: 32,
+    fontWeight: '700',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  displayName: {
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+  },
+  bio: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+  },
+  region: {
+    fontSize: 13,
+    marginTop: Spacing.xs,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: Spacing.lg,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.xs,
+  },
+  statNumber: {
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  section: {
+    marginBottom: Spacing.xl,
+  },
+  sectionTitle: {
+    marginBottom: Spacing.md,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  chipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  chip: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+  },
+  detailLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  detailValue: {
+    fontSize: 14,
+    flex: 1,
+    textAlign: 'right',
+    marginLeft: Spacing.lg,
+  },
+});

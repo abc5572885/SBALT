@@ -78,6 +78,10 @@ export default function ProfileScreen() {
   }
 
   const menuItems = [
+    ...(accountType === 'official' ? [
+      { icon: 'star.fill' as const, label: '推廣資訊管理', onPress: () => router.push('/promotion/my-promotions') },
+    ] : []),
+    { icon: 'sportscourt.fill' as const, label: '運動資料', onPress: () => router.push('/(tabs)/sport-profile') },
     { icon: 'bolt.fill' as const, label: '成就', onPress: () => router.push('/event/achievements') },
     { icon: 'gearshape.fill' as const, label: '設定', onPress: () => router.push('/(tabs)/settings') },
   ];

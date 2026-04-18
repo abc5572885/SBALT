@@ -20,6 +20,9 @@ export default function EditProfileScreen() {
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
+  const [instagramUrl, setInstagramUrl] = useState('');
+  const [facebookUrl, setFacebookUrl] = useState('');
+  const [lineId, setLineId] = useState('');
   const [usernameError, setUsernameError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -29,6 +32,9 @@ export default function EditProfileScreen() {
         if (p) {
           setUsername(p.username || '');
           setBio(p.bio || '');
+          setInstagramUrl(p.instagram_url || '');
+          setFacebookUrl(p.facebook_url || '');
+          setLineId(p.line_id || '');
         }
       });
     }
@@ -82,6 +88,9 @@ export default function EditProfileScreen() {
         display_name: displayName.trim(),
         username: username || null,
         bio: bio.trim() || null,
+        instagram_url: instagramUrl.trim() || null,
+        facebook_url: facebookUrl.trim() || null,
+        line_id: lineId.trim() || null,
       });
 
       setUser({ ...user, displayName: displayName.trim() });
@@ -160,6 +169,51 @@ export default function EditProfileScreen() {
           <ThemedText type="caption" style={{ color: colors.textSecondary, marginTop: Spacing.xs, textAlign: 'right' }}>
             {bio.length}/150
           </ThemedText>
+        </View>
+
+        <View>
+          <ThemedText type="label" style={[styles.label, { color: colors.textSecondary }]}>
+            Instagram
+          </ThemedText>
+          <TextInput
+            style={[styles.input, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
+            value={instagramUrl}
+            onChangeText={setInstagramUrl}
+            placeholder="@username 或完整網址"
+            placeholderTextColor={colors.placeholder}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+
+        <View>
+          <ThemedText type="label" style={[styles.label, { color: colors.textSecondary }]}>
+            Facebook
+          </ThemedText>
+          <TextInput
+            style={[styles.input, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
+            value={facebookUrl}
+            onChangeText={setFacebookUrl}
+            placeholder="用戶名 或 完整網址"
+            placeholderTextColor={colors.placeholder}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+
+        <View>
+          <ThemedText type="label" style={[styles.label, { color: colors.textSecondary }]}>
+            LINE ID
+          </ThemedText>
+          <TextInput
+            style={[styles.input, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
+            value={lineId}
+            onChangeText={setLineId}
+            placeholder="LINE ID（選填）"
+            placeholderTextColor={colors.placeholder}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
         </View>
 
         <View>

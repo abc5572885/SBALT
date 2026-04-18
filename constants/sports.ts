@@ -61,3 +61,33 @@ export const SPORT_OPTIONS = Object.values(SPORT_CONFIGS);
 export function getSportConfig(sportType: string | null | undefined): SportConfig {
   return SPORT_CONFIGS[sportType || 'other'] || SPORT_CONFIGS.other;
 }
+
+// 各運動的位置/偏好選項
+export const SPORT_POSITIONS: Record<string, { key: string; label: string }[]> = {
+  basketball: [
+    { key: 'PG', label: '控球後衛 (PG)' },
+    { key: 'SG', label: '得分後衛 (SG)' },
+    { key: 'SF', label: '小前鋒 (SF)' },
+    { key: 'PF', label: '大前鋒 (PF)' },
+    { key: 'C', label: '中鋒 (C)' },
+  ],
+  volleyball: [
+    { key: 'setter', label: '舉球' },
+    { key: 'outside', label: '主攻' },
+    { key: 'middle', label: '副攻' },
+    { key: 'opposite', label: '對角' },
+    { key: 'libero', label: '自由' },
+  ],
+  badminton: [
+    { key: 'singles', label: '單打' },
+    { key: 'doubles', label: '雙打' },
+    { key: 'mixed', label: '混雙' },
+    { key: 'all', label: '都打' },
+  ],
+  running: [
+    { key: 'sprint', label: '短跑' },
+    { key: 'middle', label: '中長跑' },
+    { key: 'marathon', label: '馬拉松' },
+    { key: 'trail', label: '越野' },
+  ],
+};

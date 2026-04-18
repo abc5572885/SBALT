@@ -8,9 +8,10 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 interface PageHeaderProps {
   title: string;
   showBack?: boolean;
+  rightContent?: React.ReactNode;
 }
 
-export function PageHeader({ title, showBack = true }: PageHeaderProps) {
+export function PageHeader({ title, showBack = true, rightContent }: PageHeaderProps) {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -41,7 +42,11 @@ export function PageHeader({ title, showBack = true }: PageHeaderProps) {
       <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
         {title}
       </Text>
-      <View style={styles.backButton} />
+      {rightContent ? (
+        <View style={styles.rightSlot}>{rightContent}</View>
+      ) : (
+        <View style={styles.backButton} />
+      )}
     </View>
   );
 }
@@ -60,6 +65,13 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  rightSlot: {
+    minWidth: 44,
+    height: 44,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingRight: Spacing.sm,
   },
   headerTitle: {
     fontSize: 17,
