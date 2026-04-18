@@ -44,6 +44,25 @@ export async function updateProfile(userId: string, updates: Partial<Profile>) {
   return data;
 }
 
+export async function getProfilesByIds(userIds: string[]): Promise<Record<string, Profile>> {
+  if (userIds.length === 0) return {};
+  const unique = [...new Set(userIds)];
+  const { data } = await supabase
+    .from('profiles')
+    .select('*')
+    .in('id', unique);
+  const map: Record<string, Profile> = {};
+  (data || []).forEach((p: any) => { map[p.id] = p; });
+  return map;
+}
+
+export function getDisplayName(profile: Profile | undefined, userId: string, isMe: boolean): string {
+  if (isMe) return '我';
+  if (profile?.display_name) return profile.display_name;
+  if (profile?.username) return `@${profile.username}`;
+  return `用戶 ${userId.slice(0, 8)}`;
+}
+
 export function getBadgeInfo(accountType: AccountType): { label: string; color: string } | null {
   switch (accountType) {
     case 'verified':

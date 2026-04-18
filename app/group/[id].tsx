@@ -16,6 +16,8 @@ import {
   leaveGroup,
 } from '@/services/groups';
 import { Event, Group, GroupMember, GroupPost } from '@/types/database';
+import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
+import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { formatDateChinese } from '@/utils/dateFormat';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -43,6 +45,7 @@ export default function GroupDetailScreen() {
   const [posts, setPosts] = useState<GroupPost[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [newPost, setNewPost] = useState('');
   const [posting, setPosting] = useState(false);
   const [activeTab, setActiveTab] = useState<'posts' | 'events' | 'members'>('posts');
@@ -65,6 +68,11 @@ export default function GroupDetailScreen() {
       setMembers(membersData);
       setPosts(postsData);
       setEvents(eventsData);
+
+      // Load profiles for all members
+      const userIds = membersData.map((m: any) => m.user_id);
+      const profileMap = await getProfilesByIds(userIds);
+      setProfiles(profileMap);
     } catch (error) {
       console.error('載入群組失敗:', error);
     } finally {
@@ -228,9 +236,14 @@ export default function GroupDetailScreen() {
               posts.map((post) => (
                 <View key={post.id} style={[styles.postCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
                   <View style={styles.postHeader}>
-                    <ThemedText type="label">
-                      {post.user_id === user?.id ? '我' : `成員`}
-                    </ThemedText>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
+                      <ThemedText type="label">
+                        {getDisplayName(profiles[post.user_id], post.user_id, post.user_id === user?.id)}
+                      </ThemedText>
+                      {profiles[post.user_id]?.account_type !== 'regular' && (
+                        <VerifiedBadge accountType={profiles[post.user_id].account_type} size="small" />
+                      )}
+                    </View>
                     <View style={styles.postHeaderRight}>
                       <ThemedText type="caption" style={{ color: colors.textSecondary }}>
                         {new Date(post.created_at).toLocaleDateString('zh-TW')}
@@ -294,9 +307,14 @@ export default function GroupDetailScreen() {
                   <Text style={styles.memberAvatarText}>{index + 1}</Text>
                 </View>
                 <View style={styles.memberInfo}>
-                  <ThemedText style={styles.memberName}>
-                    {member.user_id === user?.id ? '我' : `成員 ${member.user_id.slice(0, 8)}`}
-                  </ThemedText>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
+                    <ThemedText style={styles.memberName}>
+                      {getDisplayName(profiles[member.user_id], member.user_id, member.user_id === user?.id)}
+                    </ThemedText>
+                    {profiles[member.user_id]?.account_type !== 'regular' && (
+                      <VerifiedBadge accountType={profiles[member.user_id].account_type} size="small" />
+                    )}
+                  </View>
                   {member.role === 'admin' && (
                     <ThemedText type="caption" style={{ color: colors.primary }}>管理員</ThemedText>
                   )}

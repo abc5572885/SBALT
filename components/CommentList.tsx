@@ -1,9 +1,12 @@
+import React from 'react';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { deleteComment } from '@/services/database';
+import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
 import { Comment } from '@/types/database';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 
@@ -16,6 +19,14 @@ export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
   const { user } = useAuth();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const [profiles, setProfiles] = React.useState<Record<string, Profile>>({});
+
+  React.useEffect(() => {
+    const ids = [...new Set(comments.map((c) => c.user_id))];
+    if (ids.length > 0) {
+      getProfilesByIds(ids).then(setProfiles).catch(() => {});
+    }
+  }, [comments]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -72,9 +83,14 @@ export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
             style={[styles.commentCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
           >
             <View style={styles.commentHeader}>
-              <ThemedText type="label">
-                {isOwner ? '我' : `用戶 ${comment.user_id.slice(0, 8)}`}
-              </ThemedText>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
+                <ThemedText type="label">
+                  {getDisplayName(profiles[comment.user_id], comment.user_id, isOwner)}
+                </ThemedText>
+                {profiles[comment.user_id]?.account_type !== 'regular' && (
+                  <VerifiedBadge accountType={profiles[comment.user_id].account_type} size="small" />
+                )}
+              </View>
               <View style={styles.headerRight}>
                 <ThemedText type="caption" style={{ color: colors.textSecondary }}>
                   {formatDate(comment.created_at)}
