@@ -2,11 +2,13 @@ import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { VerifiedBadge, VerifiedLabel } from '@/components/VerifiedBadge';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { pickAndUploadAvatar } from '@/services/avatar';
 import { getUserStats } from '@/services/database';
+import { getProfile, AccountType } from '@/services/profile';
 import { useAppStore } from '@/store/useAppStore';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -19,6 +21,8 @@ export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [stats, setStats] = useState({ organized: 0, joined: 0 });
+  const [accountType, setAccountType] = useState<AccountType>('regular');
+  const [officialTitle, setOfficialTitle] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl || null);
   const { setUser } = useAppStore();
@@ -27,6 +31,12 @@ export default function ProfileScreen() {
     useCallback(() => {
       if (user) {
         getUserStats(user.id).then(setStats).catch(() => {});
+        getProfile(user.id).then((p) => {
+          if (p) {
+            setAccountType(p.account_type);
+            setOfficialTitle(p.official_title);
+          }
+        }).catch(() => {});
       }
     }, [user])
   );
@@ -96,11 +106,15 @@ export default function ProfileScreen() {
             <IconSymbol name="pencil" size={10} color="#FFF" />
           </View>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/edit-profile')} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/edit-profile')} activeOpacity={0.7} style={styles.nameRow}>
           <Text style={[styles.displayName, { color: colors.text }]}>
             {user.displayName || '未設定'}
           </Text>
+          <VerifiedBadge accountType={accountType} />
         </TouchableOpacity>
+        {accountType === 'official' && officialTitle && (
+          <VerifiedLabel accountType={accountType} officialTitle={officialTitle} />
+        )}
         <ThemedText type="caption" style={{ color: colors.textSecondary }}>
           {user.email}
         </ThemedText>
@@ -219,6 +233,11 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   displayName: {
     fontSize: 24,
