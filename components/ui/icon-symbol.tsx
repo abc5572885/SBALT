@@ -34,6 +34,7 @@ const MAPPING = {
   'magnifyingglass': 'search',
   'bolt.fill': 'flash-on',
   'chart.bar.fill': 'bar-chart',
+  'hand.raised.fill': 'pan-tool',
 } as IconMapping;
 
 /**

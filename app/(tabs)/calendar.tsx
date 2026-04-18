@@ -286,6 +286,7 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '800',
     letterSpacing: -1.5,
+    marginTop: Spacing.md,
     marginBottom: Spacing.lg,
   },
   dateStripWrapper: {

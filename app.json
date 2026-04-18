@@ -46,6 +46,12 @@
         }
       ],
       [
+        "expo-calendar",
+        {
+          "calendarPermission": "SBALT 需要存取行事曆來新增活動提醒"
+        }
+      ],
+      [
         "expo-notifications",
         {
           "sounds": []

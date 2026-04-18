@@ -1,105 +1,109 @@
-import { PageHeader } from '@/components/PageHeader';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { SPORT_OPTIONS } from '@/constants/sports';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { getOpenEvents, getRegistrationCounts } from '@/services/database';
-import { Event } from '@/types/database';
+import { getMyRegisteredEvents } from '@/services/database';
+import { getMyGroups, getGroupPosts } from '@/services/groups';
+import { Event, Group, GroupPost } from '@/types/database';
 import { formatDateChinese } from '@/utils/dateFormat';
-import { useRouter } from 'expo-router';
-import React from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const FILTER_OPTIONS = [
-  { key: 'all', label: '全部' },
-  ...SPORT_OPTIONS.filter((s) => s.key !== 'other'),
-];
+interface FeedItem {
+  type: 'post' | 'upcoming';
+  id: string;
+  timestamp: string;
+  // Post fields
+  groupName?: string;
+  groupId?: string;
+  content?: string;
+  userId?: string;
+  // Event fields
+  event?: Event;
+}
 
-export default function EventsScreen() {
+export default function CommunityScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const [events, setEvents] = React.useState<Event[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [refreshing, setRefreshing] = React.useState(false);
-  const [regCounts, setRegCounts] = React.useState<Record<string, number>>({});
-  const [error, setError] = React.useState(false);
-  const [filter, setFilter] = React.useState('all');
-  const [searchQuery, setSearchQuery] = React.useState('');
+  const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  React.useEffect(() => {
-    loadEvents();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      if (user) loadFeed();
+    }, [user])
+  );
 
-  const loadEvents = async () => {
+  const loadFeed = async () => {
+    if (!user) return;
     try {
-      setError(false);
-      const data = await getOpenEvents();
-      setEvents(data);
-      if (data.length > 0) {
-        const counts = await getRegistrationCounts(data.map((e) => e.id));
-        setRegCounts(counts);
+      const [groups, myEvents] = await Promise.all([
+        getMyGroups(user.id),
+        getMyRegisteredEvents(user.id),
+      ]);
+
+      const items: FeedItem[] = [];
+
+      // Load posts from all groups
+      for (const group of groups.slice(0, 5)) {
+        const posts = await getGroupPosts(group.id);
+        for (const post of posts.slice(0, 3)) {
+          items.push({
+            type: 'post',
+            id: post.id,
+            timestamp: post.created_at,
+            groupName: group.name,
+            groupId: group.id,
+            content: post.content,
+            userId: post.user_id,
+          });
+        }
       }
-    } catch (err) {
-      console.error('載入活動失敗:', err);
-      setError(true);
+
+      // Add upcoming events as reminders
+      const upcoming = myEvents
+        .filter((e) => new Date(e.scheduled_at) > new Date())
+        .slice(0, 3);
+      for (const evt of upcoming) {
+        items.push({
+          type: 'upcoming',
+          id: `event-${evt.id}`,
+          timestamp: evt.scheduled_at,
+          event: evt,
+        });
+      }
+
+      // Sort by timestamp
+      items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setFeed(items);
+    } catch (error) {
+      console.error('載入社群失敗:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadEvents();
-  };
-
-  const filteredEvents = events.filter((e) => {
-    const matchesFilter = filter === 'all' || e.sport_type === filter;
-    const matchesSearch = !searchQuery ||
-      e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.location.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
-
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ThemedView style={styles.centerContainer}>
           <ActivityIndicator size="large" />
-          <ThemedText type="caption" style={{ color: colors.textSecondary, marginTop: Spacing.md }}>
-            載入中...
-          </ThemedText>
-        </ThemedView>
-      </SafeAreaView>
-    );
-  }
-
-  if (error) {
-    return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ThemedView style={styles.centerContainer}>
-          <ThemedText style={{ color: colors.textSecondary, marginBottom: Spacing.lg }}>
-            載入失敗，請檢查網路連線
-          </ThemedText>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            onPress={() => { setLoading(true); loadEvents(); }}
-          >
-            <ThemedText style={{ color: colors.primaryText, fontWeight: '600' }}>重試</ThemedText>
-          </TouchableOpacity>
         </ThemedView>
       </SafeAreaView>
     );
@@ -108,140 +112,92 @@ export default function EventsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
-        <Text style={[styles.pageTitle, { color: colors.text }]}>活動</Text>
+        <Text style={[styles.pageTitle, { color: colors.text }]}>社群</Text>
 
-        {/* Search */}
-        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <IconSymbol name="magnifyingglass" size={16} color={colors.textSecondary} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="搜尋活動名稱或地點"
-            placeholderTextColor={colors.placeholder}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <IconSymbol name="chevron.right" size={14} color={colors.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Sport filter */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRow}
-          style={styles.filterScroll}
-        >
-          {FILTER_OPTIONS.map((opt) => {
-            const isActive = filter === opt.key;
-            return (
-              <TouchableOpacity
-                key={opt.key}
-                style={[
-                  styles.filterChip,
-                  { borderColor: colors.border },
-                  isActive && { backgroundColor: colors.text, borderColor: colors.text },
-                ]}
-                onPress={() => setFilter(opt.key)}
-                activeOpacity={0.7}
-              >
-                <ThemedText
-                  style={[
-                    styles.filterText,
-                    { color: colors.textSecondary },
-                    isActive && { color: colors.background },
-                  ]}
-                >
-                  {opt.label}
-                </ThemedText>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Event list */}
         <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadFeed(); }} />}
         >
-          {filteredEvents.length > 0 ? (
-            <View style={styles.list}>
-              {filteredEvents.map((evt) => {
-                const sportLabel = SPORT_OPTIONS.find((s) => s.key === evt.sport_type)?.label || '';
-                return (
-                  <TouchableOpacity
-                    key={evt.id}
-                    style={[styles.eventCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-                    onPress={() => router.push({ pathname: '/event/detail', params: { eventId: evt.id } })}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.cardTop}>
-                      <View style={styles.cardTitleRow}>
-                        <ThemedText style={styles.cardTitle} numberOfLines={1}>{evt.title}</ThemedText>
-                        {sportLabel && (
-                          <View style={[styles.sportTag, { backgroundColor: colors.primary + '12' }]}>
-                            <ThemedText type="label" style={{ color: colors.primary }}>{sportLabel}</ThemedText>
-                          </View>
-                        )}
-                      </View>
-                      {evt.description && (
-                        <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={1}>
-                          {evt.description}
-                        </ThemedText>
-                      )}
-                    </View>
+          {/* Quick actions */}
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+              onPress={() => router.push('/group')}
+              activeOpacity={0.7}
+            >
+              <IconSymbol name="person.fill" size={18} color={colors.primary} />
+              <ThemedText style={styles.actionText}>我的群組</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+              onPress={() => router.push('/group/create')}
+              activeOpacity={0.7}
+            >
+              <IconSymbol name="plus" size={18} color={colors.primary} />
+              <ThemedText style={styles.actionText}>建立群組</ThemedText>
+            </TouchableOpacity>
+          </View>
 
-                    <View style={[styles.cardDivider, { backgroundColor: colors.border }]} />
-
-                    <View style={styles.cardBottom}>
-                      <View style={styles.cardInfoItem}>
-                        <IconSymbol name="calendar" size={14} color={colors.textSecondary} />
-                        <ThemedText type="caption" style={{ color: colors.textSecondary }}>
-                          {formatDateChinese(new Date(evt.scheduled_at))}
-                        </ThemedText>
-                      </View>
-                      <View style={styles.cardInfoItem}>
-                        <IconSymbol name="location.fill" size={14} color={colors.textSecondary} />
-                        <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={1}>
-                          {evt.location}
-                        </ThemedText>
-                      </View>
-                      <View style={styles.cardInfoItem}>
-                        <IconSymbol name="person.fill" size={14} color={colors.primary} />
-                        <ThemedText type="caption" style={{ color: colors.primary, fontWeight: '600' }}>
-                          {regCounts[evt.id] || 0}/{evt.quota}
-                        </ThemedText>
-                      </View>
-                      {evt.fee > 0 && (
-                        <ThemedText type="label" style={{ color: colors.primary }}>
-                          NT$ {evt.fee}
-                        </ThemedText>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ) : (
-            <View style={[styles.emptyContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <ThemedText type="caption" style={{ color: colors.textSecondary }}>
-                {filter === 'all' ? '目前尚無公開活動' : '此類型尚無活動'}
+          {/* Feed */}
+          {feed.length === 0 ? (
+            <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <ThemedText style={{ color: colors.textSecondary, textAlign: 'center' }}>
+                加入群組後，這裡會顯示群組公告和活動提醒
               </ThemedText>
               <TouchableOpacity
-                style={[styles.createBtn, { backgroundColor: colors.primary }, Shadows.sm]}
-                onPress={() => router.push('/event/new')}
+                style={[styles.joinBtn, { backgroundColor: colors.primary }]}
+                onPress={() => router.push('/group')}
                 activeOpacity={0.7}
               >
-                <IconSymbol name="plus" size={16} color={colors.primaryText} />
-                <ThemedText style={{ color: colors.primaryText, fontWeight: '600', fontSize: 15 }}>
-                  建立活動
-                </ThemedText>
+                <ThemedText style={{ color: '#FFF', fontWeight: '600' }}>探索群組</ThemedText>
               </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.feedList}>
+              {feed.map((item) => {
+                if (item.type === 'post') {
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.feedCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+                      onPress={() => router.push({ pathname: '/group/[id]', params: { id: item.groupId! } })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.feedHeader}>
+                        <ThemedText type="label" style={{ color: colors.primary }}>{item.groupName}</ThemedText>
+                        <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+                          {new Date(item.timestamp).toLocaleDateString('zh-TW')}
+                        </ThemedText>
+                      </View>
+                      <ThemedText style={styles.feedContent} numberOfLines={3}>
+                        {item.content}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  );
+                }
+
+                if (item.type === 'upcoming' && item.event) {
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.feedCard, styles.eventReminder, { borderColor: colors.primary + '30', backgroundColor: colors.primary + '08' }, Shadows.sm]}
+                      onPress={() => router.push({ pathname: '/event/detail', params: { eventId: item.event!.id } })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.feedHeader}>
+                        <ThemedText type="label" style={{ color: colors.primary }}>即將開始</ThemedText>
+                      </View>
+                      <ThemedText style={styles.feedEventTitle}>{item.event.title}</ThemedText>
+                      <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+                        {formatDateChinese(new Date(item.event.scheduled_at))} · {item.event.location}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  );
+                }
+
+                return null;
+              })}
             </View>
           )}
 
@@ -253,126 +209,69 @@ export default function EventsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: Spacing.lg,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: Spacing.md,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    paddingVertical: Spacing.xs,
-  },
+  safeArea: { flex: 1 },
+  container: { flex: 1, paddingHorizontal: Spacing.lg },
+  scrollView: { flex: 1 },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   pageTitle: {
     fontSize: 32,
     fontWeight: '800',
     letterSpacing: -1.5,
+    marginTop: Spacing.md,
     marginBottom: Spacing.lg,
   },
-  // Filter
-  filterScroll: {
-    flexGrow: 0,
-    marginBottom: Spacing.lg,
-  },
-  filterRow: {
+  actions: {
+    flexDirection: 'row',
     gap: Spacing.sm,
-    paddingRight: Spacing.lg,
+    marginBottom: Spacing.xl,
   },
-  filterChip: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  // List
-  list: {
-    gap: Spacing.md,
-  },
-  eventCard: {
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
   },
-  cardTop: {
-    padding: Spacing.lg,
-    gap: Spacing.xs,
-  },
-  cardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.sm,
-  },
-  cardTitle: {
-    fontSize: 16,
+  actionText: {
+    fontSize: 15,
     fontWeight: '600',
-    flex: 1,
   },
-  sportTag: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.sm,
-  },
-  cardDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: Spacing.lg,
-  },
-  cardBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.lg,
-    padding: Spacing.lg,
-    paddingTop: Spacing.md,
-    flexWrap: 'wrap',
-  },
-  cardInfoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  // Empty
-  emptyContainer: {
+  emptyCard: {
     padding: Spacing.xxxl,
     alignItems: 'center',
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     gap: Spacing.lg,
   },
-  createBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
+  joinBtn: {
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xl,
     borderRadius: Radius.sm,
   },
-  retryButton: {
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.sm,
+  feedList: {
+    gap: Spacing.sm,
+  },
+  feedCard: {
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.sm,
+  },
+  eventReminder: {},
+  feedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  feedContent: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  feedEventTitle: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

@@ -7,6 +7,8 @@ import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { autoExpireEvents, getOpenEvents, getRegistrationCounts, getUserStats, getMyRegisteredEvents } from '@/services/database';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAppStore } from '@/store/useAppStore';
+import { getSportConfig } from '@/constants/sports';
 import { Event } from '@/types/database';
 import { formatDateChinese } from '@/utils/dateFormat';
 import { Image } from 'expo-image';
@@ -18,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { selectedSport } = useAppStore();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [events, setEvents] = React.useState<Event[]>([]);
@@ -64,11 +67,17 @@ export default function HomeScreen() {
     loadData();
   };
 
+  // Filter by selected sport
+  const filteredEvents = selectedSport === 'all'
+    ? events
+    : events.filter((e) => e.sport_type === selectedSport);
+
   // Split events: upcoming (within 7 days) vs later
   const now = new Date();
   const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const upcomingEvents = events.filter((e) => new Date(e.scheduled_at) <= weekLater);
-  const laterEvents = events.filter((e) => new Date(e.scheduled_at) > weekLater);
+  const upcomingEvents = filteredEvents.filter((e) => new Date(e.scheduled_at) <= weekLater);
+  const laterEvents = filteredEvents.filter((e) => new Date(e.scheduled_at) > weekLater);
+  const sportLabel = selectedSport !== 'all' ? getSportConfig(selectedSport).label : null;
 
   if (loading) {
     return (
@@ -161,7 +170,14 @@ export default function HomeScreen() {
       <ThemedView style={styles.container}>
         {/* Header */}
         <View style={styles.greetingSection}>
-          <Text style={[styles.brandTitle, { color: colors.text }]}>SBALT</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm }}>
+            <Text style={[styles.brandTitle, { color: colors.text }]}>SBALT</Text>
+            {sportLabel && (
+              <ThemedText type="caption" style={{ color: colors.primary, fontWeight: '600' }}>
+                {sportLabel}
+              </ThemedText>
+            )}
+          </View>
           <View style={styles.miniStats}>
             <View style={styles.miniStat}>
               <Text style={[styles.miniStatNumber, { color: colors.primary }]}>{stats.organized}</Text>
@@ -214,6 +230,25 @@ export default function HomeScreen() {
               <ThemedText style={styles.actionText}>附近場地</ThemedText>
             </TouchableOpacity>
           </View>
+
+          {/* Sport tools */}
+          {(selectedSport === 'basketball' || selectedSport === 'volleyball') && (
+            <TouchableOpacity
+              style={[styles.toolCard, { backgroundColor: selectedSport === 'basketball' ? '#E87A2A' : '#2563EB' }, Shadows.md]}
+              onPress={() => router.push({ pathname: '/sport/board', params: { type: selectedSport } })}
+              activeOpacity={0.8}
+            >
+              <View style={styles.toolCardContent}>
+                <Text style={styles.toolCardTitle}>
+                  {selectedSport === 'basketball' ? '戰術板' : '戰術板 / 輪轉表'}
+                </Text>
+                <Text style={styles.toolCardSubtitle}>
+                  {selectedSport === 'basketball' ? '安排進攻防守站位' : '追蹤輪轉與戰術位置'}
+                </Text>
+              </View>
+              <IconSymbol name="chevron.right" size={18} color="rgba(255,255,255,0.5)" />
+            </TouchableOpacity>
+          )}
 
           {/* Upcoming events (within 7 days) */}
           {upcomingEvents.length > 0 && (
@@ -279,6 +314,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
+    marginTop: Spacing.md,
     marginBottom: Spacing.xl,
   },
   greeting: {
@@ -340,6 +376,26 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  toolCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    marginBottom: Spacing.xl,
+  },
+  toolCardContent: {
+    flex: 1,
+    gap: Spacing.xs,
+  },
+  toolCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  toolCardSubtitle: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 13,
   },
   section: {
     marginBottom: Spacing.xxl,

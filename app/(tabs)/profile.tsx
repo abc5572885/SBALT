@@ -178,6 +178,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   profileSection: {
     alignItems: 'center',
+    marginTop: Spacing.md,
     marginBottom: Spacing.xl,
     gap: Spacing.sm,
   },

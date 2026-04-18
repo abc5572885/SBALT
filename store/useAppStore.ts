@@ -28,16 +28,20 @@ interface AppState {
   // 用戶狀態
   user: User | null;
   isAuthenticated: boolean;
-  
+
   // 主題設定
   themeMode: ThemeMode;
-  
+
+  // 選擇的運動
+  selectedSport: string;
+
   // 通知偏好
   notificationPreferences: NotificationPreferences;
-  
+
   // Actions
   setUser: (user: User | null) => void;
   setThemeMode: (mode: ThemeMode) => void;
+  setSelectedSport: (sport: string) => void;
   setNotificationPreferences: (prefs: Partial<NotificationPreferences>) => void;
   logout: () => void;
 }
@@ -49,6 +53,7 @@ export const useAppStore = create<AppState>()(
       user: null,
       isAuthenticated: false,
       themeMode: 'auto',
+      selectedSport: 'all',
       notificationPreferences: {
         gameStart: true,
         scoreUpdate: true,
@@ -65,6 +70,8 @@ export const useAppStore = create<AppState>()(
         }),
 
       setThemeMode: (mode: ThemeMode) => set({ themeMode: mode }),
+
+      setSelectedSport: (sport: string) => set({ selectedSport: sport }),
 
       setNotificationPreferences: (prefs: Partial<NotificationPreferences>) =>
         set((state: AppState) => ({
@@ -85,6 +92,7 @@ export const useAppStore = create<AppState>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state: AppState) => ({
         themeMode: state.themeMode,
+        selectedSport: state.selectedSport,
         notificationPreferences: state.notificationPreferences,
         // 不持久化用戶資料，由 Supabase Auth 處理
       }),
