@@ -6,11 +6,21 @@ export type VerificationStatus = 'unverified' | 'phone_verified' | 'id_verified'
 export interface Profile {
   id: string;
   display_name: string | null;
+  username: string | null;
   phone: string | null;
   account_type: AccountType;
   verification_status: VerificationStatus;
   official_title: string | null;
   bio: string | null;
+}
+
+export async function isUsernameTaken(username: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('username', username.toLowerCase())
+    .single();
+  return !!data;
 }
 
 export async function getProfile(userId: string): Promise<Profile | null> {

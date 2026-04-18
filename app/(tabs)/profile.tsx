@@ -23,6 +23,7 @@ export default function ProfileScreen() {
   const [stats, setStats] = useState({ organized: 0, joined: 0 });
   const [accountType, setAccountType] = useState<AccountType>('regular');
   const [officialTitle, setOfficialTitle] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl || null);
   const { setUser } = useAppStore();
@@ -35,6 +36,7 @@ export default function ProfileScreen() {
           if (p) {
             setAccountType(p.account_type);
             setOfficialTitle(p.official_title);
+            setUsername(p.username);
           }
         }).catch(() => {});
       }
@@ -114,6 +116,11 @@ export default function ProfileScreen() {
         </TouchableOpacity>
         {accountType === 'official' && officialTitle && (
           <VerifiedLabel accountType={accountType} officialTitle={officialTitle} />
+        )}
+        {username && (
+          <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+            @{username}
+          </ThemedText>
         )}
         <ThemedText type="caption" style={{ color: colors.textSecondary }}>
           {user.email}
