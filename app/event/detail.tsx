@@ -21,6 +21,7 @@ import {
   hasUserRegistered,
 } from '@/services/database';
 import { Comment, Event, EventScore } from '@/types/database';
+import { addToDeviceCalendar } from '@/services/calendar';
 import { pickAndUploadEventImage } from '@/services/eventImage';
 import { scheduleEventReminder, sendLocalNotification } from '@/services/notifications';
 import { getWeatherForDate } from '@/services/weather';
@@ -147,7 +148,21 @@ export default function EventDetailScreen() {
           60
         );
 
-        Alert.alert('報名成功', '您已成功報名此活動，開始前 1 小時會提醒您');
+        Alert.alert('報名成功', '要加入手機行事曆嗎？', [
+          { text: '不用', style: 'cancel' },
+          {
+            text: '加入行事曆',
+            onPress: async () => {
+              const success = await addToDeviceCalendar(
+                event.title,
+                event.location,
+                new Date(event.scheduled_at),
+                event.description || undefined
+              );
+              if (success) Alert.alert('已加入行事曆');
+            },
+          },
+        ]);
       }
     } catch (error: any) {
       if (error?.code === '23505') {
