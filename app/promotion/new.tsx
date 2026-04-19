@@ -22,7 +22,6 @@ import {
 } from 'react-native';
 
 const TYPE_OPTIONS = [
-  { key: 'venue', label: '場地' },
   { key: 'brand', label: '品牌' },
 ] as const;
 
@@ -44,9 +43,7 @@ export default function NewPromotionScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const { user, loading: authLoading } = useAuth();
 
-  const [type, setType] = useState<'venue' | 'brand'>(
-    (params.editType === 'venue' || params.editType === 'brand') ? params.editType : 'venue'
-  );
+  const [type, setType] = useState<'brand'>('brand');
   const [title, setTitle] = useState(params.editTitle || '');
   const [description, setDescription] = useState(params.editDescription || '');
   const [location, setLocation] = useState(params.editLocation || '');
@@ -188,7 +185,7 @@ export default function NewPromotionScreen() {
           style={inputStyle}
           value={title}
           onChangeText={setTitle}
-          placeholder={type === 'venue' ? '例：竹北國民運動中心' : '例：Nike 運動裝備'}
+          placeholder="例：Nike 運動裝備 / 2026 聯盟贊助夥伴"
           placeholderTextColor={colors.disabled}
         />
       </View>

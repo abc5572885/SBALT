@@ -7,7 +7,8 @@ import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createGroup } from '@/services/groups';
-import { AccountType, getProfile } from '@/services/profile';
+import { AccountType, getProfile, OfficialKind } from '@/services/profile';
+import { toast } from '@/store/useToast';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
@@ -22,22 +23,30 @@ export default function CreateGroupScreen() {
   const [sportType, setSportType] = useState('basketball');
   const [groupType, setGroupType] = useState<GroupType>('casual');
   const [accountType, setAccountType] = useState<AccountType>('regular');
+  const [officialKinds, setOfficialKinds] = useState<OfficialKind[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
       getProfile(user.id).then((p) => {
-        if (p) setAccountType(p.account_type);
+        if (p) {
+          setAccountType(p.account_type);
+          setOfficialKinds(p.official_kinds || []);
+        }
       }).catch(() => {});
     }
   }, [user]);
 
-  const availableTypes = GROUP_TYPES.filter(
-    (t) => !t.officialOnly || accountType === 'official'
-  );
-  const lockedTypes = GROUP_TYPES.filter(
-    (t) => t.officialOnly && accountType !== 'official'
-  );
+  // 依 official_kinds 決定哪些 group 類型可建
+  const canCreateType = (key: GroupType): boolean => {
+    if (!GROUP_TYPES.find((t) => t.key === key)?.officialOnly) return true;
+    if (accountType !== 'official') return false;
+    if (key === 'competition_org') return officialKinds.includes('competition');
+    if (key === 'venue_operator') return officialKinds.includes('venue');
+    return false;
+  };
+  const availableTypes = GROUP_TYPES.filter((t) => canCreateType(t.key));
+  const lockedTypes = GROUP_TYPES.filter((t) => !canCreateType(t.key) && t.officialOnly);
 
   const handleCreate = async () => {
     if (!user) return;
@@ -55,9 +64,8 @@ export default function CreateGroupScreen() {
         type: groupType,
         creator_id: user.id,
       });
-      Alert.alert('建立成功', `群組「${group.name}」已建立`, [
-        { text: '確定', onPress: () => router.back() },
-      ]);
+      toast.success(`群組「${group.name}」已建立`);
+      router.back();
     } catch (error: any) {
       Alert.alert('錯誤', error.message || '建立失敗');
     } finally {

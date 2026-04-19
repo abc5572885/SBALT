@@ -6,6 +6,7 @@ import { SPORT_OPTIONS } from '@/constants/sports';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { autoExpireEvents, getOpenEvents, getRegistrationCounts, getUserStats, getMyRegisteredEvents } from '@/services/database';
+import { getUnreadCount } from '@/services/appNotifications';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppStore } from '@/store/useAppStore';
 import { getSportConfig } from '@/constants/sports';
@@ -27,6 +28,7 @@ export default function HomeScreen() {
   const [myNextEvent, setMyNextEvent] = React.useState<Event | null>(null);
   const [regCounts, setRegCounts] = React.useState<Record<string, number>>({});
   const [stats, setStats] = React.useState({ organized: 0, joined: 0 });
+  const [unread, setUnread] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState(false);
@@ -52,6 +54,7 @@ export default function HomeScreen() {
           const upcoming = myEvents.find((e) => new Date(e.scheduled_at) > new Date());
           setMyNextEvent(upcoming || null);
         }).catch(() => {});
+        getUnreadCount(user.id).then(setUnread).catch(() => {});
       }
     } catch (err) {
       console.error('載入資料失敗:', err);
@@ -178,17 +181,32 @@ export default function HomeScreen() {
               </ThemedText>
             )}
           </View>
-          <TouchableOpacity onPress={() => router.push('/profile')} activeOpacity={0.7}>
-            {user?.avatarUrl ? (
-              <Image source={{ uri: user.avatarUrl }} style={styles.headerAvatar} />
-            ) : (
-              <View style={[styles.headerAvatar, { backgroundColor: colors.text }]}>
-                <Text style={[styles.headerAvatarText, { color: colors.background }]}>
-                  {(user?.displayName || user?.email)?.[0]?.toUpperCase() || '?'}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
+            <TouchableOpacity
+              onPress={() => router.push('/notifications')}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ position: 'relative' }}
+            >
+              <IconSymbol name="envelope.fill" size={22} color={colors.textSecondary} />
+              {unread > 0 && (
+                <View style={[styles.unreadDot, { backgroundColor: colors.error }]}>
+                  <Text style={styles.unreadText}>{unread > 9 ? '9+' : unread}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/profile')} activeOpacity={0.7}>
+              {user?.avatarUrl ? (
+                <Image source={{ uri: user.avatarUrl }} style={styles.headerAvatar} />
+              ) : (
+                <View style={[styles.headerAvatar, { backgroundColor: colors.text }]}>
+                  <Text style={[styles.headerAvatarText, { color: colors.background }]}>
+                    {(user?.displayName || user?.email)?.[0]?.toUpperCase() || '?'}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView
@@ -350,6 +368,22 @@ const styles = StyleSheet.create({
   },
   headerAvatarText: {
     fontSize: 16,
+    fontWeight: '700',
+  },
+  unreadDot: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadText: {
+    color: '#FFF',
+    fontSize: 11,
     fontWeight: '700',
   },
   nextEventCard: {

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { Database } from '@/types/database';
+import { checkAndUnlockAchievements } from './achievements';
 
 type GroupInsert = Database['public']['Tables']['groups']['Insert'];
 type GroupPostInsert = Database['public']['Tables']['group_posts']['Insert'];
@@ -23,6 +24,9 @@ export async function createGroup(data: GroupInsert) {
     role: 'admin',
   });
 
+  // Trigger achievement check
+  checkAndUnlockAchievements(data.creator_id).catch(() => {});
+
   return group;
 }
 
@@ -43,6 +47,14 @@ export async function getMyGroups(userId: string) {
     .order('updated_at', { ascending: false });
   if (error) throw error;
   return groups || [];
+}
+
+export async function getMyOwnedGroupIds(userId: string): Promise<string[]> {
+  const { data } = await supabase
+    .from('groups')
+    .select('id')
+    .eq('creator_id', userId);
+  return (data || []).map((g: { id: string }) => g.id);
 }
 
 export async function getGroupById(groupId: string) {

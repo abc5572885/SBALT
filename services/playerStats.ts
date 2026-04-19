@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { checkAndUnlockAchievements } from './achievements';
 
 export interface PlayerStat {
   id: string;
@@ -31,6 +32,8 @@ export async function recordPlayerScore(params: {
     .select()
     .single();
   if (error) throw error;
+  // Trigger achievement check (fire and forget)
+  checkAndUnlockAchievements(params.user_id).catch(() => {});
   return data as PlayerStat;
 }
 

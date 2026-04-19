@@ -52,7 +52,7 @@ const AGE_OPTIONS: { key: AgeRange; label: string }[] = [
   { key: '45+', label: '45+' },
 ];
 
-type Step = 'intro' | 'profile';
+type Step = 'intro' | 'basic' | 'details';
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -83,7 +83,7 @@ export default function OnboardingScreen() {
     if (currentPage < INTRO_PAGES.length - 1) {
       setCurrentPage(currentPage + 1);
     } else {
-      setStep('profile');
+      setStep('basic');
     }
   };
 
@@ -155,7 +155,7 @@ export default function OnboardingScreen() {
 
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <TouchableOpacity style={styles.skipButton} onPress={() => setStep('profile')} activeOpacity={0.6}>
+        <TouchableOpacity style={styles.skipButton} onPress={() => setStep('basic')} activeOpacity={0.6}>
           <Text style={[styles.skipText, { color: colors.textSecondary }]}>跳過</Text>
         </TouchableOpacity>
 
@@ -191,22 +191,41 @@ export default function OnboardingScreen() {
     );
   }
 
-  // Profile questionnaire
+  const handleSaveAndFinish = async () => {
+    await handleSaveProfile();
+  };
+
+  // Profile questionnaire (basic + details steps)
+  const isBasic = step === 'basic';
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <TouchableOpacity style={styles.skipButton} onPress={finish} activeOpacity={0.6}>
-        <Text style={[styles.skipText, { color: colors.textSecondary }]}>稍後再填</Text>
+      <TouchableOpacity style={styles.skipButton} onPress={handleSaveAndFinish} activeOpacity={0.6}>
+        <Text style={[styles.skipText, { color: colors.textSecondary }]}>
+          {isBasic ? '稍後再填' : '略過細節'}
+        </Text>
       </TouchableOpacity>
 
       <ScrollView
         contentContainerStyle={styles.formContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.formTitle, { color: colors.text }]}>建立你的運動檔案</Text>
+        <Text style={[styles.formTitle, { color: colors.text }]}>
+          {isBasic ? '先來認識你' : '再補點細節就完成'}
+        </Text>
         <Text style={[styles.formSubtitle, { color: colors.textSecondary }]}>
-          幫我們了解你，推薦合適的活動與夥伴
+          {isBasic
+            ? '基本資料，1 分鐘就好'
+            : '都是選填，隨時可在個人頁修改'}
         </Text>
 
+        {/* Step progress */}
+        <View style={styles.stepDots}>
+          <View style={[styles.stepDot, { backgroundColor: colors.text }]} />
+          <View style={[styles.stepDot, { backgroundColor: isBasic ? colors.disabled : colors.text }]} />
+        </View>
+
+        {isBasic && (
+        <>
         {/* Display name */}
         <View style={styles.fieldGroup}>
           <Text style={[styles.label, { color: colors.text }]}>暱稱</Text>
@@ -220,6 +239,43 @@ export default function OnboardingScreen() {
           />
         </View>
 
+        {/* Region */}
+        <View style={styles.fieldGroup}>
+          <Text style={[styles.label, { color: colors.text }]}>活動區域</Text>
+          <RegionPicker value={region} onChange={setRegion} />
+        </View>
+
+        {/* Favorite sports */}
+        <View style={styles.fieldGroup}>
+          <Text style={[styles.label, { color: colors.text }]}>喜好運動（可多選）</Text>
+          <View style={styles.optionRow}>
+            {SPORT_OPTIONS.filter((s) => s.key !== 'other').map((sport) => (
+              <TouchableOpacity
+                key={sport.key}
+                style={[
+                  styles.optionBtn,
+                  { borderColor: colors.border },
+                  favoriteSports.includes(sport.key) && { backgroundColor: colors.text, borderColor: colors.text },
+                ]}
+                onPress={() => toggleSport(sport.key)}
+                activeOpacity={0.7}
+              >
+                <Text style={[
+                  styles.optionText,
+                  { color: colors.textSecondary },
+                  favoriteSports.includes(sport.key) && { color: colors.background },
+                ]}>
+                  {sport.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+        </>
+        )}
+
+        {!isBasic && (
+        <>
         {/* Bio */}
         <View style={styles.fieldGroup}>
           <Text style={[styles.label, { color: colors.text }]}>自我介紹</Text>
@@ -227,7 +283,7 @@ export default function OnboardingScreen() {
             style={[styles.input, styles.bioInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
             value={bio}
             onChangeText={setBio}
-            placeholder="一句話介紹自己（選填）"
+            placeholder="一句話介紹自己"
             placeholderTextColor={colors.disabled}
             multiline
             maxLength={150}
@@ -235,12 +291,6 @@ export default function OnboardingScreen() {
           <Text style={{ color: colors.textSecondary, fontSize: 12, textAlign: 'right', marginTop: 4 }}>
             {bio.length}/150
           </Text>
-        </View>
-
-        {/* Region */}
-        <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: colors.text }]}>活動區域</Text>
-          <RegionPicker value={region} onChange={setRegion} />
         </View>
 
         {/* Gender */}
@@ -320,33 +370,6 @@ export default function OnboardingScreen() {
           </View>
         </View>
 
-        {/* Favorite sports */}
-        <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: colors.text }]}>喜好運動（可多選）</Text>
-          <View style={styles.optionRow}>
-            {SPORT_OPTIONS.filter((s) => s.key !== 'other').map((sport) => (
-              <TouchableOpacity
-                key={sport.key}
-                style={[
-                  styles.optionBtn,
-                  { borderColor: colors.border },
-                  favoriteSports.includes(sport.key) && { backgroundColor: colors.text, borderColor: colors.text },
-                ]}
-                onPress={() => toggleSport(sport.key)}
-                activeOpacity={0.7}
-              >
-                <Text style={[
-                  styles.optionText,
-                  { color: colors.textSecondary },
-                  favoriteSports.includes(sport.key) && { color: colors.background },
-                ]}>
-                  {sport.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
         {/* Positions */}
         {favoriteSports.map((sportKey) => {
           const positions = SPORT_POSITIONS[sportKey];
@@ -387,6 +410,8 @@ export default function OnboardingScreen() {
             </View>
           );
         })}
+        </>
+        )}
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
@@ -394,12 +419,12 @@ export default function OnboardingScreen() {
       <View style={styles.bottom}>
         <TouchableOpacity
           style={[styles.nextButton, { backgroundColor: colors.text }, saving && { opacity: 0.5 }]}
-          onPress={handleSaveProfile}
+          onPress={isBasic ? () => setStep('details') : handleSaveProfile}
           disabled={saving}
           activeOpacity={0.8}
         >
           <Text style={[styles.nextText, { color: colors.background }]}>
-            {saving ? '儲存中...' : '開始使用'}
+            {saving ? '儲存中...' : isBasic ? '下一步' : '開始使用'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -530,5 +555,16 @@ const styles = StyleSheet.create({
   bioInput: {
     height: 72,
     textAlignVertical: 'top',
+  },
+  stepDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.xl,
+  },
+  stepDot: {
+    width: 32,
+    height: 4,
+    borderRadius: 2,
   },
 });

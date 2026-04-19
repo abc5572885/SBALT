@@ -307,9 +307,17 @@ export default function VenueDetailScreen() {
 
       <View style={{ height: Spacing.xxl }} />
 
-      {/* Bottom Book CTA */}
-      {!isOperator && (
-        <View style={styles.bottomAction}>
+      {/* Bottom CTA */}
+      <View style={styles.bottomAction}>
+        {isOperator ? (
+          <TouchableOpacity
+            style={[styles.btn, { backgroundColor: colors.primary }, Shadows.sm]}
+            onPress={() => router.push({ pathname: '/venue/bookings/[id]', params: { id: venue.id } })}
+            activeOpacity={0.7}
+          >
+            <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>管理預約</Text>
+          </TouchableOpacity>
+        ) : (
           <TouchableOpacity
             style={[styles.btn, { backgroundColor: colors.primary }, Shadows.sm]}
             onPress={() => router.push({ pathname: '/venue/book/[id]', params: { id: venue.id } })}
@@ -317,8 +325,8 @@ export default function VenueDetailScreen() {
           >
             <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>預約時段</Text>
           </TouchableOpacity>
-        </View>
-      )}
+        )}
+      </View>
     </ScreenLayout>
   );
 }

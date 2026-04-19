@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { AuthProvider } from '@/contexts/AuthContext';
+import { ToastHost } from '@/components/ToastHost';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { requestNotificationPermission } from '@/services/notifications';
 
@@ -32,15 +33,19 @@ export default function RootLayout() {
           <Stack.Screen name="group" />
           <Stack.Screen name="sport" />
           <Stack.Screen name="promotion" />
-          <Stack.Screen name="profile" />
           <Stack.Screen name="user" />
           <Stack.Screen name="tournament" />
           <Stack.Screen name="venue" />
           <Stack.Screen name="login" />
           <Stack.Screen name="blocked-users" />
+          <Stack.Screen name="my-bookings" />
+          <Stack.Screen name="my-teams" />
+          <Stack.Screen name="edit-profile" />
+          <Stack.Screen name="notifications" />
           <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
           <Stack.Screen name="open" />
         </Stack>
+        <ToastHost />
         <StatusBar style="auto" />
       </ThemeProvider>
     </AuthProvider>

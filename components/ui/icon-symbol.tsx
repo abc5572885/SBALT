@@ -40,6 +40,8 @@ const MAPPING = {
   'camera.fill': 'photo-camera',
   'f.square.fill': 'facebook',
   'message.fill': 'chat',
+  'envelope.fill': 'mail',
+  'clock.fill': 'access-time',
 } as IconMapping;
 
 /**

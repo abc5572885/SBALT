@@ -370,7 +370,7 @@ export interface Database {
           name: string;
           description: string | null;
           sport_type: string | null;
-          type: 'casual' | 'competition_org' | 'team';
+          type: 'casual' | 'competition_org' | 'team' | 'venue_operator';
           creator_id: string;
           avatar_url: string | null;
           invite_code: string;
@@ -382,7 +382,7 @@ export interface Database {
           name: string;
           description?: string | null;
           sport_type?: string | null;
-          type?: 'casual' | 'competition_org' | 'team';
+          type?: 'casual' | 'competition_org' | 'team' | 'venue_operator';
           creator_id: string;
           avatar_url?: string | null;
           invite_code?: string;
@@ -393,7 +393,7 @@ export interface Database {
           name?: string;
           description?: string | null;
           sport_type?: string | null;
-          type?: 'casual' | 'competition_org' | 'team';
+          type?: 'casual' | 'competition_org' | 'team' | 'venue_operator';
           avatar_url?: string | null;
           updated_at?: string;
         };

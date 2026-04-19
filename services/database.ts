@@ -6,6 +6,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { Database } from '@/types/database';
+import { checkAndUnlockAchievements } from './achievements';
 
 type Tables = Database['public']['Tables'];
 type Comment = Tables['comments']['Insert'];
@@ -138,6 +139,9 @@ export async function createEvent(
   if (!recurrence_rule) {
     const { data: event, error } = await supabase.from('events').insert(eventData).select().single();
     if (error) throw error;
+    if (eventData.organizer_id) {
+      checkAndUnlockAchievements(eventData.organizer_id).catch(() => {});
+    }
     return event;
   }
 
@@ -252,6 +256,7 @@ export async function createRegistration(data: Registration) {
     .select()
     .single();
   if (error) throw error;
+  checkAndUnlockAchievements(data.user_id).catch(() => {});
   return registration;
 }
 

@@ -4,6 +4,7 @@ import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { UserActionMenu } from '@/components/UserActionMenu';
 import { VerifiedBadge, VerifiedLabel } from '@/components/VerifiedBadge';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { SPORT_OPTIONS, SPORT_POSITIONS } from '@/constants/sports';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
@@ -107,7 +108,7 @@ export default function UserProfileScreen() {
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 activeOpacity={0.6}
               >
-                <IconSymbol name="camera.fill" size={20} color={colors.text} />
+                <FontAwesome5 name="instagram" size={20} color={colors.text} />
               </TouchableOpacity>
             )}
             {profile.facebook_url && (
@@ -116,7 +117,7 @@ export default function UserProfileScreen() {
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 activeOpacity={0.6}
               >
-                <IconSymbol name="f.square.fill" size={20} color={colors.text} />
+                <FontAwesome5 name="facebook" size={20} color={colors.text} />
               </TouchableOpacity>
             )}
             {profile.line_id && (
@@ -125,7 +126,7 @@ export default function UserProfileScreen() {
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 activeOpacity={0.6}
               >
-                <IconSymbol name="message.fill" size={20} color={colors.text} />
+                <FontAwesome5 name="line" size={20} color={colors.text} />
               </TouchableOpacity>
             )}
             <UserActionMenu

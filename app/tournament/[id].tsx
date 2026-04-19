@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getGroupById } from '@/services/groups';
 import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
+import { toast } from '@/store/useToast';
 import {
   cancelTournamentRegistration,
   getTournamentById,
@@ -116,12 +117,12 @@ export default function TournamentDetailScreen() {
       setProcessing(true);
       await registerForTournament(tournament.id, user.id);
       await loadData();
-      Alert.alert('報名成功', `已報名「${tournament.title}」`);
+      toast.success(`已報名「${tournament.title}」`);
     } catch (error: any) {
       if (error?.code === '23505') {
-        Alert.alert('提示', '您已報名過此賽事');
+        toast.info('您已報名過此賽事');
       } else {
-        Alert.alert('報名失敗', error.message || '請稍後再試');
+        toast.error(error.message || '報名失敗');
       }
     } finally {
       setProcessing(false);
@@ -293,6 +294,9 @@ export default function TournamentDetailScreen() {
           value={tournament.entry_fee > 0 ? `NT$ ${tournament.entry_fee}` : '免費'}
           colors={colors}
         />
+        {tournament.payment_info && tournament.entry_fee > 0 && (
+          <InfoRow icon="star.fill" label="付款方式" value={tournament.payment_info} colors={colors} />
+        )}
         {tournament.prize_pool && (
           <InfoRow icon="star.fill" label="獎金" value={tournament.prize_pool} colors={colors} />
         )}

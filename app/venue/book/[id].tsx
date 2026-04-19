@@ -12,6 +12,7 @@ import {
   VenueBooking,
 } from '@/services/venues';
 import { getDayKeyFromDate, DEFAULT_WEEKLY_SCHEDULE } from '@/constants/venues';
+import { toast } from '@/store/useToast';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -151,9 +152,8 @@ export default function BookVenueScreen() {
         end_time: chosenEnd.toISOString(),
         notes: notes.trim() || undefined,
       });
-      Alert.alert('預約送出', '已送出預約申請，等待場地方確認', [
-        { text: '確定', onPress: () => router.back() },
-      ]);
+      toast.success('已送出預約，等待場地方確認');
+      router.back();
     } catch (error: any) {
       Alert.alert('預約失敗', error.message || '請稍後再試');
     } finally {

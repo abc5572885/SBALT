@@ -145,14 +145,6 @@ export default function TabLayout() {
         name="settings"
         options={{ href: null }}
       />
-      <Tabs.Screen
-        name="edit-profile"
-        options={{ href: null }}
-      />
-      <Tabs.Screen
-        name="sport-profile"
-        options={{ href: null }}
-      />
     </Tabs>
   );
 }

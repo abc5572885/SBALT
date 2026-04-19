@@ -1,4 +1,5 @@
 import { PageHeader } from '@/components/PageHeader';
+import { RegionPicker } from '@/components/RegionPicker';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
 import { SPORT_OPTIONS } from '@/constants/sports';
@@ -37,9 +38,10 @@ export default function EditTournamentScreen() {
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [deadline, setDeadline] = useState<Date | null>(null);
-  const [location, setLocation] = useState('');
+  const [location, setLocation] = useState<string | null>(null);
   const [venue, setVenue] = useState('');
   const [entryFee, setEntryFee] = useState('');
+  const [paymentInfo, setPaymentInfo] = useState('');
   const [prizePool, setPrizePool] = useState('');
   const [maxParticipants, setMaxParticipants] = useState('');
   const [rules, setRules] = useState('');
@@ -76,6 +78,7 @@ export default function EditTournamentScreen() {
         setLocation(t.location);
         setVenue(t.venue || '');
         setEntryFee(t.entry_fee ? t.entry_fee.toString() : '');
+        setPaymentInfo(t.payment_info || '');
         setPrizePool(t.prize_pool || '');
         setMaxParticipants(t.max_participants ? t.max_participants.toString() : '');
         setRules(t.rules || '');
@@ -89,7 +92,7 @@ export default function EditTournamentScreen() {
 
   const handleSave = async () => {
     if (!id) return;
-    if (!title.trim() || !location.trim()) {
+    if (!title.trim() || !location) {
       Alert.alert('缺少必填', '請填寫賽事名稱與地點');
       return;
     }
@@ -104,9 +107,10 @@ export default function EditTournamentScreen() {
         start_date: startDate.toISOString(),
         end_date: endDate ? endDate.toISOString() : null,
         registration_deadline: deadline ? deadline.toISOString() : null,
-        location: location.trim(),
+        location: location,
         venue: venue.trim() || null,
         entry_fee: parseInt(entryFee, 10) || 0,
+        payment_info: paymentInfo.trim() || null,
         prize_pool: prizePool.trim() || null,
         max_participants: maxParticipants ? parseInt(maxParticipants, 10) : null,
         rules: rules.trim() || null,
@@ -295,12 +299,7 @@ export default function EditTournamentScreen() {
         </Field>
 
         <Field label="地點（縣市/區域）*" colors={colors}>
-          <TextInput
-            style={inputStyle}
-            value={location}
-            onChangeText={setLocation}
-            placeholderTextColor={colors.placeholder}
-          />
+          <RegionPicker value={location} onChange={setLocation} placeholder="選擇縣市 / 區域" />
         </Field>
 
         <Field label="場館" colors={colors}>
@@ -322,6 +321,19 @@ export default function EditTournamentScreen() {
             keyboardType="number-pad"
           />
         </Field>
+
+        {parseInt(entryFee, 10) > 0 && (
+          <Field label="付款方式" colors={colors}>
+            <TextInput
+              style={[inputStyle, styles.textArea]}
+              value={paymentInfo}
+              onChangeText={setPaymentInfo}
+              placeholder="例：臨場付現 / 匯款 國泰 008-1234567890"
+              placeholderTextColor={colors.placeholder}
+              multiline
+            />
+          </Field>
+        )}
 
         <Field label="獎金 / 獎品" colors={colors}>
           <TextInput

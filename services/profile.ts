@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 
 export type AccountType = 'regular' | 'verified' | 'official';
 export type VerificationStatus = 'unverified' | 'phone_verified' | 'id_verified';
+export type OfficialKind = 'competition' | 'venue' | 'brand';
 
 export type Gender = 'male' | 'female' | 'other';
 export type AgeRange = '18-24' | '25-34' | '35-44' | '45+';
@@ -19,6 +20,7 @@ export interface Profile {
   username: string | null;
   phone: string | null;
   account_type: AccountType;
+  official_kinds: OfficialKind[];
   verification_status: VerificationStatus;
   official_title: string | null;
   bio: string | null;
@@ -82,6 +84,10 @@ export function getDisplayName(profile: Profile | undefined, userId: string, isM
   if (profile?.display_name) return profile.display_name;
   if (profile?.username) return `@${profile.username}`;
   return `用戶 ${userId.slice(0, 8)}`;
+}
+
+export function hasOfficialKind(profile: Profile | null | undefined, kind: OfficialKind): boolean {
+  return !!profile && profile.account_type === 'official' && (profile.official_kinds || []).includes(kind);
 }
 
 export function getBadgeInfo(accountType: AccountType): { label: string; color: string } | null {

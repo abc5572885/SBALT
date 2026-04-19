@@ -5,11 +5,13 @@ import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getActivePromotions } from '@/services/promotions';
-import { getProfile, getProfilesByIds, AccountType } from '@/services/profile';
-import { getPublicTournaments, Tournament } from '@/services/tournaments';
-import { getPublicVenues, Venue } from '@/services/venues';
+import { getMyOwnedGroupIds } from '@/services/groups';
+import { AccountType, getProfile, getProfilesByIds, OfficialKind } from '@/services/profile';
+import { deleteTournament, getPublicTournaments, Tournament } from '@/services/tournaments';
+import { deleteVenue, getPublicVenues, Venue } from '@/services/venues';
 import { getStatusLabel } from '@/constants/tournaments';
 import { SPORT_OPTIONS } from '@/constants/sports';
+import { parseRegion, REGION_GROUPS } from '@/constants/regions';
 import { Promotion } from '@/types/database';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -19,6 +21,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -44,14 +47,24 @@ export default function DiscoverScreen() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'tournament' | 'venue' | 'brand'>('all');
   const [accountType, setAccountType] = useState<AccountType>('regular');
+  const [officialKinds, setOfficialKinds] = useState<OfficialKind[]>([]);
+  const [ownedGroupIds, setOwnedGroupIds] = useState<Set<string>>(new Set());
+  const [myRegion, setMyRegion] = useState<string | null>(null);
+  const [cityFilter, setCityFilter] = useState<string | null>(null);
+  const [cityPickerOpen, setCityPickerOpen] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       loadPromotions();
       if (user) {
         getProfile(user.id).then((p) => {
-          if (p) setAccountType(p.account_type);
+          if (p) {
+            setAccountType(p.account_type);
+            setOfficialKinds(p.official_kinds || []);
+            if (p.region) setMyRegion(p.region);
+          }
         }).catch(() => {});
+        getMyOwnedGroupIds(user.id).then((ids) => setOwnedGroupIds(new Set(ids))).catch(() => {});
       }
     }, [user])
   );
@@ -85,6 +98,15 @@ export default function DiscoverScreen() {
   };
 
   // 篩掉舊的 event 類型（已合併到 tournaments）；venue 促銷類也改用真實 venues 資料
+  const myCity = parseRegion(myRegion)?.city || null;
+  const matchesCity = (regionStr: string | null | undefined, locationStr?: string | null): boolean => {
+    if (!cityFilter) return true;
+    if (regionStr && regionStr.startsWith(cityFilter)) return true;
+    if (locationStr && locationStr.includes(cityFilter)) return true;
+    return false;
+  };
+  const filteredTournaments = tournaments.filter((t) => matchesCity(null, t.location));
+  const filteredVenues = venues.filter((v) => matchesCity(v.region, v.address));
   const visiblePromotions = promotions.filter((p) => p.type !== 'event' && p.type !== 'venue');
   const filtered = activeTab === 'all'
     ? visiblePromotions
@@ -97,8 +119,8 @@ export default function DiscoverScreen() {
   const showTournaments = activeTab === 'all' || activeTab === 'tournament';
   const showVenues = activeTab === 'all' || activeTab === 'venue';
   const hasAnyContent =
-    (showTournaments && tournaments.length > 0) ||
-    (showVenues && venues.length > 0) ||
+    (showTournaments && filteredTournaments.length > 0) ||
+    (showVenues && filteredVenues.length > 0) ||
     filtered.length > 0;
 
   const handlePress = async (item: Promotion) => {
@@ -144,46 +166,107 @@ export default function DiscoverScreen() {
     ]);
   };
 
+  const handleDeleteTournament = (t: Tournament) => {
+    Alert.alert('確認刪除', `確定要刪除「${t.title}」嗎？所有報名資料會一併刪除。`, [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '刪除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteTournament(t.id);
+            setTournaments((prev) => prev.filter((x) => x.id !== t.id));
+          } catch {
+            Alert.alert('錯誤', '刪除失敗');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteVenue = (v: Venue) => {
+    Alert.alert('確認刪除', `確定要刪除「${v.name}」嗎？所有預約資料會一併刪除。`, [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '刪除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteVenue(v.id);
+            setVenues((prev) => prev.filter((x) => x.id !== v.id));
+          } catch {
+            Alert.alert('錯誤', '刪除失敗');
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
         <View style={styles.headerRow}>
           <Text style={[styles.pageTitle, { color: colors.text }]}>發現</Text>
-          {accountType === 'official' && (
+          {accountType === 'official' && officialKinds.includes('brand') && (
             <TouchableOpacity
               style={[styles.publishBtn, { backgroundColor: colors.text }, Shadows.sm]}
               onPress={() => router.push('/promotion/new')}
               activeOpacity={0.8}
             >
               <IconSymbol name="plus" size={14} color={colors.background} />
-              <Text style={[styles.publishBtnText, { color: colors.background }]}>發布</Text>
+              <Text style={[styles.publishBtnText, { color: colors.background }]}>發布品牌</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {/* Tab filter */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.tabScroll}
-          contentContainerStyle={styles.tabRow}
+        <View style={styles.tabRow}>
+          {(['all', 'tournament', 'venue', 'brand'] as const).map((tab) => {
+            const selected = activeTab === tab;
+            return (
+              <TouchableOpacity
+                key={tab}
+                style={[
+                  styles.tab,
+                  { borderColor: colors.border },
+                  selected && { backgroundColor: colors.text, borderColor: colors.text },
+                ]}
+                onPress={() => setActiveTab(tab)}
+                activeOpacity={0.7}
+              >
+                <Text style={[
+                  styles.tabText,
+                  { color: selected ? colors.background : colors.textSecondary },
+                ]}>
+                  {tab === 'all' ? '全部' : tab === 'tournament' ? '比賽' : TYPE_CONFIG[tab].label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Region filter */}
+        <TouchableOpacity
+          style={[styles.regionToggle, { borderColor: colors.border }]}
+          onPress={() => setCityPickerOpen(true)}
+          activeOpacity={0.7}
         >
-          {(['all', 'tournament', 'venue', 'brand'] as const).map((tab) => (
+          <IconSymbol name="location.fill" size={12} color={cityFilter ? colors.primary : colors.textSecondary} />
+          <Text style={[
+            styles.regionToggleText,
+            { color: cityFilter ? colors.primary : colors.textSecondary },
+          ]}>
+            {cityFilter ? cityFilter : '全區域'}
+          </Text>
+          {cityFilter && (
             <TouchableOpacity
-              key={tab}
-              style={[styles.tab, activeTab === tab && { backgroundColor: colors.text }]}
-              onPress={() => setActiveTab(tab)}
-              activeOpacity={0.7}
+              onPress={() => setCityFilter(null)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Text style={[
-                styles.tabText,
-                { color: activeTab === tab ? colors.background : colors.textSecondary },
-              ]}>
-                {tab === 'all' ? '全部' : tab === 'tournament' ? '比賽' : TYPE_CONFIG[tab].label}
-              </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 14, marginLeft: 4 }}>×</Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          )}
+        </TouchableOpacity>
 
         {loading ? (
           <View style={styles.centerContainer}>
@@ -199,39 +282,56 @@ export default function DiscoverScreen() {
         ) : (
           <ScrollView showsVerticalScrollIndicator={false}>
             {/* Tournaments */}
-            {showTournaments && tournaments.length > 0 && (
+            {showTournaments && filteredTournaments.length > 0 && (
               <View style={styles.section}>
                 <ThemedText type="subtitle" style={styles.sectionTitle}>進行中的比賽</ThemedText>
-                {tournaments.map((t) => (
-                  <TournamentCard
-                    key={t.id}
-                    tournament={t}
-                    colors={colors}
-                    onPress={() => router.push({ pathname: '/tournament/[id]', params: { id: t.id } })}
-                  />
-                ))}
+                {filteredTournaments.map((t) => {
+                  const isOwner = ownedGroupIds.has(t.organizer_group_id);
+                  return (
+                    <TournamentCard
+                      key={t.id}
+                      tournament={t}
+                      colors={colors}
+                      onPress={() => router.push({ pathname: '/tournament/[id]', params: { id: t.id } })}
+                      isOwner={isOwner}
+                      onEdit={() => router.push(`/tournament/edit/${t.id}`)}
+                      onDelete={() => handleDeleteTournament(t)}
+                    />
+                  );
+                })}
               </View>
             )}
 
             {/* Venues */}
-            {showVenues && venues.length > 0 && (
+            {showVenues && filteredVenues.length > 0 && (
               <View style={styles.section}>
                 <ThemedText type="subtitle" style={styles.sectionTitle}>可預約場地</ThemedText>
-                {venues.map((v) => (
-                  <VenueCard
-                    key={v.id}
-                    venue={v}
-                    colors={colors}
-                    onPress={() => router.push({ pathname: '/venue/[id]', params: { id: v.id } })}
-                  />
-                ))}
+                {filteredVenues.map((v) => {
+                  const isOwner = ownedGroupIds.has(v.operator_group_id);
+                  return (
+                    <VenueCard
+                      key={v.id}
+                      venue={v}
+                      colors={colors}
+                      onPress={() => router.push({ pathname: '/venue/[id]', params: { id: v.id } })}
+                      isOwner={isOwner}
+                      onEdit={() => router.push(`/venue/edit/${v.id}`)}
+                      onDelete={() => handleDeleteVenue(v)}
+                    />
+                  );
+                })}
               </View>
             )}
 
-            {/* Featured */}
+            {/* Featured brand promotions */}
             {featured.length > 0 && (
               <View style={styles.section}>
-                <ThemedText type="subtitle" style={styles.sectionTitle}>精選推薦</ThemedText>
+                <View style={styles.sectionHeaderRow}>
+                  <ThemedText type="subtitle" style={styles.sectionTitle}>品牌合作</ThemedText>
+                  <View style={[styles.sponsorBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <ThemedText type="label" style={{ color: colors.textSecondary }}>贊助</ThemedText>
+                  </View>
+                </View>
                 {featured.map((item) => (
                   <PromotionCard
                     key={item.id}
@@ -248,11 +348,16 @@ export default function DiscoverScreen() {
               </View>
             )}
 
-            {/* Regular */}
+            {/* Regular brand promotions */}
             {regular.length > 0 && (
               <View style={styles.section}>
-                {featured.length > 0 && (
-                  <ThemedText type="subtitle" style={styles.sectionTitle}>最新資訊</ThemedText>
+                {featured.length === 0 && (
+                  <View style={styles.sectionHeaderRow}>
+                    <ThemedText type="subtitle" style={styles.sectionTitle}>品牌合作</ThemedText>
+                    <View style={[styles.sponsorBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                      <ThemedText type="label" style={{ color: colors.textSecondary }}>贊助</ThemedText>
+                    </View>
+                  </View>
                 )}
                 {regular.map((item) => (
                   <PromotionCard
@@ -282,6 +387,65 @@ export default function DiscoverScreen() {
             <View style={{ height: Spacing.xxl }} />
           </ScrollView>
         )}
+
+        {/* City picker modal */}
+        <Modal
+          visible={cityPickerOpen}
+          animationType="slide"
+          transparent
+          presentationStyle="overFullScreen"
+          onRequestClose={() => setCityPickerOpen(false)}
+        >
+          <View style={styles.cityBackdrop}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setCityPickerOpen(false)}
+            />
+            <View style={[styles.citySheet, { backgroundColor: colors.background }]}>
+              <View style={[styles.cityHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.cityTitle, { color: colors.text }]}>選擇城市</Text>
+                <TouchableOpacity onPress={() => setCityPickerOpen(false)} activeOpacity={0.6}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 15 }}>關閉</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView contentContainerStyle={styles.cityList}>
+                <TouchableOpacity
+                  style={[styles.cityItem, { borderBottomColor: colors.border }]}
+                  onPress={() => { setCityFilter(null); setCityPickerOpen(false); }}
+                  activeOpacity={0.6}
+                >
+                  <Text style={[styles.cityItemText, { color: !cityFilter ? colors.primary : colors.text }]}>
+                    全區域
+                  </Text>
+                </TouchableOpacity>
+                {myCity && (
+                  <TouchableOpacity
+                    style={[styles.cityItem, { borderBottomColor: colors.border }]}
+                    onPress={() => { setCityFilter(myCity); setCityPickerOpen(false); }}
+                    activeOpacity={0.6}
+                  >
+                    <Text style={[styles.cityItemText, { color: cityFilter === myCity ? colors.primary : colors.text }]}>
+                      {myCity}（我的區域）
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {REGION_GROUPS.filter((g) => g.city !== myCity).map((group) => (
+                  <TouchableOpacity
+                    key={group.city}
+                    style={[styles.cityItem, { borderBottomColor: colors.border }]}
+                    onPress={() => { setCityFilter(group.city); setCityPickerOpen(false); }}
+                    activeOpacity={0.6}
+                  >
+                    <Text style={[styles.cityItemText, { color: cityFilter === group.city ? colors.primary : colors.text }]}>
+                      {group.city}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </ThemedView>
     </SafeAreaView>
   );
@@ -291,10 +455,16 @@ function TournamentCard({
   tournament,
   colors,
   onPress,
+  isOwner,
+  onEdit,
+  onDelete,
 }: {
   tournament: Tournament;
   colors: typeof Colors.light;
   onPress: () => void;
+  isOwner?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   const sportLabel = SPORT_OPTIONS.find((s) => s.key === tournament.sport_type)?.label || '';
   const startStr = new Date(tournament.start_date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
@@ -303,11 +473,8 @@ function TournamentCard({
     : null;
 
   return (
-    <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       {tournament.cover_image_url && (
         <Image source={{ uri: tournament.cover_image_url }} style={styles.cardImage} contentFit="cover" />
       )}
@@ -364,6 +531,23 @@ function TournamentCard({
         </View>
       </View>
     </TouchableOpacity>
+    {isOwner && (
+      <View style={[styles.ownerActions, { borderTopColor: colors.border }]}>
+        {onEdit && (
+          <TouchableOpacity style={styles.ownerBtn} onPress={onEdit} activeOpacity={0.7}>
+            <IconSymbol name="pencil" size={14} color={colors.primary} />
+            <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>編輯</Text>
+          </TouchableOpacity>
+        )}
+        {onDelete && (
+          <TouchableOpacity style={styles.ownerBtn} onPress={onDelete} activeOpacity={0.7}>
+            <IconSymbol name="trash" size={14} color={colors.error} />
+            <Text style={{ color: colors.error, fontSize: 13, fontWeight: '600' }}>刪除</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    )}
+    </View>
   );
 }
 
@@ -371,19 +555,22 @@ function VenueCard({
   venue,
   colors,
   onPress,
+  isOwner,
+  onEdit,
+  onDelete,
 }: {
   venue: Venue;
   colors: typeof Colors.light;
   onPress: () => void;
+  isOwner?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   const sportLabels = venue.sport_types.map((k) => SPORT_OPTIONS.find((s) => s.key === k)?.label || k).join('、');
 
   return (
-    <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       {venue.cover_image_url && (
         <Image source={{ uri: venue.cover_image_url }} style={styles.cardImage} contentFit="cover" />
       )}
@@ -423,6 +610,23 @@ function VenueCard({
         </View>
       </View>
     </TouchableOpacity>
+    {isOwner && (
+      <View style={[styles.ownerActions, { borderTopColor: colors.border }]}>
+        {onEdit && (
+          <TouchableOpacity style={styles.ownerBtn} onPress={onEdit} activeOpacity={0.7}>
+            <IconSymbol name="pencil" size={14} color={colors.primary} />
+            <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>編輯</Text>
+          </TouchableOpacity>
+        )}
+        {onDelete && (
+          <TouchableOpacity style={styles.ownerBtn} onPress={onDelete} activeOpacity={0.7}>
+            <IconSymbol name="trash" size={14} color={colors.error} />
+            <Text style={{ color: colors.error, fontSize: 13, fontWeight: '600' }}>刪除</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    )}
+    </View>
   );
 }
 
@@ -553,22 +757,59 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  tabScroll: {
-    flexGrow: 0,
+  regionToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: Spacing.lg,
+  },
+  cityBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  citySheet: {
+    width: '100%',
+    maxHeight: '80%',
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
+  },
+  cityHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  cityTitle: { fontSize: 17, fontWeight: '700' },
+  cityList: { paddingBottom: Spacing.xl },
+  cityItem: {
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  cityItemText: { fontSize: 15, fontWeight: '600' },
+  regionToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   tabRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    marginBottom: Spacing.md,
   },
   tab: {
-    paddingHorizontal: Spacing.lg,
+    flex: 1,
     paddingVertical: Spacing.sm,
     borderRadius: Radius.sm,
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'transparent',
   },
   tabText: {
     fontSize: 14,
@@ -578,6 +819,18 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   sectionTitle: {
+    marginBottom: Spacing.md,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  sponsorBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: Spacing.md,
   },
   card: {

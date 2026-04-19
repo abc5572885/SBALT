@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { createNotification } from './appNotifications';
 
 export interface TournamentTeam {
   id: string;
@@ -92,9 +93,29 @@ export async function inviteToTeam(teamId: string, userId: string) {
       status: 'pending',
     });
   if (error) throw error;
+
+  // Notify invited user
+  const team = await getTeamById(teamId);
+  if (team) {
+    const { data: t } = await supabase.from('tournaments').select('title').eq('id', team.tournament_id).maybeSingle();
+    await createNotification({
+      user_id: userId,
+      type: 'team_invite',
+      title: `您被邀請加入「${team.name}」`,
+      body: t?.title ? `賽事：${t.title}` : undefined,
+      data: { team_id: teamId, tournament_id: team.tournament_id },
+      actor_id: team.captain_id,
+    });
+  }
 }
 
 export async function respondToInvite(memberId: string, status: 'accepted' | 'declined') {
+  const { data: member } = await supabase
+    .from('tournament_team_members')
+    .select('team_id, user_id')
+    .eq('id', memberId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from('tournament_team_members')
     .update({
@@ -103,6 +124,23 @@ export async function respondToInvite(memberId: string, status: 'accepted' | 'de
     })
     .eq('id', memberId);
   if (error) throw error;
+
+  // Notify captain
+  if (member) {
+    const team = await getTeamById(member.team_id);
+    if (team && team.captain_id !== member.user_id) {
+      const { data: profile } = await supabase
+        .from('profiles').select('display_name, username').eq('id', member.user_id).maybeSingle();
+      const name = profile?.display_name || profile?.username || '一位用戶';
+      await createNotification({
+        user_id: team.captain_id,
+        type: status === 'accepted' ? 'team_invite_accepted' : 'team_invite_declined',
+        title: status === 'accepted' ? `${name} 加入了「${team.name}」` : `${name} 婉拒了「${team.name}」的邀請`,
+        data: { team_id: team.id },
+        actor_id: member.user_id,
+      });
+    }
+  }
 }
 
 export async function removeTeamMember(memberId: string) {
@@ -111,6 +149,26 @@ export async function removeTeamMember(memberId: string) {
     .delete()
     .eq('id', memberId);
   if (error) throw error;
+}
+
+export async function getMyTeams(userId: string) {
+  const { data, error } = await supabase
+    .from('tournament_team_members')
+    .select('*, tournament_teams(*, tournaments(id, title, sport_type, start_date, team_size))')
+    .eq('user_id', userId)
+    .eq('status', 'accepted')
+    .order('invited_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getPendingInviteCount(userId: string): Promise<number> {
+  const { count } = await supabase
+    .from('tournament_team_members')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'pending');
+  return count || 0;
 }
 
 export async function getMyPendingInvites(userId: string) {
@@ -134,10 +192,11 @@ export async function getTeamMemberCount(teamId: string): Promise<number> {
 }
 
 export async function searchUsersByUsername(query: string, excludeIds: string[] = []): Promise<{ id: string; display_name: string | null; username: string | null; avatar_url: string | null }[]> {
+  const escaped = query.replace(/[%_]/g, (c) => `\\${c}`);
   let q = supabase
     .from('profiles')
     .select('id, display_name, username, avatar_url')
-    .ilike('username', `%${query}%`)
+    .or(`username.ilike.%${escaped}%,display_name.ilike.%${escaped}%`)
     .limit(10);
   if (excludeIds.length > 0) {
     q = q.not('id', 'in', `(${excludeIds.join(',')})`);

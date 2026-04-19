@@ -3,6 +3,7 @@ import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { VerifiedBadge, VerifiedLabel } from '@/components/VerifiedBadge';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -13,7 +14,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -24,6 +25,9 @@ export default function ProfileScreen() {
   const [accountType, setAccountType] = useState<AccountType>('regular');
   const [officialTitle, setOfficialTitle] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
+  const [instagramUrl, setInstagramUrl] = useState<string | null>(null);
+  const [facebookUrl, setFacebookUrl] = useState<string | null>(null);
+  const [lineId, setLineId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl || null);
   const { setUser } = useAppStore();
@@ -37,6 +41,9 @@ export default function ProfileScreen() {
             setAccountType(p.account_type);
             setOfficialTitle(p.official_title);
             setUsername(p.username);
+            setInstagramUrl(p.instagram_url);
+            setFacebookUrl(p.facebook_url);
+            setLineId(p.line_id);
           }
         }).catch(() => {});
       }
@@ -77,11 +84,10 @@ export default function ProfileScreen() {
     );
   }
 
-  const menuItems = [
-    ...(accountType === 'official' ? [
-      { icon: 'star.fill' as const, label: '推廣資訊管理', onPress: () => router.push('/promotion/my-promotions') },
-    ] : []),
-    { icon: 'sportscourt.fill' as const, label: '運動資料', onPress: () => router.push('/(tabs)/sport-profile') },
+  const menuItems: { icon: any; label: string; onPress: () => void; badge?: number }[] = [
+    { icon: 'person.fill' as const, label: '我的隊伍', onPress: () => router.push('/my-teams') },
+    { icon: 'calendar' as const, label: '我的預約', onPress: () => router.push('/my-bookings') },
+    { icon: 'pencil' as const, label: '編輯個人資料', onPress: () => router.push('/edit-profile') },
     { icon: 'bolt.fill' as const, label: '成就', onPress: () => router.push('/event/achievements') },
     { icon: 'gearshape.fill' as const, label: '設定', onPress: () => router.push('/(tabs)/settings') },
   ];
@@ -109,7 +115,7 @@ export default function ProfileScreen() {
             <IconSymbol name="pencil" size={10} color="#FFF" />
           </View>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/edit-profile')} activeOpacity={0.7} style={styles.nameRow}>
+        <TouchableOpacity onPress={() => router.push('/edit-profile')} activeOpacity={0.7} style={styles.nameRow}>
           <Text style={[styles.displayName, { color: colors.text }]}>
             {user.displayName || '未設定'}
           </Text>
@@ -123,9 +129,44 @@ export default function ProfileScreen() {
             @{username}
           </ThemedText>
         )}
-        <ThemedText type="caption" style={{ color: colors.textSecondary }}>
-          {user.email}
-        </ThemedText>
+
+        {(instagramUrl || facebookUrl || lineId) && (
+          <View style={styles.socialRow}>
+            {instagramUrl && (
+              <TouchableOpacity
+                onPress={() => {
+                  const url = instagramUrl.startsWith('http') ? instagramUrl : `https://instagram.com/${instagramUrl.replace(/^@/, '')}`;
+                  Linking.openURL(url).catch(() => {});
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.6}
+              >
+                <FontAwesome5 name="instagram" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+            {facebookUrl && (
+              <TouchableOpacity
+                onPress={() => {
+                  const url = facebookUrl.startsWith('http') ? facebookUrl : `https://facebook.com/${facebookUrl}`;
+                  Linking.openURL(url).catch(() => {});
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.6}
+              >
+                <FontAwesome5 name="facebook" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+            {lineId && (
+              <TouchableOpacity
+                onPress={() => Linking.openURL(`https://line.me/ti/p/~${lineId}`).catch(() => {})}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.6}
+              >
+                <FontAwesome5 name="line" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
 
       {/* Stats */}
@@ -173,7 +214,14 @@ export default function ProfileScreen() {
               <IconSymbol name={item.icon} size={18} color={colors.textSecondary} />
               <ThemedText style={styles.menuText}>{item.label}</ThemedText>
             </View>
-            <IconSymbol name="chevron.right" size={16} color={colors.disabled} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+              {item.badge && item.badge > 0 ? (
+                <View style={[styles.badge, { backgroundColor: colors.error }]}>
+                  <Text style={styles.badgeText}>{item.badge}</Text>
+                </View>
+              ) : null}
+              <IconSymbol name="chevron.right" size={16} color={colors.disabled} />
+            </View>
           </TouchableOpacity>
         ))}
 
@@ -289,5 +337,23 @@ const styles = StyleSheet.create({
   menuText: {
     fontSize: 15,
     fontWeight: '500',
+  },
+  badge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  socialRow: {
+    flexDirection: 'row',
+    gap: Spacing.lg,
+    marginTop: Spacing.sm,
+  },
+  badgeText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

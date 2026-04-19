@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { TournamentFormat, TournamentStatus } from '@/constants/tournaments';
+import { createNotification } from './appNotifications';
 
 export interface Tournament {
   id: string;
@@ -15,6 +16,7 @@ export interface Tournament {
   venue: string | null;
   rules: string | null;
   entry_fee: number;
+  payment_info: string | null;
   prize_pool: string | null;
   max_participants: number | null;
   cover_image_url: string | null;
@@ -105,6 +107,27 @@ export async function registerForTournament(tournamentId: string, userId: string
     notes: notes || null,
   });
   if (error) throw error;
+
+  // Notify tournament organizer
+  const { data: t } = await supabase
+    .from('tournaments').select('title, organizer_group_id').eq('id', tournamentId).maybeSingle();
+  if (t) {
+    const { data: group } = await supabase
+      .from('groups').select('creator_id').eq('id', t.organizer_group_id).maybeSingle();
+    if (group?.creator_id && group.creator_id !== userId) {
+      const { data: profile } = await supabase
+        .from('profiles').select('display_name, username').eq('id', userId).maybeSingle();
+      const name = profile?.display_name || profile?.username || '一位用戶';
+      await createNotification({
+        user_id: group.creator_id,
+        type: 'tournament_registered',
+        title: `「${t.title}」有新報名`,
+        body: name,
+        data: { tournament_id: tournamentId },
+        actor_id: userId,
+      });
+    }
+  }
 }
 
 export async function cancelTournamentRegistration(tournamentId: string, userId: string) {

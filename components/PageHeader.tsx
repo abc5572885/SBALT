@@ -20,7 +20,7 @@ export function PageHeader({ title, showBack = true, rightContent }: PageHeaderP
     if (router.canGoBack()) {
       router.back();
     } else {
-      // Fallback: go to profile tab since most sub-pages are accessed from there
+      // Fallback: go to profile since most sub-pages are accessed from there
       router.replace('/(tabs)/profile');
     }
   };

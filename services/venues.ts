@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { WeeklySchedule } from '@/constants/venues';
+import { createNotification } from './appNotifications';
 
 export interface Venue {
   id: string;
@@ -112,6 +113,31 @@ export async function createBooking(params: {
     .select()
     .single();
   if (error) throw error;
+
+  // Notify venue operator
+  const { data: venue } = await supabase
+    .from('venues')
+    .select('name, operator_group_id')
+    .eq('id', params.venue_id)
+    .maybeSingle();
+  if (venue) {
+    const { data: group } = await supabase
+      .from('groups').select('creator_id').eq('id', venue.operator_group_id).maybeSingle();
+    if (group?.creator_id && group.creator_id !== params.user_id) {
+      const startStr = new Date(params.start_time).toLocaleString('zh-TW', {
+        month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+      });
+      await createNotification({
+        user_id: group.creator_id,
+        type: 'booking_created',
+        title: `「${venue.name}」有新預約`,
+        body: `${startStr} 待確認`,
+        data: { venue_id: params.venue_id, booking_id: data.id, is_operator: true },
+        actor_id: params.user_id,
+      });
+    }
+  }
+
   return data as VenueBooking;
 }
 
@@ -139,6 +165,30 @@ export async function getMyBookings(userId: string): Promise<VenueBooking[]> {
   return (data || []) as VenueBooking[];
 }
 
+export interface BookingWithVenue extends VenueBooking {
+  venue: Venue | null;
+}
+
+export async function getMyBookingsWithVenue(userId: string): Promise<BookingWithVenue[]> {
+  const { data, error } = await supabase
+    .from('venue_bookings')
+    .select('*, venue:venues(*)')
+    .eq('user_id', userId)
+    .order('start_time', { ascending: false });
+  if (error) throw error;
+  return (data || []) as BookingWithVenue[];
+}
+
+export async function getAllVenueBookings(venueId: string): Promise<VenueBooking[]> {
+  const { data, error } = await supabase
+    .from('venue_bookings')
+    .select('*')
+    .eq('venue_id', venueId)
+    .order('start_time', { ascending: false });
+  if (error) throw error;
+  return (data || []) as VenueBooking[];
+}
+
 export async function cancelBooking(id: string) {
   const { error } = await supabase
     .from('venue_bookings')
@@ -148,9 +198,33 @@ export async function cancelBooking(id: string) {
 }
 
 export async function updateBookingStatus(id: string, status: VenueBooking['status']) {
+  const { data: booking } = await supabase
+    .from('venue_bookings')
+    .select('user_id, venue_id, start_time')
+    .eq('id', id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from('venue_bookings')
     .update({ status })
     .eq('id', id);
   if (error) throw error;
+
+  // Notify booker of status change
+  if (booking && (status === 'confirmed' || status === 'cancelled')) {
+    const { data: venue } = await supabase
+      .from('venues').select('name').eq('id', booking.venue_id).maybeSingle();
+    const startStr = new Date(booking.start_time).toLocaleString('zh-TW', {
+      month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+    await createNotification({
+      user_id: booking.user_id,
+      type: status === 'confirmed' ? 'booking_confirmed' : 'booking_rejected',
+      title: status === 'confirmed'
+        ? `「${venue?.name || '場地'}」預約已確認`
+        : `「${venue?.name || '場地'}」預約被取消`,
+      body: startStr,
+      data: { venue_id: booking.venue_id, booking_id: id },
+    });
+  }
 }

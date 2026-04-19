@@ -7,6 +7,7 @@ import {
   ReportContentType,
   ReportReason,
 } from '@/services/moderation';
+import { toast } from '@/store/useToast';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -49,13 +50,10 @@ export function ReportModal({ visible, onClose, contentType, contentId, reported
         reason,
         description: description.trim(),
       });
-      Alert.alert('已收到檢舉', '我們會盡快審查，感謝您協助維護社群品質', [
-        { text: '確定', onPress: () => {
-          setReason(null);
-          setDescription('');
-          onClose();
-        } },
-      ]);
+      toast.success('已收到檢舉，我們會盡快審查');
+      setReason(null);
+      setDescription('');
+      onClose();
     } catch (error: any) {
       Alert.alert('送出失敗', error.message || '請稍後再試');
     } finally {
