@@ -205,7 +205,7 @@ export default function VenueDetailScreen() {
                   const s = venue.weekly_schedule[day];
                   return (
                     <View key={day} style={{ flexDirection: 'row' }}>
-                      <Text style={{ color: colors.textSecondary, fontSize: 13, width: 40 }}>
+                      <Text style={{ color: colors.textSecondary, fontSize: 13, width: 56 }}>
                         {DAY_LABELS[day]}
                       </Text>
                       <Text style={{ color: s ? colors.text : colors.disabled, fontSize: 13 }}>

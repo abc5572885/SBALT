@@ -54,6 +54,9 @@ export default function LoginScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ color: colors.textSecondary, marginTop: 12, fontSize: 13 }}>
+          載入中...
+        </Text>
       </View>
     );
   }

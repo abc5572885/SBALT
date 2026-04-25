@@ -6,6 +6,7 @@ import { SPORT_OPTIONS } from '@/constants/sports';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { DEFAULT_WEEKLY_SCHEDULE, VENUE_AMENITIES, WeeklySchedule } from '@/constants/venues';
 import { WeeklySchedulePicker } from '@/components/WeeklySchedulePicker';
+import { toast } from '@/store/useToast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getGroupById } from '@/services/groups';
@@ -73,7 +74,7 @@ export default function EditVenueScreen() {
         setContactPhone(v.contact_phone || '');
         setStatus(v.status);
       } catch (e: any) {
-        Alert.alert('載入失敗', e.message || '請稍後再試');
+        toast.error(e.message || '載入失敗');
       } finally {
         setLoading(false);
       }
@@ -112,7 +113,7 @@ export default function EditVenueScreen() {
       });
       router.back();
     } catch (error: any) {
-      Alert.alert('儲存失敗', error.message || '請稍後再試');
+      toast.error(error.message || '儲存失敗');
     } finally {
       setSaving(false);
     }
@@ -131,7 +132,7 @@ export default function EditVenueScreen() {
             await deleteVenue(id);
             router.dismissAll();
           } catch (e: any) {
-            Alert.alert('刪除失敗', e.message || '請稍後再試');
+            toast.error(e.message || '刪除失敗');
             setSaving(false);
           }
         },

@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getGroupById } from '@/services/groups';
 import { createTournament } from '@/services/tournaments';
+import { toast } from '@/store/useToast';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -89,7 +90,7 @@ export default function NewTournamentScreen() {
       });
       router.replace({ pathname: '/tournament/[id]', params: { id: tournament.id } });
     } catch (error: any) {
-      Alert.alert('建立失敗', error.message || '請稍後再試');
+      toast.error(error.message || '建立失敗');
     } finally {
       setSaving(false);
     }

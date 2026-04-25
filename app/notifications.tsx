@@ -38,6 +38,7 @@ const TYPE_ICON: Record<NotificationType, any> = {
   event_starting_soon: 'bolt.fill',
   official_approved: 'star.fill',
   achievement_unlocked: 'bolt.fill',
+  check_in_tagged: 'sportscourt.fill',
 };
 
 function formatTime(iso: string): string {
@@ -111,8 +112,9 @@ export default function NotificationsScreen() {
               onPress={handleMarkAllRead}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               activeOpacity={0.6}
+              style={[styles.markAllBtn, { borderColor: colors.border }]}
             >
-              <Text style={[styles.markAll, { color: colors.primary }]}>全部已讀</Text>
+              <Text style={[styles.markAll, { color: colors.text }]}>全部已讀</Text>
             </TouchableOpacity>
           ) : undefined
         }
@@ -182,7 +184,13 @@ export default function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.xxl },
-  markAll: { fontSize: 13, fontWeight: '600' },
+  markAll: { fontSize: 12, fontWeight: '600' },
+  markAllBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'flex-start',

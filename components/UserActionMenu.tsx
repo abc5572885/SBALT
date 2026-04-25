@@ -4,6 +4,7 @@ import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { blockUser, isBlocked, unblockUser } from '@/services/moderation';
+import { toast } from '@/store/useToast';
 import React, { useEffect, useState } from 'react';
 import {
   ActionSheetIOS,
@@ -69,7 +70,7 @@ export function UserActionMenu({
               await unblockUser(user.id, targetUserId);
               setBlocked(false);
             } catch (e: any) {
-              Alert.alert('失敗', e.message || '請稍後再試');
+              toast.error(e.message || '請稍後再試');
             }
           },
         },
@@ -86,7 +87,7 @@ export function UserActionMenu({
               setBlocked(true);
               onBlocked?.();
             } catch (e: any) {
-              Alert.alert('失敗', e.message || '請稍後再試');
+              toast.error(e.message || '請稍後再試');
             }
           },
         },

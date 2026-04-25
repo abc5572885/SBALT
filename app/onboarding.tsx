@@ -11,6 +11,7 @@ import {
   updateProfile,
 } from '@/services/profile';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { toast } from '@/store/useToast';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -26,16 +27,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const INTRO_PAGES = [
   {
-    title: '揪團',
-    subtitle: '一鍵建立活動\n朋友報名、付款、簽到全搞定',
+    title: '運動',
+    subtitle: '該被認真對待\n不只是一場流汗',
+    caption: 'SPORT · BALL · SBALT',
   },
   {
-    title: '記分',
-    subtitle: '全螢幕計分板\n籃球、排球、羽球各有專屬按鈕',
+    title: '認真',
+    subtitle: '值得被好好支持\n從第一次出汗開始',
+    caption: 'FOR THE COMMITTED.',
   },
   {
-    title: '社群',
-    subtitle: '建立球隊群組\n固定班底、公告、活動一手掌握',
+    title: '同行',
+    subtitle: '不只是一起運動\n是一段共同的軌跡',
+    caption: 'TOGETHER, ALWAYS.',
   },
 ];
 
@@ -114,11 +118,11 @@ export default function OnboardingScreen() {
     const w = weight ? parseInt(weight, 10) : null;
 
     if (h !== null && (h < 100 || h > 250)) {
-      Alert.alert('驗證失敗', '身高請輸入 100-250 cm');
+      toast.error('身高請輸入 100-250 cm');
       return;
     }
     if (w !== null && (w < 30 || w > 200)) {
-      Alert.alert('驗證失敗', '體重請輸入 30-200 kg');
+      toast.error('體重請輸入 30-200 kg');
       return;
     }
 
@@ -152,38 +156,58 @@ export default function OnboardingScreen() {
   if (step === 'intro') {
     const page = INTRO_PAGES[currentPage];
     const isLast = currentPage === INTRO_PAGES.length - 1;
+    const stepNum = String(currentPage + 1).padStart(2, '0');
+    const totalNum = String(INTRO_PAGES.length).padStart(2, '0');
 
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <TouchableOpacity style={styles.skipButton} onPress={() => setStep('basic')} activeOpacity={0.6}>
-          <Text style={[styles.skipText, { color: colors.textSecondary }]}>跳過</Text>
-        </TouchableOpacity>
-
-        <View style={styles.content}>
-          <Text style={[styles.title, { color: colors.text }]}>{page.title}</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{page.subtitle}</Text>
+        {/* Top bar: brand mark + skip */}
+        <View style={styles.introTopBar}>
+          <Text style={[styles.brandMark, { color: colors.text }]}>SBALT</Text>
+          <TouchableOpacity onPress={() => setStep('basic')} activeOpacity={0.6} hitSlop={10}>
+            <Text style={[styles.skipText, { color: colors.textSecondary }]}>跳過</Text>
+          </TouchableOpacity>
         </View>
 
+        {/* Main content: step indicator + title + subtitle + caption */}
+        <View style={styles.content}>
+          <Text style={[styles.stepIndicator, { color: colors.textSecondary }]}>
+            {stepNum} <Text style={{ color: colors.disabled }}>/ {totalNum}</Text>
+          </Text>
+          <View style={[styles.accentBar, { backgroundColor: colors.text }]} />
+          <Text style={[styles.title, { color: colors.text }]}>{page.title}</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            {page.subtitle}
+          </Text>
+          {page.caption && (
+            <Text style={[styles.caption, { color: colors.disabled }]}>
+              {page.caption}
+            </Text>
+          )}
+        </View>
+
+        {/* Progress dots */}
         <View style={styles.dots}>
           {INTRO_PAGES.map((_, i) => (
             <View
               key={i}
               style={[
-                styles.dot,
-                { backgroundColor: i === currentPage ? colors.text : colors.disabled },
+                i === currentPage ? styles.dotActive : styles.dot,
+                { backgroundColor: i === currentPage ? colors.text : colors.border },
               ]}
             />
           ))}
         </View>
 
+        {/* Bottom CTA */}
         <View style={styles.bottom}>
           <TouchableOpacity
             style={[styles.nextButton, { backgroundColor: colors.text }]}
             onPress={handleIntroNext}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
             <Text style={[styles.nextText, { color: colors.background }]}>
-              {isLast ? '下一步' : '下一步'}
+              {isLast ? '開始填資料' : '下一步'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -440,38 +464,76 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     padding: Spacing.lg,
   },
+  introTopBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.lg,
+  },
+  brandMark: {
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 3,
+  },
   skipText: {
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   content: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: Spacing.xxl,
+    gap: Spacing.lg,
+  },
+  stepIndicator: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 2,
+  },
+  accentBar: {
+    width: 40,
+    height: 3,
+    marginBottom: Spacing.sm,
   },
   title: {
-    fontSize: 48,
-    fontWeight: '800',
-    letterSpacing: -2,
-    marginBottom: Spacing.lg,
+    fontSize: 64,
+    fontWeight: '900',
+    letterSpacing: -3,
+    lineHeight: 70,
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: 17,
     lineHeight: 28,
-    textAlign: 'center',
     fontWeight: '400',
+    textAlign: 'left',
+    maxWidth: 320,
+  },
+  caption: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2.5,
+    marginTop: Spacing.xl,
   },
   dots: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: Spacing.sm,
+    justifyContent: 'flex-start',
+    gap: Spacing.xs,
     marginBottom: Spacing.xxl,
+    paddingHorizontal: Spacing.xxl,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 24,
+    height: 3,
+    borderRadius: 2,
+  },
+  dotActive: {
+    width: 40,
+    height: 3,
+    borderRadius: 2,
   },
   bottom: {
     paddingHorizontal: Spacing.xl,

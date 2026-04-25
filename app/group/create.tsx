@@ -67,7 +67,7 @@ export default function CreateGroupScreen() {
       toast.success(`群組「${group.name}」已建立`);
       router.back();
     } catch (error: any) {
-      Alert.alert('錯誤', error.message || '建立失敗');
+      toast.error(error.message || '建立失敗');
     } finally {
       setLoading(false);
     }

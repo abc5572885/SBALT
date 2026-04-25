@@ -69,6 +69,12 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "SBALT 需要讀取您的運動紀錄（跑步、走路），用於建立個人戰績與排行榜。"
+        }
       ]
     ],
     "experiments": {

@@ -22,6 +22,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -129,25 +130,25 @@ export default function RegistrationsScreen() {
             <ThemedText style={styles.eventTitle}>{event.title}</ThemedText>
             <View style={styles.statsRow}>
               <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
-                <ThemedText style={[styles.statNumber, { color: colors.primary }]}>
+                <Text style={[styles.statNumber, { color: colors.primary }]}>
                   {activeRegistrations.length}
-                </ThemedText>
+                </Text>
                 <ThemedText type="caption" style={{ color: colors.textSecondary }}>
                   已報名
                 </ThemedText>
               </View>
               <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
-                <ThemedText style={[styles.statNumber, { color: colors.textSecondary }]}>
+                <Text style={[styles.statNumber, { color: colors.textSecondary }]}>
                   {event.quota}
-                </ThemedText>
+                </Text>
                 <ThemedText type="caption" style={{ color: colors.textSecondary }}>
                   名額上限
                 </ThemedText>
               </View>
               <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
-                <ThemedText style={[styles.statNumber, { color: colors.statusSuccess }]}>
+                <Text style={[styles.statNumber, { color: colors.statusSuccess }]}>
                   {paidCount}
-                </ThemedText>
+                </Text>
                 <ThemedText type="caption" style={{ color: colors.textSecondary }}>
                   已付款
                 </ThemedText>

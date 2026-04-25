@@ -7,7 +7,6 @@ interface WeatherData {
   temperature: number;
   weatherCode: number;
   description: string;
-  icon: string;
   isRainy: boolean;
   uvIndex: number | null;
   uvLevel: string | null;
@@ -15,17 +14,17 @@ interface WeatherData {
 
 // WMO Weather interpretation codes
 // https://open-meteo.com/en/docs
-function getWeatherInfo(code: number): { description: string; icon: string; isRainy: boolean } {
-  if (code === 0) return { description: '晴天', icon: '☀️', isRainy: false };
-  if (code <= 3) return { description: '多雲', icon: '⛅', isRainy: false };
-  if (code <= 48) return { description: '霧', icon: '🌫', isRainy: false };
-  if (code <= 57) return { description: '毛毛雨', icon: '🌦', isRainy: true };
-  if (code <= 67) return { description: '下雨', icon: '🌧', isRainy: true };
-  if (code <= 77) return { description: '下雪', icon: '❄️', isRainy: true };
-  if (code <= 82) return { description: '陣雨', icon: '🌧', isRainy: true };
-  if (code <= 86) return { description: '雨夾雪', icon: '🌨', isRainy: true };
-  if (code <= 99) return { description: '雷雨', icon: '⛈', isRainy: true };
-  return { description: '未知', icon: '❓', isRainy: false };
+function getWeatherInfo(code: number): { description: string; isRainy: boolean } {
+  if (code === 0) return { description: '晴天', isRainy: false };
+  if (code <= 3) return { description: '多雲', isRainy: false };
+  if (code <= 48) return { description: '霧', isRainy: false };
+  if (code <= 57) return { description: '毛毛雨', isRainy: true };
+  if (code <= 67) return { description: '下雨', isRainy: true };
+  if (code <= 77) return { description: '下雪', isRainy: true };
+  if (code <= 82) return { description: '陣雨', isRainy: true };
+  if (code <= 86) return { description: '雨夾雪', isRainy: true };
+  if (code <= 99) return { description: '雷雨', isRainy: true };
+  return { description: '未知', isRainy: false };
 }
 
 /**

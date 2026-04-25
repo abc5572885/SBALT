@@ -10,7 +10,9 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { pickAndUploadAvatar } from '@/services/avatar';
 import { getUserStats } from '@/services/database';
 import { getProfile, AccountType } from '@/services/profile';
+import { BasketballCareerStats, CareerStats, getBasketballCareerStats, getUserCareerStats } from '@/services/sportStats';
 import { useAppStore } from '@/store/useAppStore';
+import { SPORT_OPTIONS } from '@/constants/sports';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -22,6 +24,8 @@ export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [stats, setStats] = useState({ organized: 0, joined: 0 });
+  const [bballCareer, setBballCareer] = useState<BasketballCareerStats | null>(null);
+  const [career, setCareer] = useState<CareerStats | null>(null);
   const [accountType, setAccountType] = useState<AccountType>('regular');
   const [officialTitle, setOfficialTitle] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
@@ -30,12 +34,14 @@ export default function ProfileScreen() {
   const [lineId, setLineId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl || null);
-  const { setUser } = useAppStore();
+  const { setUser, selectedSport } = useAppStore();
 
   useFocusEffect(
     useCallback(() => {
       if (user) {
         getUserStats(user.id).then(setStats).catch(() => {});
+        getBasketballCareerStats(user.id).then(setBballCareer).catch(() => {});
+        getUserCareerStats(user.id).then(setCareer).catch(() => {});
         getProfile(user.id).then((p) => {
           if (p) {
             setAccountType(p.account_type);
@@ -85,10 +91,11 @@ export default function ProfileScreen() {
   }
 
   const menuItems: { icon: any; label: string; onPress: () => void; badge?: number }[] = [
-    { icon: 'person.fill' as const, label: '我的隊伍', onPress: () => router.push('/my-teams') },
+    { icon: 'checkmark.circle' as const, label: '打卡紀錄', onPress: () => router.push('/check-in') },
+    { icon: 'person.2.fill' as const, label: '我的隊伍', onPress: () => router.push('/my-teams') },
     { icon: 'calendar' as const, label: '我的預約', onPress: () => router.push('/my-bookings') },
     { icon: 'pencil' as const, label: '編輯個人資料', onPress: () => router.push('/edit-profile') },
-    { icon: 'bolt.fill' as const, label: '成就', onPress: () => router.push('/event/achievements') },
+    { icon: 'medal.fill' as const, label: '成就', onPress: () => router.push('/event/achievements') },
     { icon: 'gearshape.fill' as const, label: '設定', onPress: () => router.push('/(tabs)/settings') },
   ];
 
@@ -196,6 +203,64 @@ export default function ProfileScreen() {
           </ThemedText>
         </TouchableOpacity>
       </View>
+
+      {/* Career Stats — switches by selectedSport */}
+      {(selectedSport === 'all' || selectedSport === 'basketball') && bballCareer && bballCareer.games > 0 && (
+        <View style={styles.careerSection}>
+          <ThemedText type="label" style={[styles.careerTitle, { color: colors.textSecondary }]}>
+            籃球生涯戰績
+          </ThemedText>
+          <View style={[styles.careerCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
+            <View style={styles.careerTopRow}>
+              <View style={styles.careerStatCell}>
+                <Text style={[styles.careerNum, { color: colors.primary }]}>{bballCareer.games}</Text>
+                <ThemedText type="caption" style={{ color: colors.textSecondary }}>場</ThemedText>
+              </View>
+              <View style={styles.careerStatCell}>
+                <Text style={[styles.careerNum, { color: colors.primary }]}>{bballCareer.avgPoints.toFixed(1)}</Text>
+                <ThemedText type="caption" style={{ color: colors.textSecondary }}>場均得分</ThemedText>
+              </View>
+              <View style={styles.careerStatCell}>
+                <Text style={[styles.careerNum, { color: colors.primary }]}>{bballCareer.avgRebounds.toFixed(1)}</Text>
+                <ThemedText type="caption" style={{ color: colors.textSecondary }}>場均板</ThemedText>
+              </View>
+              <View style={styles.careerStatCell}>
+                <Text style={[styles.careerNum, { color: colors.primary }]}>{bballCareer.avgAssists.toFixed(1)}</Text>
+                <ThemedText type="caption" style={{ color: colors.textSecondary }}>場均助</ThemedText>
+              </View>
+            </View>
+            <View style={[styles.careerBottom, { borderTopColor: colors.border }]}>
+              <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+                總計：{bballCareer.totalPoints} 分 / {bballCareer.totalRebounds} 板 / {bballCareer.totalAssists} 助 / {bballCareer.totalSteals} 抄 / {bballCareer.totalBlocks} 阻
+              </ThemedText>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {(selectedSport === 'volleyball' || selectedSport === 'badminton') && career?.bySport[selectedSport] && (
+        <View style={styles.careerSection}>
+          <ThemedText type="label" style={[styles.careerTitle, { color: colors.textSecondary }]}>
+            {SPORT_OPTIONS.find((s) => s.key === selectedSport)?.label} 生涯戰績
+          </ThemedText>
+          <View style={[styles.careerCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
+            <View style={styles.careerTopRow}>
+              <View style={styles.careerStatCell}>
+                <Text style={[styles.careerNum, { color: colors.primary }]}>{career.bySport[selectedSport].events}</Text>
+                <ThemedText type="caption" style={{ color: colors.textSecondary }}>場</ThemedText>
+              </View>
+              <View style={styles.careerStatCell}>
+                <Text style={[styles.careerNum, { color: colors.primary }]}>{career.bySport[selectedSport].points}</Text>
+                <ThemedText type="caption" style={{ color: colors.textSecondary }}>總得分</ThemedText>
+              </View>
+              <View style={styles.careerStatCell}>
+                <Text style={[styles.careerNum, { color: colors.primary }]}>{career.bySport[selectedSport].average.toFixed(1)}</Text>
+                <ThemedText type="caption" style={{ color: colors.textSecondary }}>場均</ThemedText>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Menu */}
       <View style={styles.menuSection}>
@@ -355,5 +420,21 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  careerSection: { marginBottom: Spacing.xl, gap: Spacing.sm },
+  careerTitle: { textTransform: 'uppercase', letterSpacing: 1 },
+  careerCard: {
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.md,
+  },
+  careerTopRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  careerStatCell: { alignItems: 'center', gap: 4 },
+  careerNum: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
+  careerBottom: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.md,
+    alignItems: 'center',
   },
 });

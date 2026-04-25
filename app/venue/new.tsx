@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createVenue } from '@/services/venues';
 import { WeeklySchedulePicker } from '@/components/WeeklySchedulePicker';
+import { toast } from '@/store/useToast';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -82,7 +83,7 @@ export default function NewVenueScreen() {
       });
       router.replace({ pathname: '/venue/[id]', params: { id: venue.id } });
     } catch (error: any) {
-      Alert.alert('建立失敗', error.message || '請稍後再試');
+      toast.error(error.message || '建立失敗');
     } finally {
       setSaving(false);
     }

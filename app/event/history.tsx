@@ -94,8 +94,12 @@ export default function HistoryScreen() {
         {/* History list */}
         {events.length === 0 ? (
           <View style={[styles.emptyContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+            <IconSymbol name="calendar" size={36} color={colors.disabled} />
+            <ThemedText type="caption" style={{ color: colors.textSecondary, marginTop: Spacing.md }}>
               尚無歷史紀錄
+            </ThemedText>
+            <ThemedText type="caption" style={{ color: colors.textSecondary, opacity: 0.6, marginTop: 4 }}>
+              參加活動後會自動出現在這裡
             </ThemedText>
           </View>
         ) : (

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getTournamentById, Tournament } from '@/services/tournaments';
 import { createTeam } from '@/services/tournamentTeams';
+import { toast } from '@/store/useToast';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -41,7 +42,7 @@ export default function NewTeamScreen() {
   const handleCreate = async () => {
     if (!user || !tournamentId) return;
     if (!name.trim()) {
-      Alert.alert('缺少資料', '請輸入隊伍名稱');
+      toast.error('請輸入隊伍名稱');
       return;
     }
     try {
@@ -54,9 +55,9 @@ export default function NewTeamScreen() {
       router.replace({ pathname: '/tournament/team/[id]', params: { id: team.id } });
     } catch (error: any) {
       if (error?.code === '23505') {
-        Alert.alert('名稱重複', '此賽事已有同名隊伍，請換一個');
+        toast.error('此賽事已有同名隊伍，請換一個');
       } else {
-        Alert.alert('建立失敗', error.message || '請稍後再試');
+        toast.error(error.message || '建立失敗');
       }
     } finally {
       setSaving(false);

@@ -28,6 +28,14 @@ interface TacticalBoardProps {
 
 const PLAYER_SIZE = 30;
 
+// Tactical board uses its own dark-tactical aesthetic regardless of app theme.
+const COURT_BG = '#1F2937';
+const COURT_LINE = '#FFFFFF';
+const TEAM_A = '#3B82F6'; // blue (our team)
+const TEAM_B = '#EF4444'; // red (opponent)
+
+const PEN_COLORS = ['#FFFFFF', '#FBBF24', '#EF4444', '#10B981', '#3B82F6', '#000000'];
+
 const BASKETBALL_POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'];
 const VOLLEYBALL_POSITIONS = ['S', 'OH', 'MB', 'OP', 'OH', 'L'];
 
@@ -106,8 +114,8 @@ function getInitialPlayers(sport: string, isFullCourt: boolean, w: number, h: nu
 }
 
 function BasketballHalfCourt({ w, h }: { w: number; h: number }) {
-  const line = '#FFFFFF';
-  const lw = 1.5;
+  const line = COURT_LINE;
+  const lw = 1.2;
   const keyW = w * 0.34;
   const keyH = h * 0.4;
   const keyX = (w - keyW) / 2;
@@ -117,19 +125,19 @@ function BasketballHalfCourt({ w, h }: { w: number; h: number }) {
 
   return (
     <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
-      <Rect x={1} y={1} width={w - 2} height={h - 2} stroke={line} strokeWidth={2} fill="none" />
-      <Rect x={keyX} y={0} width={keyW} height={keyH} stroke={line} strokeWidth={lw} fill="none" />
-      <Circle cx={w / 2} cy={keyH} r={ftR} stroke={line} strokeWidth={lw} fill="none" />
-      <Circle cx={w / 2} cy={rimY} r={5} stroke={line} strokeWidth={2} fill="none" />
-      <Line x1={w / 2 - 14} y1={rimY - 5} x2={w / 2 + 14} y2={rimY - 5} stroke={line} strokeWidth={2.5} />
-      <Path d={`M ${w / 2 - threeR} 0 L ${w / 2 - threeR} ${h * 0.1} A ${threeR} ${threeR} 0 0 0 ${w / 2 + threeR} ${h * 0.1} L ${w / 2 + threeR} 0`} stroke={line} strokeWidth={lw} fill="none" />
+      <Rect x={1} y={1} width={w - 2} height={h - 2} stroke={line} strokeWidth={1.5} fill="none" opacity={0.85} />
+      <Rect x={keyX} y={0} width={keyW} height={keyH} stroke={line} strokeWidth={lw} fill="none" opacity={0.7} />
+      <Circle cx={w / 2} cy={keyH} r={ftR} stroke={line} strokeWidth={lw} fill="none" opacity={0.7} />
+      <Circle cx={w / 2} cy={rimY} r={5} stroke={line} strokeWidth={1.5} fill="none" />
+      <Line x1={w / 2 - 14} y1={rimY - 5} x2={w / 2 + 14} y2={rimY - 5} stroke={line} strokeWidth={2} />
+      <Path d={`M ${w / 2 - threeR} 0 L ${w / 2 - threeR} ${h * 0.1} A ${threeR} ${threeR} 0 0 0 ${w / 2 + threeR} ${h * 0.1} L ${w / 2 + threeR} 0`} stroke={line} strokeWidth={lw} fill="none" opacity={0.7} />
     </Svg>
   );
 }
 
 function BasketballFullCourt({ w, h }: { w: number; h: number }) {
-  const line = '#FFFFFF';
-  const lw = 1.5;
+  const line = COURT_LINE;
+  const lw = 1.2;
   const keyW = w * 0.34;
   const keyH = h * 0.2;
   const keyX = (w - keyW) / 2;
@@ -139,32 +147,32 @@ function BasketballFullCourt({ w, h }: { w: number; h: number }) {
 
   return (
     <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
-      <Rect x={1} y={1} width={w - 2} height={h - 2} stroke={line} strokeWidth={2} fill="none" />
-      <Line x1={0} y1={h / 2} x2={w} y2={h / 2} stroke={line} strokeWidth={lw} />
-      <Circle cx={w / 2} cy={h / 2} r={centerR} stroke={line} strokeWidth={lw} fill="none" />
+      <Rect x={1} y={1} width={w - 2} height={h - 2} stroke={line} strokeWidth={1.5} fill="none" opacity={0.85} />
+      <Line x1={0} y1={h / 2} x2={w} y2={h / 2} stroke={line} strokeWidth={lw} opacity={0.7} />
+      <Circle cx={w / 2} cy={h / 2} r={centerR} stroke={line} strokeWidth={lw} fill="none" opacity={0.7} />
       {/* Top half */}
-      <Rect x={keyX} y={0} width={keyW} height={keyH} stroke={line} strokeWidth={lw} fill="none" />
-      <Circle cx={w / 2} cy={keyH} r={ftR} stroke={line} strokeWidth={lw} fill="none" />
-      <Circle cx={w / 2} cy={h * 0.035} r={4} stroke={line} strokeWidth={1.5} fill="none" />
-      <Path d={`M ${w / 2 - threeR} 0 L ${w / 2 - threeR} ${h * 0.05} A ${threeR} ${threeR} 0 0 0 ${w / 2 + threeR} ${h * 0.05} L ${w / 2 + threeR} 0`} stroke={line} strokeWidth={lw} fill="none" />
+      <Rect x={keyX} y={0} width={keyW} height={keyH} stroke={line} strokeWidth={lw} fill="none" opacity={0.7} />
+      <Circle cx={w / 2} cy={keyH} r={ftR} stroke={line} strokeWidth={lw} fill="none" opacity={0.7} />
+      <Circle cx={w / 2} cy={h * 0.035} r={4} stroke={line} strokeWidth={1.2} fill="none" />
+      <Path d={`M ${w / 2 - threeR} 0 L ${w / 2 - threeR} ${h * 0.05} A ${threeR} ${threeR} 0 0 0 ${w / 2 + threeR} ${h * 0.05} L ${w / 2 + threeR} 0`} stroke={line} strokeWidth={lw} fill="none" opacity={0.7} />
       {/* Bottom half */}
-      <Rect x={keyX} y={h - keyH} width={keyW} height={keyH} stroke={line} strokeWidth={lw} fill="none" />
-      <Circle cx={w / 2} cy={h - keyH} r={ftR} stroke={line} strokeWidth={lw} fill="none" />
-      <Circle cx={w / 2} cy={h * 0.965} r={4} stroke={line} strokeWidth={1.5} fill="none" />
-      <Path d={`M ${w / 2 - threeR} ${h} L ${w / 2 - threeR} ${h * 0.95} A ${threeR} ${threeR} 0 0 1 ${w / 2 + threeR} ${h * 0.95} L ${w / 2 + threeR} ${h}`} stroke={line} strokeWidth={lw} fill="none" />
+      <Rect x={keyX} y={h - keyH} width={keyW} height={keyH} stroke={line} strokeWidth={lw} fill="none" opacity={0.7} />
+      <Circle cx={w / 2} cy={h - keyH} r={ftR} stroke={line} strokeWidth={lw} fill="none" opacity={0.7} />
+      <Circle cx={w / 2} cy={h * 0.965} r={4} stroke={line} strokeWidth={1.2} fill="none" />
+      <Path d={`M ${w / 2 - threeR} ${h} L ${w / 2 - threeR} ${h * 0.95} A ${threeR} ${threeR} 0 0 1 ${w / 2 + threeR} ${h * 0.95} L ${w / 2 + threeR} ${h}`} stroke={line} strokeWidth={lw} fill="none" opacity={0.7} />
     </Svg>
   );
 }
 
 function VolleyballCourt({ w, h }: { w: number; h: number }) {
-  const line = '#FFFFFF';
-  const lw = 1.5;
+  const line = COURT_LINE;
+  const lw = 1.2;
   return (
     <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
-      <Rect x={1} y={1} width={w - 2} height={h - 2} stroke={line} strokeWidth={2} fill="none" />
-      <Line x1={0} y1={h / 2} x2={w} y2={h / 2} stroke={line} strokeWidth={2.5} />
-      <Line x1={0} y1={h * 0.33} x2={w} y2={h * 0.33} stroke={line} strokeWidth={lw} strokeDasharray="6,4" />
-      <Line x1={0} y1={h * 0.67} x2={w} y2={h * 0.67} stroke={line} strokeWidth={lw} strokeDasharray="6,4" />
+      <Rect x={1} y={1} width={w - 2} height={h - 2} stroke={line} strokeWidth={1.5} fill="none" opacity={0.85} />
+      <Line x1={0} y1={h / 2} x2={w} y2={h / 2} stroke={line} strokeWidth={2} />
+      <Line x1={0} y1={h * 0.33} x2={w} y2={h * 0.33} stroke={line} strokeWidth={lw} strokeDasharray="6,4" opacity={0.55} />
+      <Line x1={0} y1={h * 0.67} x2={w} y2={h * 0.67} stroke={line} strokeWidth={lw} strokeDasharray="6,4" opacity={0.55} />
     </Svg>
   );
 }
@@ -217,6 +225,9 @@ function DraggablePlayer({
   const r = ballSize / 2;
 
   if (isBall) {
+    const isBasketball = sport === 'basketball';
+    const ballFill = isBasketball ? '#F97316' : '#FAFAF9';
+    const ballSeam = isBasketball ? '#9A3412' : '#78716C';
     return (
       <View
         {...panResponder.panHandlers}
@@ -231,20 +242,41 @@ function DraggablePlayer({
         ]}
       >
         <Svg width={ballSize} height={ballSize}>
-          {sport === 'basketball' ? (
+          <Circle cx={r} cy={r} r={r - 1.5} fill={ballFill} stroke="#FFFFFF" strokeWidth={1.5} />
+          {isBasketball ? (
             <>
-              <Circle cx={r} cy={r} r={r - 1} fill="#F97316" stroke="#C2410C" strokeWidth={1.5} />
-              <Line x1={1} y1={r} x2={ballSize - 1} y2={r} stroke="#C2410C" strokeWidth={0.8} />
-              <Line x1={r} y1={1} x2={r} y2={ballSize - 1} stroke="#C2410C" strokeWidth={0.8} />
-              <Path d={`M ${r * 0.4} ${1} A ${r * 0.7} ${r} 0 0 1 ${r * 0.4} ${ballSize - 1}`} stroke="#C2410C" strokeWidth={0.8} fill="none" />
-              <Path d={`M ${r * 1.6} ${1} A ${r * 0.7} ${r} 0 0 0 ${r * 1.6} ${ballSize - 1}`} stroke="#C2410C" strokeWidth={0.8} fill="none" />
+              {/* Vertical seam (meridian) */}
+              <Line x1={r} y1={r * 0.25} x2={r} y2={r * 1.75} stroke={ballSeam} strokeWidth={1.1} />
+              {/* Left ")" curve — bulges right toward center, endpoints inside orange */}
+              <Path
+                d={`M ${r * 0.4} ${r * 0.45} Q ${r * 0.95} ${r} ${r * 0.4} ${r * 1.55}`}
+                stroke={ballSeam}
+                strokeWidth={1.1}
+                fill="none"
+              />
+              {/* Right "(" curve — bulges left toward center, endpoints inside orange */}
+              <Path
+                d={`M ${r * 1.6} ${r * 0.45} Q ${r * 1.05} ${r} ${r * 1.6} ${r * 1.55}`}
+                stroke={ballSeam}
+                strokeWidth={1.1}
+                fill="none"
+              />
             </>
           ) : (
             <>
-              <Circle cx={r} cy={r} r={r - 1} fill="#FEFCE8" stroke="#CA8A04" strokeWidth={1.5} />
-              <Path d={`M ${r * 0.3} ${r * 0.3} Q ${r} ${r * 0.8} ${r * 1.7} ${r * 0.3}`} stroke="#2563EB" strokeWidth={1} fill="none" />
-              <Path d={`M ${r * 0.3} ${r * 1.7} Q ${r} ${r * 1.2} ${r * 1.7} ${r * 1.7}`} stroke="#2563EB" strokeWidth={1} fill="none" />
-              <Path d={`M ${r * 0.15} ${r} Q ${r} ${r * 0.6} ${r * 1.85} ${r}`} stroke="#DC2626" strokeWidth={1} fill="none" />
+              {/* Volleyball curved bands (3 panels) */}
+              <Path
+                d={`M ${r * 0.2} ${r * 0.55} Q ${r} ${r * 1.05} ${r * 1.8} ${r * 0.55}`}
+                stroke={ballSeam}
+                strokeWidth={1}
+                fill="none"
+              />
+              <Path
+                d={`M ${r * 0.2} ${r * 1.45} Q ${r} ${r * 0.95} ${r * 1.8} ${r * 1.45}`}
+                stroke={ballSeam}
+                strokeWidth={1}
+                fill="none"
+              />
             </>
           )}
         </Svg>
@@ -265,6 +297,8 @@ function DraggablePlayer({
           backgroundColor: player.team === 'A' ? teamAColor : teamBColor,
           left: player.x - PLAYER_SIZE / 2,
           top: player.y - PLAYER_SIZE / 2,
+          borderColor: '#FFFFFF',
+          borderWidth: 1.5,
         },
       ]}
     >
@@ -284,14 +318,12 @@ export function TacticalBoard({ sport, onDragStart, onDragEnd, boardRef }: Tacti
   const [undoneLines, setUndoneLines] = useState<{ path: string; color: string }[]>([]);
   const [currentLine, setCurrentLine] = useState<string>('');
 
-  const PEN_COLORS = ['#FFFFFF', '#000000', '#FF3B30'];
-
   const h = isFullCourt ? boardWidth * 1.4 : boardWidth * 0.85;
   const [players, setPlayers] = useState<Player[]>(getInitialPlayers(sport, isFullCourt, boardWidth, h));
 
-  const courtColor = sport === 'basketball' ? '#E87A2A' : '#2563EB';
-  const teamAColor = sport === 'basketball' ? '#1E40AF' : '#2563EB';
-  const teamBColor = '#DC2626';
+  const courtColor = COURT_BG;
+  const teamAColor = TEAM_A;
+  const teamBColor = TEAM_B;
 
   const handleMove = (id: number, x: number, y: number) => {
     setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, x, y } : p)));
@@ -324,6 +356,7 @@ export function TacticalBoard({ sport, onDragStart, onDragEnd, boardRef }: Tacti
           // Double tap — toggle mode
           setDrawEnabled((prev) => !prev);
           lastTapRef.current = 0;
+          setCurrentLine('');
           return;
         }
         lastTapRef.current = now;
@@ -331,19 +364,25 @@ export function TacticalBoard({ sport, onDragStart, onDragEnd, boardRef }: Tacti
         if (!drawEnabled) return;
 
         const { locationX, locationY } = evt.nativeEvent;
-        setCurrentLine(`M ${locationX} ${locationY}`);
+        setCurrentLine(`M ${locationX.toFixed(1)} ${locationY.toFixed(1)}`);
         onDragStart?.();
       },
       onPanResponderMove: (evt) => {
+        if (!drawEnabled) return;
         const { locationX, locationY } = evt.nativeEvent;
-        setCurrentLine((prev) => `${prev} L ${locationX} ${locationY}`);
+        setCurrentLine((prev) => {
+          if (!prev) return ''; // No M yet — guard against orphan L
+          return `${prev} L ${locationX.toFixed(1)} ${locationY.toFixed(1)}`;
+        });
       },
       onPanResponderRelease: () => {
-        if (currentLine) {
+        // Only save paths with at least one L (actual movement).
+        // Bare "M x y" with no L renders as a visible dot due to strokeLinecap="round".
+        if (currentLine && currentLine.startsWith('M') && currentLine.includes(' L ')) {
           setDrawnLines((prev) => [...prev, { path: currentLine, color: penColor }]);
           setUndoneLines([]);
-          setCurrentLine('');
         }
+        setCurrentLine('');
         onDragEnd?.();
       },
     }), [drawEnabled, currentLine, penColor]);
@@ -366,20 +405,20 @@ export function TacticalBoard({ sport, onDragStart, onDragEnd, boardRef }: Tacti
     <View style={styles.container}>
       {/* Court toggle (basketball only) */}
       {sport === 'basketball' && (
-        <View style={styles.toggleRow}>
+        <View style={[styles.courtSegmented, { backgroundColor: colors.secondary }]}>
           <TouchableOpacity
-            style={[styles.toggleBtn, !isFullCourt && { backgroundColor: colors.text }]}
+            style={[styles.courtSegBtn, !isFullCourt && { backgroundColor: colors.text }]}
             onPress={() => { if (isFullCourt) toggleCourt(); }}
             activeOpacity={0.7}
           >
-            <Text style={[styles.toggleText, { color: !isFullCourt ? colors.background : colors.textSecondary }]}>半場</Text>
+            <Text style={[styles.courtSegText, { color: !isFullCourt ? colors.background : colors.textSecondary }]}>半場</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.toggleBtn, isFullCourt && { backgroundColor: colors.text }]}
+            style={[styles.courtSegBtn, isFullCourt && { backgroundColor: colors.text }]}
             onPress={() => { if (!isFullCourt) toggleCourt(); }}
             activeOpacity={0.7}
           >
-            <Text style={[styles.toggleText, { color: isFullCourt ? colors.background : colors.textSecondary }]}>全場</Text>
+            <Text style={[styles.courtSegText, { color: isFullCourt ? colors.background : colors.textSecondary }]}>全場</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -430,22 +469,43 @@ export function TacticalBoard({ sport, onDragStart, onDragEnd, boardRef }: Tacti
 
       {/* Toolbar */}
       <View style={[styles.toolbar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {/* Mode indicator */}
-        <View style={[styles.modeIndicator, { backgroundColor: drawEnabled ? penColor : colors.text }]}>
-          <IconSymbol name={drawEnabled ? 'pencil' : 'hand.raised.fill'} size={14} color={drawEnabled ? (penColor === '#FFFFFF' ? '#000' : '#FFF') : colors.background} />
+        {/* Mode segmented control */}
+        <View style={[styles.segmented, { backgroundColor: colors.secondary }]}>
+          <TouchableOpacity
+            style={[styles.segmentBtn, !drawEnabled && { backgroundColor: colors.text }]}
+            onPress={() => setDrawEnabled(false)}
+            activeOpacity={0.7}
+          >
+            <IconSymbol name="hand.raised.fill" size={15} color={!drawEnabled ? colors.background : colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.segmentBtn, drawEnabled && { backgroundColor: colors.text }]}
+            onPress={() => setDrawEnabled(true)}
+            activeOpacity={0.7}
+          >
+            <IconSymbol name="pencil" size={15} color={drawEnabled ? colors.background : colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
-        {/* Colors */}
-        {drawEnabled && <View style={styles.toolGroup}>
-          {PEN_COLORS.map((c) => (
-            <TouchableOpacity
-              key={c}
-              style={[styles.colorDot, { backgroundColor: c }, penColor === c && styles.colorDotActive]}
-              onPress={() => setPenColor(c)}
-              activeOpacity={0.7}
-            />
-          ))}
-        </View>}
+        {/* Colors (only when drawing) */}
+        {drawEnabled ? (
+          <View style={styles.toolGroup}>
+            {PEN_COLORS.map((c) => (
+              <TouchableOpacity
+                key={c}
+                style={[
+                  styles.colorDot,
+                  { backgroundColor: c, borderColor: c === '#FFFFFF' ? colors.border : 'transparent' },
+                  penColor === c && { borderWidth: 2.5, borderColor: colors.text },
+                ]}
+                onPress={() => setPenColor(c)}
+                activeOpacity={0.7}
+              />
+            ))}
+          </View>
+        ) : (
+          <View style={{ flex: 1 }} />
+        )}
 
         {/* Undo / Redo */}
         <View style={styles.toolGroup}>
@@ -457,11 +517,9 @@ export function TacticalBoard({ sport, onDragStart, onDragEnd, boardRef }: Tacti
           </TouchableOpacity>
         </View>
 
-        <View style={{ flex: 1 }} />
-
         {/* Reset */}
         <TouchableOpacity style={styles.toolBtn} onPress={handleReset} activeOpacity={0.6}>
-          <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '600' }}>重置</Text>
+          <IconSymbol name="arrow.clockwise" size={16} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
     </View>
@@ -472,19 +530,23 @@ const styles = StyleSheet.create({
   container: {
     gap: Spacing.md,
   },
-  toggleRow: {
+  courtSegmented: {
     flexDirection: 'row',
     alignSelf: 'center',
-    gap: Spacing.xs,
-    marginBottom: Spacing.sm,
-  },
-  toggleBtn: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
     borderRadius: Radius.sm,
+    padding: 2,
+    gap: 2,
+    marginBottom: Spacing.xs,
   },
-  toggleText: {
-    fontSize: 13,
+  courtSegBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 5,
+    borderRadius: Radius.sm - 2,
+    minWidth: 56,
+    alignItems: 'center',
+  },
+  courtSegText: {
+    fontSize: 12,
     fontWeight: '600',
   },
   board: {
@@ -499,13 +561,12 @@ const styles = StyleSheet.create({
     borderRadius: PLAYER_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(0,0,0,0.2)',
   },
   playerText: {
     color: '#FFF',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   ball: {
     position: 'absolute',
@@ -515,40 +576,44 @@ const styles = StyleSheet.create({
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  modeIndicator: {
+  segmented: {
+    flexDirection: 'row',
+    borderRadius: Radius.sm,
+    padding: 2,
+    gap: 2,
+  },
+  segmentBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.sm - 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 36,
+  },
+  toolGroup: {
+    flexDirection: 'row',
+    gap: 4,
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  toolBtn: {
     width: 30,
     height: 30,
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  toolGroup: {
-    flexDirection: 'row',
-    gap: Spacing.xs,
-    alignItems: 'center',
-  },
-  toolBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   colorDot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
-  },
-  colorDotActive: {
-    borderWidth: 2.5,
-    borderColor: '#000',
   },
 });

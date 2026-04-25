@@ -12,7 +12,8 @@ export type NotificationType =
   | 'event_comment'        // 活動有新留言
   | 'event_starting_soon'  // 活動即將開始
   | 'official_approved'    // 官方帳號申請通過
-  | 'achievement_unlocked'; // 成就解鎖
+  | 'achievement_unlocked' // 成就解鎖
+  | 'check_in_tagged';     // 被標記在打卡紀錄
 
 export interface AppNotification {
   id: string;
@@ -112,6 +113,8 @@ export function getNotificationRoute(n: AppNotification): { pathname: string; pa
       return { pathname: '/(tabs)/profile' };
     case 'achievement_unlocked':
       return { pathname: '/event/achievements' };
+    case 'check_in_tagged':
+      return data.check_in_id ? { pathname: '/check-in/[id]', params: { id: data.check_in_id } } : null;
     default:
       return null;
   }

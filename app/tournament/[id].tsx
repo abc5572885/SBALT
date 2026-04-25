@@ -206,7 +206,7 @@ export default function TournamentDetailScreen() {
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 activeOpacity={0.6}
               >
-                <IconSymbol name="pencil" size={18} color={colors.textSecondary} />
+                <IconSymbol name="pencil" size={20} color={colors.text} />
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -214,7 +214,7 @@ export default function TournamentDetailScreen() {
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               activeOpacity={0.6}
             >
-              <IconSymbol name="paperplane.fill" size={18} color={colors.textSecondary} />
+              <IconSymbol name="paperplane.fill" size={20} color={colors.text} />
             </TouchableOpacity>
           </View>
         }
@@ -520,8 +520,8 @@ export default function TournamentDetailScreen() {
   );
 }
 
-function InfoRow({ icon, label, value, colors, valueColor }: {
-  icon: any;
+function InfoRow({ label, value, colors, valueColor }: {
+  icon?: any;
   label: string;
   value: string;
   colors: any;
@@ -529,9 +529,8 @@ function InfoRow({ icon, label, value, colors, valueColor }: {
 }) {
   return (
     <View style={styles.infoRow}>
-      <IconSymbol name={icon} size={16} color={colors.textSecondary} />
       <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <Text style={[styles.infoValue, { color: valueColor || colors.text }]} numberOfLines={2}>
+      <Text style={[styles.infoValue, { color: valueColor || colors.text }]}>
         {value}
       </Text>
     </View>
@@ -567,9 +566,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
     gap: Spacing.md,
   },
-  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
-  infoLabel: { fontSize: 13, width: 70 },
-  infoValue: { flex: 1, fontSize: 14, fontWeight: '500' },
+  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, paddingVertical: 2 },
+  infoLabel: { fontSize: 12, width: 76, fontWeight: '600', letterSpacing: -0.1, paddingTop: 1 },
+  infoValue: { flex: 1, fontSize: 14, fontWeight: '500', lineHeight: 19 },
   section: { marginBottom: Spacing.xl },
   sectionLabel: { marginBottom: Spacing.sm, textTransform: 'uppercase', letterSpacing: 1 },
   body: { fontSize: 15, lineHeight: 22 },

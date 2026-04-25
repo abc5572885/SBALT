@@ -2,23 +2,24 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { getSportConfig } from '@/constants/sports';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { getEventById, getEventScores, getRegistrations, saveEventScores } from '@/services/database';
 import {
-  getEventPlayerSummaries,
-  PlayerEventSummary,
-  recordPlayerScore,
-  removeLastPlayerScore,
-} from '@/services/playerStats';
+  BasketballAction,
+  BASKETBALL_ACTIONS,
+  getActionMeta,
+  recordAction as recordBasketballAction,
+  undoAction as undoBasketballAction,
+} from '@/services/basketballStats';
+import { getEventById, getEventScores, saveEventScores } from '@/services/database';
+import { BasketballStat, getEventBasketballStats } from '@/services/sportStats';
 import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
-import { Event, EventScore, Registration } from '@/types/database';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Event, EventScore } from '@/types/database';
+import { toast } from '@/store/useToast';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -35,140 +36,178 @@ interface ScoreEntry {
   score: number;
 }
 
+interface ActionLog {
+  id: string;
+  stat_id: string;
+  action: BasketballAction;
+  ts: number;
+}
+
 export default function EventScoresScreen() {
   const { eventId } = useLocalSearchParams<{ eventId: string }>();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+
   const [event, setEvent] = useState<Event | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Basketball Pro mode state
+  const [stats, setStats] = useState<BasketballStat[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+  const [selectedStatId, setSelectedStatId] = useState<string | null>(null);
+  const [log, setLog] = useState<ActionLog[]>([]);
+  const [showSecondary, setShowSecondary] = useState(false);
+
+  // Simple mode state (non-basketball)
   const [entries, setEntries] = useState<ScoreEntry[]>([
     { label: '主隊', score: 0 },
     { label: '客隊', score: 0 },
   ]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [editingLabel, setEditingLabel] = useState<number | null>(null);
-
-  // Player stats
-  const [registrations, setRegistrations] = useState<Registration[]>([]);
-  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
-  const [selectedPlayers, setSelectedPlayers] = useState<(string | null)[]>([null, null]);
-  const [playerSummaries, setPlayerSummaries] = useState<PlayerEventSummary[]>([]);
-  const [pickerTeamIndex, setPickerTeamIndex] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const sportConfig = getSportConfig(event?.sport_type);
+  const isBasketball = event?.sport_type === 'basketball';
   const buttons = sportConfig.scoreButtons;
-  // The primary action is the most common score (basketball: +2, others: +1)
   const primaryPoints = buttons.length >= 2 ? 2 : (buttons[0] || 1);
   const secondaryButtons = buttons.filter((b) => b !== primaryPoints);
 
-  useEffect(() => {
-    if (eventId) loadData();
-  }, [eventId]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    if (!eventId) return;
     try {
-      const [eventData, existingScores, regs, summaries] = await Promise.all([
+      const [eventData, existingScores, bballStats] = await Promise.all([
         getEventById(eventId),
         getEventScores(eventId),
-        getRegistrations(eventId),
-        getEventPlayerSummaries(eventId),
+        getEventBasketballStats(eventId),
       ]);
       setEvent(eventData);
+      setStats(bballStats);
+
       if (existingScores.length > 0) {
-        setEntries(
-          existingScores.map((s: EventScore) => ({ label: s.label, score: s.score }))
-        );
+        setEntries(existingScores.map((s: EventScore) => ({ label: s.label, score: s.score })));
       }
-      const active = regs.filter((r) => r.status === 'registered');
-      setRegistrations(active);
-      setPlayerSummaries(summaries);
-      if (active.length > 0) {
-        const p = await getProfilesByIds(active.map((r) => r.user_id));
-        setProfiles(p);
+
+      // Load profiles for non-temp players
+      const userIds = bballStats.map((s) => s.user_id).filter(Boolean) as string[];
+      if (userIds.length > 0) {
+        const ps = await getProfilesByIds(userIds);
+        setProfiles(ps);
       }
-    } catch (error) {
-      console.error('載入失敗:', error);
+    } catch (e) {
+      console.error('載入失敗:', e);
     } finally {
       setLoading(false);
     }
+  }, [eventId]);
+
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
+
+  // 籃球 Pro 模式：若沒陣容，跳到 lineup 頁
+  useEffect(() => {
+    if (!loading && isBasketball && stats.length === 0) {
+      router.replace({ pathname: '/event/lineup', params: { eventId } });
+    }
+  }, [loading, isBasketball, stats.length, eventId, router]);
+
+  // 從 stats 推算隊伍總分
+  const teamScores = useMemo(() => {
+    if (!isBasketball) return null;
+    const map = new Map<string, number>();
+    for (const s of stats) {
+      const total = s.points_1pt * 1 + s.points_2pt * 2 + s.points_3pt * 3;
+      map.set(s.team_label, (map.get(s.team_label) || 0) + total);
+    }
+    return Array.from(map.entries()).map(([label, score]) => ({ label, score }));
+  }, [stats, isBasketball]);
+
+  const teamLabels = useMemo(() => {
+    const labels = new Set<string>();
+    stats.forEach((s) => labels.add(s.team_label));
+    return Array.from(labels);
+  }, [stats]);
+
+  // ============================================================
+  // Pro mode actions (basketball)
+  // ============================================================
+  const handlePlayerSelect = (statId: string) => {
+    Haptics.selectionAsync();
+    setSelectedStatId(selectedStatId === statId ? null : statId);
   };
 
-  const reloadSummaries = async () => {
-    try {
-      const s = await getEventPlayerSummaries(eventId);
-      setPlayerSummaries(s);
-    } catch {}
-  };
-
-  const addScore = async (index: number, points: number) => {
+  const handleAction = async (action: BasketballAction) => {
+    if (!selectedStatId) {
+      toast.error('請先選球員');
+      return;
+    }
+    const stat = stats.find((s) => s.id === selectedStatId);
+    if (!stat) return;
+    const meta = getActionMeta(action);
     Haptics.impactAsync(
-      points >= 3
-        ? Haptics.ImpactFeedbackStyle.Heavy
-        : points >= 2
-        ? Haptics.ImpactFeedbackStyle.Medium
+      meta.pointsDelta >= 3 ? Haptics.ImpactFeedbackStyle.Heavy
+        : meta.pointsDelta >= 2 ? Haptics.ImpactFeedbackStyle.Medium
         : Haptics.ImpactFeedbackStyle.Light
     );
-    setEntries((prev) =>
-      prev.map((e, i) => (i === index ? { ...e, score: e.score + points } : e))
-    );
-    const playerId = selectedPlayers[index];
-    if (playerId && event) {
-      try {
-        await recordPlayerScore({
-          event_id: event.id,
-          user_id: playerId,
-          sport_type: event.sport_type || 'other',
-          team_label: entries[index]?.label,
-          points,
-        });
-        reloadSummaries();
-      } catch (e) {
-        // Silent fail on individual stat recording — UI score still updates
-      }
+
+    // Optimistic UI update
+    setStats((prev) => prev.map((s) =>
+      s.id === selectedStatId ? { ...s, [meta.field]: (s[meta.field] as number) + 1 } : s
+    ));
+    setLog((prev) => [
+      { id: `${selectedStatId}-${Date.now()}`, stat_id: selectedStatId, action, ts: Date.now() },
+      ...prev,
+    ].slice(0, 20));
+
+    try {
+      const updated = await recordBasketballAction(stat, action);
+      setStats((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+    } catch (e: any) {
+      toast.error(e.message || '記錄失敗');
+      // Rollback
+      setStats((prev) => prev.map((s) =>
+        s.id === selectedStatId ? { ...s, [meta.field]: Math.max(0, (s[meta.field] as number) - 1) } : s
+      ));
     }
   };
 
-  const decrementScore = async (index: number) => {
+  const handleUndo = async (entry: ActionLog) => {
+    const stat = stats.find((s) => s.id === entry.stat_id);
+    if (!stat) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
-    setEntries((prev) =>
-      prev.map((e, i) => (i === index ? { ...e, score: Math.max(0, e.score - 1) } : e))
-    );
-    const playerId = selectedPlayers[index];
-    if (playerId && event) {
-      try {
-        await removeLastPlayerScore(event.id, playerId);
-        reloadSummaries();
-      } catch {}
+    const meta = getActionMeta(entry.action);
+
+    setStats((prev) => prev.map((s) =>
+      s.id === entry.stat_id ? { ...s, [meta.field]: Math.max(0, (s[meta.field] as number) - 1) } : s
+    ));
+    setLog((prev) => prev.filter((l) => l.id !== entry.id));
+
+    try {
+      const updated = await undoBasketballAction(stat, entry.action);
+      setStats((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+    } catch (e: any) {
+      toast.error(e.message || '取消失敗');
     }
   };
 
-  const selectPlayer = (teamIndex: number, userId: string) => {
-    setSelectedPlayers((prev) => {
-      const next = [...prev];
-      next[teamIndex] = userId;
-      return next;
-    });
-    setPickerTeamIndex(null);
-    Haptics.selectionAsync();
+  // ============================================================
+  // Simple mode actions
+  // ============================================================
+  const addScoreSimple = (index: number, points: number) => {
+    Haptics.impactAsync(
+      points >= 3 ? Haptics.ImpactFeedbackStyle.Heavy
+        : points >= 2 ? Haptics.ImpactFeedbackStyle.Medium
+        : Haptics.ImpactFeedbackStyle.Light
+    );
+    setEntries((prev) => prev.map((e, i) => (i === index ? { ...e, score: e.score + points } : e)));
   };
 
-  const clearPlayer = (teamIndex: number) => {
-    setSelectedPlayers((prev) => {
-      const next = [...prev];
-      next[teamIndex] = null;
-      return next;
-    });
-  };
-
-  const playerSessionPoints = (userId: string): number => {
-    return playerSummaries.find((s) => s.user_id === userId)?.points || 0;
+  const decrementScoreSimple = (index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+    setEntries((prev) => prev.map((e, i) => (i === index ? { ...e, score: Math.max(0, e.score - 1) } : e)));
   };
 
   const updateLabel = (index: number, label: string) => {
-    setEntries((prev) =>
-      prev.map((e, i) => (i === index ? { ...e, label } : e))
-    );
+    setEntries((prev) => prev.map((e, i) => (i === index ? { ...e, label } : e)));
   };
 
   const resetScores = () => {
@@ -179,7 +218,13 @@ export default function EventScoresScreen() {
         style: 'destructive',
         onPress: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          setEntries((prev) => prev.map((e) => ({ ...e, score: 0 })));
+          if (isBasketball) {
+            // Pro mode 重置：保留陣容，只把所有 stats 歸零（DB + 本地）
+            // 暫時不實作，避免誤觸；建議刪除陣容重建
+            toast.info('Pro 模式請從陣容頁刪除重建');
+          } else {
+            setEntries((prev) => prev.map((e) => ({ ...e, score: 0 })));
+          }
         },
       },
     ]);
@@ -188,16 +233,15 @@ export default function EventScoresScreen() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      await saveEventScores(
-        eventId,
-        entries.map((e) => ({ label: e.label.trim(), score: e.score }))
-      );
+      const finalEntries = isBasketball && teamScores
+        ? teamScores.map((t) => ({ label: t.label, score: t.score }))
+        : entries.map((e) => ({ label: e.label.trim(), score: e.score }));
+      await saveEventScores(eventId, finalEntries);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('比賽結束', '比分已記錄', [
-        { text: '確定', onPress: () => router.back() },
-      ]);
+      toast.success('比分已記錄');
+      router.back();
     } catch (error: any) {
-      Alert.alert('錯誤', error.message || '儲存失敗');
+      toast.error(error.message || '儲存失敗');
     } finally {
       setSaving(false);
     }
@@ -213,9 +257,185 @@ export default function EventScoresScreen() {
     );
   }
 
+  // ============================================================
+  // Render: Basketball Pro mode
+  // ============================================================
+  if (isBasketball && stats.length > 0) {
+    const primaryActions = BASKETBALL_ACTIONS.filter((a) => a.category === 'primary');
+    const secondaryActions = BASKETBALL_ACTIONS.filter((a) => a.category === 'secondary');
+
+    return (
+      <SafeAreaView style={[styles.fullScreen, { backgroundColor: '#000' }]} edges={['top', 'bottom']}>
+        {/* Top bar with team scores */}
+        <View style={styles.proTopBar}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.topBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <IconSymbol name="chevron.left" size={22} color="#FFF" />
+          </TouchableOpacity>
+          <View style={styles.proScoreRow}>
+            {teamLabels.map((label, i) => {
+              const team = teamScores?.find((t) => t.label === label);
+              return (
+                <View key={label} style={styles.proScoreItem}>
+                  <Text style={[styles.proTeamLabel, { color: TEAM_COLORS[i] }]}>{label}</Text>
+                  <Text style={styles.proScoreNum}>{team?.score || 0}</Text>
+                </View>
+              );
+            })}
+          </View>
+          <TouchableOpacity
+            onPress={handleSave}
+            style={styles.topBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            disabled={saving}
+          >
+            <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '600' }}>
+              {saving ? '...' : '結束'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Player rosters per team */}
+        <ScrollView style={{ flexGrow: 0 }}>
+          {teamLabels.map((label, i) => {
+            const teamStats = stats.filter((s) => s.team_label === label);
+            return (
+              <View key={label} style={styles.rosterSection}>
+                <View style={[styles.rosterDot, { backgroundColor: TEAM_COLORS[i] }]} />
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.rosterRow}
+                >
+                  {teamStats.map((s) => {
+                    const name = s.user_id
+                      ? getDisplayName(profiles[s.user_id], s.user_id, false)
+                      : s.display_name || '';
+                    const total = s.points_1pt * 1 + s.points_2pt * 2 + s.points_3pt * 3;
+                    const selected = selectedStatId === s.id;
+                    return (
+                      <TouchableOpacity
+                        key={s.id}
+                        style={[
+                          styles.playerChip,
+                          { borderColor: TEAM_COLORS[i] },
+                          selected && { backgroundColor: TEAM_COLORS[i] },
+                        ]}
+                        onPress={() => handlePlayerSelect(s.id)}
+                        activeOpacity={0.7}
+                      >
+                        {s.jersey_number && (
+                          <Text style={[styles.jerseyNum, { color: selected ? '#FFF' : TEAM_COLORS[i] }]}>
+                            #{s.jersey_number}
+                          </Text>
+                        )}
+                        <Text style={[styles.playerChipName, { color: selected ? '#FFF' : '#FFF' }]} numberOfLines={1}>
+                          {name}
+                        </Text>
+                        <Text style={[styles.playerChipScore, { color: selected ? '#FFF' : 'rgba(255,255,255,0.5)' }]}>
+                          {total}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            );
+          })}
+        </ScrollView>
+
+        {/* Action buttons */}
+        <View style={styles.actionsArea}>
+          <View style={styles.actionGrid}>
+            {primaryActions.map((a) => (
+              <TouchableOpacity
+                key={a.key}
+                style={[
+                  styles.actionBtn,
+                  !selectedStatId && { opacity: 0.4 },
+                ]}
+                onPress={() => handleAction(a.key)}
+                disabled={!selectedStatId}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.actionBtnText}>{a.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {showSecondary && (
+            <View style={styles.actionGrid}>
+              {secondaryActions.map((a) => (
+                <TouchableOpacity
+                  key={a.key}
+                  style={[
+                    styles.actionBtn,
+                    styles.actionBtnSecondary,
+                    !selectedStatId && { opacity: 0.4 },
+                  ]}
+                  onPress={() => handleAction(a.key)}
+                  disabled={!selectedStatId}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.actionBtnText}>{a.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={styles.toggleSecondary}
+            onPress={() => setShowSecondary((v) => !v)}
+            activeOpacity={0.7}
+          >
+            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
+              {showSecondary ? '收起' : '更多動作'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Recent log */}
+        <View style={styles.logSection}>
+          <Text style={styles.logTitle}>最近紀錄（點擊取消）</Text>
+          {log.length === 0 ? (
+            <Text style={styles.logEmpty}>尚無紀錄</Text>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.logRow}>
+              {log.map((entry) => {
+                const stat = stats.find((s) => s.id === entry.stat_id);
+                if (!stat) return null;
+                const name = stat.user_id
+                  ? getDisplayName(profiles[stat.user_id], stat.user_id, false)
+                  : stat.display_name || '';
+                const meta = getActionMeta(entry.action);
+                return (
+                  <TouchableOpacity
+                    key={entry.id}
+                    style={styles.logChip}
+                    onPress={() => handleUndo(entry)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.logChipText} numberOfLines={1}>
+                      {name} · {meta.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ============================================================
+  // Render: Simple mode (volleyball, badminton, etc.)
+  // ============================================================
   return (
     <SafeAreaView style={[styles.fullScreen, { backgroundColor: '#000' }]} edges={['top', 'bottom']}>
-      {/* Top bar */}
       <View style={styles.topBar}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -239,96 +459,57 @@ export default function EventScoresScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Scoreboard */}
       <View style={styles.scoreboard}>
-        {entries.map((entry, index) => {
-          const teamColor = TEAM_COLORS[index];
+        {entries.map((entry, index) => (
+          <View key={index} style={[styles.teamHalf, { backgroundColor: TEAM_COLORS[index] }]}>
+            <TouchableOpacity
+              onPress={() => setEditingLabel(index)}
+              activeOpacity={0.8}
+              style={styles.teamNameArea}
+            >
+              {editingLabel === index ? (
+                <TextInput
+                  style={styles.teamNameInput}
+                  value={entry.label}
+                  onChangeText={(val) => updateLabel(index, val)}
+                  onBlur={() => setEditingLabel(null)}
+                  autoFocus
+                  selectTextOnFocus
+                />
+              ) : (
+                <Text style={styles.teamName}>{entry.label}</Text>
+              )}
+            </TouchableOpacity>
 
-          return (
-            <View key={index} style={[styles.teamHalf, { backgroundColor: teamColor }]}>
-              {/* Team name - tap to edit */}
-              <TouchableOpacity
-                onPress={() => setEditingLabel(index)}
-                activeOpacity={0.8}
-                style={styles.teamNameArea}
-              >
-                {editingLabel === index ? (
-                  <TextInput
-                    style={styles.teamNameInput}
-                    value={entry.label}
-                    onChangeText={(val) => updateLabel(index, val)}
-                    onBlur={() => setEditingLabel(null)}
-                    autoFocus
-                    selectTextOnFocus
-                  />
-                ) : (
-                  <Text style={styles.teamName}>{entry.label}</Text>
-                )}
-              </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.scoreArea}
+              onPress={() => addScoreSimple(index, primaryPoints)}
+              onLongPress={() => decrementScoreSimple(index)}
+              delayLongPress={400}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.scoreNumber}>{entry.score}</Text>
+              <Text style={styles.tapHint}>點擊 +{primaryPoints}　長按 −1</Text>
+            </TouchableOpacity>
 
-              {/* Selected player */}
-              {(() => {
-                const pid = selectedPlayers[index];
-                if (pid) {
-                  const name = getDisplayName(profiles[pid], pid, false);
-                  return (
-                    <TouchableOpacity
-                      style={styles.playerRow}
-                      onPress={() => setPickerTeamIndex(index)}
-                      onLongPress={() => clearPlayer(index)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.playerName} numberOfLines={1}>{name}</Text>
-                      <Text style={styles.playerPoints}>{playerSessionPoints(pid)} 分</Text>
-                    </TouchableOpacity>
-                  );
-                }
-                return (
+            {secondaryButtons.length > 0 && (
+              <View style={styles.secondaryRow}>
+                {secondaryButtons.map((pts) => (
                   <TouchableOpacity
-                    style={styles.playerRowEmpty}
-                    onPress={() => setPickerTeamIndex(index)}
+                    key={pts}
+                    style={styles.secondaryBtn}
+                    onPress={() => addScoreSimple(index, pts)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.playerRowEmptyText}>＋ 選球員</Text>
+                    <Text style={styles.secondaryBtnText}>+{pts}</Text>
                   </TouchableOpacity>
-                );
-              })()}
-
-              {/* Score area - TAP = primary score action */}
-              <TouchableOpacity
-                style={styles.scoreArea}
-                onPress={() => addScore(index, primaryPoints)}
-                onLongPress={() => decrementScore(index)}
-                delayLongPress={400}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.scoreNumber}>{entry.score}</Text>
-                <Text style={styles.tapHint}>
-                  點擊 +{primaryPoints}　長按 −1
-                </Text>
-              </TouchableOpacity>
-
-              {/* Secondary buttons - only for sports with multiple point values */}
-              {secondaryButtons.length > 0 && (
-                <View style={styles.secondaryRow}>
-                  {secondaryButtons.map((pts) => (
-                    <TouchableOpacity
-                      key={pts}
-                      style={styles.secondaryBtn}
-                      onPress={() => addScore(index, pts)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.secondaryBtnText}>+{pts}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-          );
-        })}
+                ))}
+              </View>
+            )}
+          </View>
+        ))}
       </View>
 
-      {/* Save */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={[styles.saveButton, saving && { opacity: 0.5 }]}
@@ -336,277 +517,112 @@ export default function EventScoresScreen() {
           disabled={saving}
           activeOpacity={0.8}
         >
-          <Text style={styles.saveText}>
-            {saving ? '處理中...' : '結束比賽'}
-          </Text>
+          <Text style={styles.saveText}>{saving ? '處理中...' : '結束比賽'}</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Player picker Modal */}
-      <Modal
-        visible={pickerTeamIndex !== null}
-        animationType="slide"
-        transparent
-        presentationStyle="overFullScreen"
-        onRequestClose={() => setPickerTeamIndex(null)}
-      >
-        <View style={styles.pickerBackdrop}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setPickerTeamIndex(null)}
-          />
-          <View style={styles.pickerSheet}>
-            <View style={styles.pickerHeader}>
-              <Text style={styles.pickerTitle}>
-                選擇 {pickerTeamIndex !== null ? entries[pickerTeamIndex]?.label : ''} 球員
-              </Text>
-              <TouchableOpacity onPress={() => setPickerTeamIndex(null)} activeOpacity={0.6}>
-                <Text style={styles.pickerClose}>關閉</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={styles.pickerContent}>
-              {registrations.length === 0 ? (
-                <Text style={styles.pickerEmpty}>此活動尚無報名者，無法選擇球員</Text>
-              ) : (
-                registrations.map((r) => {
-                  const name = getDisplayName(profiles[r.user_id], r.user_id, false);
-                  const pts = playerSessionPoints(r.user_id);
-                  const alreadySelectedOther = selectedPlayers.findIndex((p, i) => p === r.user_id && i !== pickerTeamIndex) >= 0;
-                  return (
-                    <TouchableOpacity
-                      key={r.id}
-                      style={[styles.pickerItem, alreadySelectedOther && { opacity: 0.4 }]}
-                      onPress={() => !alreadySelectedOther && pickerTeamIndex !== null && selectPlayer(pickerTeamIndex, r.user_id)}
-                      disabled={alreadySelectedOther}
-                      activeOpacity={0.6}
-                    >
-                      <Text style={styles.pickerItemName}>{name}</Text>
-                      <Text style={styles.pickerItemPoints}>
-                        {alreadySelectedOther ? '另隊已選' : pts > 0 ? `${pts} 分` : '—'}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-              {pickerTeamIndex !== null && selectedPlayers[pickerTeamIndex] && (
-                <TouchableOpacity
-                  style={[styles.pickerItem, styles.pickerClearItem]}
-                  onPress={() => {
-                    if (pickerTeamIndex !== null) {
-                      clearPlayer(pickerTeamIndex);
-                      setPickerTeamIndex(null);
-                    }
-                  }}
-                  activeOpacity={0.6}
-                >
-                  <Text style={[styles.pickerItemName, { color: '#F87171' }]}>取消選擇</Text>
-                </TouchableOpacity>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  fullScreen: {
-    flex: 1,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  fullScreen: { flex: 1 },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
   },
-  topBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+  topBtn: { width: 60, height: 44, alignItems: 'center', justifyContent: 'center' },
+  topCenter: { alignItems: 'center', flex: 1 },
+  topTitle: { color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: '500' },
+  topSport: { color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 1 },
+
+  // Pro top bar
+  proTopBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
   },
-  topCenter: {
-    alignItems: 'center',
-    flex: 1,
+  proScoreRow: { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: Spacing.xl },
+  proScoreItem: { alignItems: 'center' },
+  proTeamLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+  proScoreNum: { color: '#FFF', fontSize: 36, fontWeight: '800', letterSpacing: -1 },
+
+  // Roster
+  rosterSection: { paddingVertical: Spacing.sm },
+  rosterDot: {
+    height: 4, marginHorizontal: Spacing.lg, marginBottom: Spacing.xs, borderRadius: 2,
   },
-  topTitle: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  topSport: {
-    color: 'rgba(255,255,255,0.3)',
-    fontSize: 12,
-    marginTop: 1,
-  },
-  // Scoreboard
-  scoreboard: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: 4,
-    marginBottom: 4,
-  },
-  teamHalf: {
-    flex: 1,
-    borderRadius: Radius.lg,
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  teamNameArea: {
-    width: '100%',
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.1)',
-  },
-  teamName: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  teamNameInput: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-    padding: 0,
+  rosterRow: { paddingHorizontal: Spacing.lg, gap: Spacing.sm },
+  playerChip: {
     minWidth: 80,
-  },
-  // Score area — the main tap target
-  scoreArea: {
-    flex: 1,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scoreNumber: {
-    color: '#FFFFFF',
-    fontSize: 88,
-    fontWeight: '800',
-    letterSpacing: -3,
-  },
-  tapHint: {
-    color: 'rgba(255,255,255,0.3)',
-    fontSize: 10,
-    marginTop: Spacing.sm,
-  },
-  // Secondary buttons (+1, +3 for basketball)
-  secondaryRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.lg,
     paddingHorizontal: Spacing.md,
-    backgroundColor: 'rgba(0,0,0,0.15)',
-    width: '100%',
-    justifyContent: 'center',
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    gap: 2,
   },
-  secondaryBtn: {
-    flex: 1,
+  jerseyNum: { fontSize: 11, fontWeight: '700' },
+  playerChipName: { fontSize: 13, fontWeight: '600', maxWidth: 80 },
+  playerChipScore: { fontSize: 16, fontWeight: '800' },
+
+  // Actions
+  actionsArea: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
+  actionGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, justifyContent: 'space-between',
+  },
+  actionBtn: {
+    flexBasis: '32%',
     paddingVertical: Spacing.lg,
     borderRadius: Radius.md,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
   },
-  secondaryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  // Bottom
-  bottomBar: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-  },
-  saveButton: {
-    backgroundColor: '#FFF',
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.md,
-    alignItems: 'center',
-  },
-  saveText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  playerRow: {
-    width: '100%',
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  playerRowEmpty: {
-    width: '100%',
-    paddingVertical: Spacing.sm,
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  playerRowEmptyText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  playerName: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '700',
-    flex: 1,
-  },
-  playerPoints: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  pickerBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  pickerSheet: {
-    width: '100%',
-    maxHeight: '75%',
-    backgroundColor: '#111',
-    borderTopLeftRadius: Radius.lg,
-    borderTopRightRadius: Radius.lg,
-  },
-  pickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  pickerTitle: { color: '#FFF', fontSize: 16, fontWeight: '700' },
-  pickerClose: { color: 'rgba(255,255,255,0.6)', fontSize: 15, fontWeight: '500' },
-  pickerContent: { padding: Spacing.xl, gap: Spacing.xs },
-  pickerEmpty: { color: 'rgba(255,255,255,0.5)', fontSize: 14, textAlign: 'center', paddingVertical: Spacing.xxl },
-  pickerItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.md,
-    borderRadius: Radius.md,
+  actionBtnSecondary: {
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  pickerClearItem: {
-    marginTop: Spacing.lg,
-    backgroundColor: 'rgba(248,113,113,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  actionBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  toggleSecondary: { paddingVertical: Spacing.sm, alignItems: 'center' },
+
+  // Log
+  logSection: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, gap: 4 },
+  logTitle: { color: 'rgba(255,255,255,0.4)', fontSize: 11 },
+  logEmpty: { color: 'rgba(255,255,255,0.3)', fontSize: 12, paddingVertical: Spacing.xs },
+  logRow: { gap: Spacing.xs, paddingVertical: 4 },
+  logChip: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.sm,
   },
-  pickerItemName: { color: '#FFF', fontSize: 15, fontWeight: '600' },
-  pickerItemPoints: { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '600' },
+  logChipText: { color: '#FFF', fontSize: 12, fontWeight: '500' },
+
+  // Simple mode
+  scoreboard: { flex: 1, flexDirection: 'row', gap: 4, paddingHorizontal: 4, marginBottom: 4 },
+  teamHalf: { flex: 1, borderRadius: Radius.lg, alignItems: 'center', overflow: 'hidden' },
+  teamNameArea: {
+    width: '100%', paddingVertical: Spacing.md, alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  teamName: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', letterSpacing: 1 },
+  teamNameInput: {
+    color: '#FFF', fontSize: 16, fontWeight: '700', textAlign: 'center', padding: 0, minWidth: 80,
+  },
+  scoreArea: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' },
+  scoreNumber: { color: '#FFFFFF', fontSize: 88, fontWeight: '800', letterSpacing: -3 },
+  tapHint: { color: 'rgba(255,255,255,0.3)', fontSize: 10, marginTop: Spacing.sm },
+  secondaryRow: {
+    flexDirection: 'row', gap: Spacing.sm, paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md, backgroundColor: 'rgba(0,0,0,0.15)',
+    width: '100%', justifyContent: 'center',
+  },
+  secondaryBtn: {
+    flex: 1, paddingVertical: Spacing.lg, borderRadius: Radius.md,
+    backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center',
+  },
+  secondaryBtnText: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
+  bottomBar: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm },
+  saveButton: {
+    backgroundColor: '#FFF', paddingVertical: Spacing.md, borderRadius: Radius.md, alignItems: 'center',
+  },
+  saveText: { color: '#000', fontSize: 16, fontWeight: '700' },
 });

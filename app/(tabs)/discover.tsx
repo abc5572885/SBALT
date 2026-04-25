@@ -30,10 +30,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+const HCARD_W = 260;
+
 const TYPE_CONFIG = {
   venue: { label: '場地', icon: 'location.fill' as const },
   brand: { label: '品牌', icon: 'star.fill' as const },
 } as const;
+
+type Tab = 'all' | 'tournament' | 'venue' | 'brand';
 
 export default function DiscoverScreen() {
   const router = useRouter();
@@ -45,7 +49,7 @@ export default function DiscoverScreen() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [publishers, setPublishers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'all' | 'tournament' | 'venue' | 'brand'>('all');
+  const [activeTab, setActiveTab] = useState<Tab>('all');
   const [accountType, setAccountType] = useState<AccountType>('regular');
   const [officialKinds, setOfficialKinds] = useState<OfficialKind[]>([]);
   const [ownedGroupIds, setOwnedGroupIds] = useState<Set<string>>(new Set());
@@ -80,7 +84,6 @@ export default function DiscoverScreen() {
       setTournaments(tournamentData);
       setVenues(venueData);
 
-      // Load publisher names
       const userIds = [...new Set(promoData.map((p) => p.user_id))];
       if (userIds.length > 0) {
         const profiles = await getProfilesByIds(userIds);
@@ -97,7 +100,6 @@ export default function DiscoverScreen() {
     }
   };
 
-  // 篩掉舊的 event 類型（已合併到 tournaments）；venue 促銷類也改用真實 venues 資料
   const myCity = parseRegion(myRegion)?.city || null;
   const matchesCity = (regionStr: string | null | undefined, locationStr?: string | null): boolean => {
     if (!cityFilter) return true;
@@ -108,27 +110,22 @@ export default function DiscoverScreen() {
   const filteredTournaments = tournaments.filter((t) => matchesCity(null, t.location));
   const filteredVenues = venues.filter((v) => matchesCity(v.region, v.address));
   const visiblePromotions = promotions.filter((p) => p.type !== 'event' && p.type !== 'venue');
-  const filtered = activeTab === 'all'
+  const allBrandPromotions = activeTab === 'brand' || activeTab === 'all'
     ? visiblePromotions
-    : activeTab === 'tournament' || activeTab === 'venue'
-      ? []
-      : visiblePromotions.filter((p) => p.type === activeTab);
+    : [];
 
-  const featured = filtered.filter((p) => p.is_featured);
-  const regular = filtered.filter((p) => !p.is_featured);
   const showTournaments = activeTab === 'all' || activeTab === 'tournament';
   const showVenues = activeTab === 'all' || activeTab === 'venue';
+  const showBrand = activeTab === 'all' || activeTab === 'brand';
   const hasAnyContent =
     (showTournaments && filteredTournaments.length > 0) ||
     (showVenues && filteredVenues.length > 0) ||
-    filtered.length > 0;
+    (showBrand && allBrandPromotions.length > 0);
 
   const handlePress = async (item: Promotion) => {
     if (item.link_url && /^https?:\/\//.test(item.link_url)) {
       const supported = await Linking.canOpenURL(item.link_url);
-      if (supported) {
-        Linking.openURL(item.link_url);
-      }
+      if (supported) Linking.openURL(item.link_url);
     }
   };
 
@@ -201,6 +198,8 @@ export default function DiscoverScreen() {
       },
     ]);
   };
+
+  const isAllTab = activeTab === 'all';
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -280,108 +279,130 @@ export default function DiscoverScreen() {
             </ThemedText>
           </View>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Tournaments */}
-            {showTournaments && filteredTournaments.length > 0 && (
-              <View style={styles.section}>
-                <ThemedText type="subtitle" style={styles.sectionTitle}>進行中的比賽</ThemedText>
-                {filteredTournaments.map((t) => {
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingTop: Spacing.xs }}
+          >
+            {isAllTab ? (
+              <>
+                {filteredTournaments.length > 0 && (
+                  <CuratedSection
+                    title="進行中的比賽"
+                    subtitle={`${filteredTournaments.length} 場`}
+                    onMore={() => setActiveTab('tournament')}
+                    moreLabel="查看全部"
+                  >
+                    {filteredTournaments.slice(0, 8).map((t) => (
+                      <View key={t.id} style={styles.hCardWrap}>
+                        <TournamentCard
+                          tournament={t}
+                          colors={colors}
+                          onPress={() => router.push({ pathname: '/tournament/[id]', params: { id: t.id } })}
+                        />
+                      </View>
+                    ))}
+                  </CuratedSection>
+                )}
+
+                {filteredVenues.length > 0 && (
+                  <CuratedSection
+                    title="可預約場地"
+                    subtitle={`${filteredVenues.length} 個`}
+                    onMore={() => setActiveTab('venue')}
+                    moreLabel="查看全部"
+                  >
+                    {filteredVenues.slice(0, 8).map((v) => (
+                      <View key={v.id} style={styles.hCardWrap}>
+                        <VenueCard
+                          venue={v}
+                          colors={colors}
+                          onPress={() => router.push({ pathname: '/venue/[id]', params: { id: v.id } })}
+                        />
+                      </View>
+                    ))}
+                  </CuratedSection>
+                )}
+
+                {allBrandPromotions.length > 0 && (
+                  <CuratedSection
+                    title="品牌合作"
+                    sponsored
+                    onMore={allBrandPromotions.length > 4 ? () => setActiveTab('brand') : undefined}
+                    moreLabel="查看全部"
+                  >
+                    {allBrandPromotions.slice(0, 8).map((item) => (
+                      <View key={item.id} style={styles.hCardWrap}>
+                        <PromotionCard
+                          item={item}
+                          publisher={publishers[item.user_id]}
+                          colors={colors}
+                          onPress={() => handlePress(item)}
+                          featured={item.is_featured}
+                        />
+                      </View>
+                    ))}
+                  </CuratedSection>
+                )}
+              </>
+            ) : (
+              <View style={{ paddingHorizontal: Spacing.lg }}>
+                {showTournaments && filteredTournaments.map((t) => {
                   const isOwner = ownedGroupIds.has(t.organizer_group_id);
                   return (
-                    <TournamentCard
-                      key={t.id}
-                      tournament={t}
-                      colors={colors}
-                      onPress={() => router.push({ pathname: '/tournament/[id]', params: { id: t.id } })}
-                      isOwner={isOwner}
-                      onEdit={() => router.push(`/tournament/edit/${t.id}`)}
-                      onDelete={() => handleDeleteTournament(t)}
-                    />
+                    <View key={t.id} style={styles.vCardWrap}>
+                      <TournamentCard
+                        tournament={t}
+                        colors={colors}
+                        onPress={() => router.push({ pathname: '/tournament/[id]', params: { id: t.id } })}
+                        isOwner={isOwner}
+                        onEdit={() => router.push(`/tournament/edit/${t.id}`)}
+                        onDelete={() => handleDeleteTournament(t)}
+                      />
+                    </View>
                   );
                 })}
-              </View>
-            )}
-
-            {/* Venues */}
-            {showVenues && filteredVenues.length > 0 && (
-              <View style={styles.section}>
-                <ThemedText type="subtitle" style={styles.sectionTitle}>可預約場地</ThemedText>
-                {filteredVenues.map((v) => {
+                {showVenues && filteredVenues.map((v) => {
                   const isOwner = ownedGroupIds.has(v.operator_group_id);
                   return (
-                    <VenueCard
-                      key={v.id}
-                      venue={v}
-                      colors={colors}
-                      onPress={() => router.push({ pathname: '/venue/[id]', params: { id: v.id } })}
-                      isOwner={isOwner}
-                      onEdit={() => router.push(`/venue/edit/${v.id}`)}
-                      onDelete={() => handleDeleteVenue(v)}
-                    />
+                    <View key={v.id} style={styles.vCardWrap}>
+                      <VenueCard
+                        venue={v}
+                        colors={colors}
+                        onPress={() => router.push({ pathname: '/venue/[id]', params: { id: v.id } })}
+                        isOwner={isOwner}
+                        onEdit={() => router.push(`/venue/edit/${v.id}`)}
+                        onDelete={() => handleDeleteVenue(v)}
+                      />
+                    </View>
                   );
                 })}
-              </View>
-            )}
-
-            {/* Featured brand promotions */}
-            {featured.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeaderRow}>
-                  <ThemedText type="subtitle" style={styles.sectionTitle}>品牌合作</ThemedText>
-                  <View style={[styles.sponsorBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <ThemedText type="label" style={{ color: colors.textSecondary }}>贊助</ThemedText>
+                {showBrand && allBrandPromotions.map((item) => (
+                  <View key={item.id} style={styles.vCardWrap}>
+                    <PromotionCard
+                      item={item}
+                      publisher={publishers[item.user_id]}
+                      colors={colors}
+                      onPress={() => handlePress(item)}
+                      isOwner={user?.id === item.user_id}
+                      onEdit={() => handleEdit(item)}
+                      onDelete={() => handleDelete(item)}
+                      featured={item.is_featured}
+                    />
                   </View>
-                </View>
-                {featured.map((item) => (
-                  <PromotionCard
-                    key={item.id}
-                    item={item}
-                    publisher={publishers[item.user_id]}
-                    colors={colors}
-                    onPress={() => handlePress(item)}
-                    isOwner={user?.id === item.user_id}
-                    onEdit={() => handleEdit(item)}
-                    onDelete={() => handleDelete(item)}
-                    featured
-                  />
-                ))}
-              </View>
-            )}
-
-            {/* Regular brand promotions */}
-            {regular.length > 0 && (
-              <View style={styles.section}>
-                {featured.length === 0 && (
-                  <View style={styles.sectionHeaderRow}>
-                    <ThemedText type="subtitle" style={styles.sectionTitle}>品牌合作</ThemedText>
-                    <View style={[styles.sponsorBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                      <ThemedText type="label" style={{ color: colors.textSecondary }}>贊助</ThemedText>
-                    </View>
-                  </View>
-                )}
-                {regular.map((item) => (
-                  <PromotionCard
-                    key={item.id}
-                    item={item}
-                    publisher={publishers[item.user_id]}
-                    colors={colors}
-                    onPress={() => handlePress(item)}
-                    isOwner={user?.id === item.user_id}
-                    onEdit={() => handleEdit(item)}
-                    onDelete={() => handleDelete(item)}
-                  />
                 ))}
               </View>
             )}
 
             {/* Brand partnership CTA */}
-            <View style={[styles.ctaSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <ThemedText type="label" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                想在這裡展示您的賽事或場地？
-              </ThemedText>
-              <ThemedText type="caption" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                申請成為官方帳號即可發布推廣資訊
-              </ThemedText>
+            <View style={{ paddingHorizontal: Spacing.lg }}>
+              <View style={[styles.ctaSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <ThemedText type="label" style={{ color: colors.textSecondary, textAlign: 'center' }}>
+                  想在這裡展示您的賽事或場地？
+                </ThemedText>
+                <ThemedText type="caption" style={{ color: colors.textSecondary, textAlign: 'center' }}>
+                  申請成為官方帳號即可發布推廣資訊
+                </ThemedText>
+              </View>
             </View>
 
             <View style={{ height: Spacing.xxl }} />
@@ -451,6 +472,56 @@ export default function DiscoverScreen() {
   );
 }
 
+function CuratedSection({
+  title,
+  subtitle,
+  sponsored,
+  onMore,
+  moreLabel,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  sponsored?: boolean;
+  onMore?: () => void;
+  moreLabel?: string;
+  children: React.ReactNode;
+}) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+
+  return (
+    <View style={{ marginBottom: Spacing.xl }}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleRow}>
+          <Text style={[styles.sectionTitleText, { color: colors.text }]}>{title}</Text>
+          {subtitle && (
+            <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text>
+          )}
+          {sponsored && (
+            <View style={[styles.sponsorBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.sponsorText, { color: colors.textSecondary }]}>贊助</Text>
+            </View>
+          )}
+        </View>
+        {onMore && (
+          <TouchableOpacity onPress={onMore} activeOpacity={0.6} style={styles.moreBtn}>
+            <Text style={[styles.moreText, { color: colors.textSecondary }]}>{moreLabel || '更多'}</Text>
+            <IconSymbol name="chevron.right" size={12} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.hScrollContent}
+      >
+        {children}
+      </ScrollView>
+    </View>
+  );
+}
+
 function TournamentCard({
   tournament,
   colors,
@@ -495,7 +566,7 @@ function TournamentCard({
           )}
         </View>
 
-        <Text style={[styles.cardTitle, { color: colors.text }]}>{tournament.title}</Text>
+        <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>{tournament.title}</Text>
 
         {tournament.prize_pool && (
           <ThemedText type="caption" style={{ color: colors.primary }} numberOfLines={1}>
@@ -513,7 +584,7 @@ function TournamentCard({
           </View>
           <View style={styles.metaItem}>
             <IconSymbol name="location.fill" size={12} color={colors.textSecondary} />
-            <ThemedText type="caption" style={{ color: colors.textSecondary }}>
+            <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={1}>
               {tournament.location}
             </ThemedText>
           </View>
@@ -523,11 +594,6 @@ function TournamentCard({
               <ThemedText type="caption" style={{ color: colors.textSecondary }}>{sportLabel}</ThemedText>
             </View>
           )}
-        </View>
-
-        <View style={styles.linkHint}>
-          <ThemedText type="caption" style={{ color: colors.primary }}>查看賽事</ThemedText>
-          <IconSymbol name="chevron.right" size={12} color={colors.primary} />
         </View>
       </View>
     </TouchableOpacity>
@@ -576,9 +642,9 @@ function VenueCard({
       )}
       <View style={styles.cardBody}>
         <View style={styles.cardTopRow}>
-          <View style={[styles.typeBadge, { backgroundColor: colors.primary + '15' }]}>
-            <IconSymbol name="location.fill" size={11} color={colors.primary} />
-            <ThemedText type="label" style={{ color: colors.primary }}>場地</ThemedText>
+          <View style={[styles.typeBadge, { backgroundColor: colors.secondary }]}>
+            <IconSymbol name="location.fill" size={11} color={colors.textSecondary} />
+            <ThemedText type="label" style={{ color: colors.textSecondary }}>場地</ThemedText>
           </View>
           {venue.hourly_rate !== null && (
             <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>
@@ -587,7 +653,7 @@ function VenueCard({
           )}
         </View>
 
-        <Text style={[styles.cardTitle, { color: colors.text }]}>{venue.name}</Text>
+        <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>{venue.name}</Text>
 
         <View style={styles.cardMeta}>
           <View style={styles.metaItem}>
@@ -599,14 +665,9 @@ function VenueCard({
           {sportLabels && (
             <View style={styles.metaItem}>
               <IconSymbol name="sportscourt.fill" size={12} color={colors.textSecondary} />
-              <ThemedText type="caption" style={{ color: colors.textSecondary }}>{sportLabels}</ThemedText>
+              <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={1}>{sportLabels}</ThemedText>
             </View>
           )}
-        </View>
-
-        <View style={styles.linkHint}>
-          <ThemedText type="caption" style={{ color: colors.primary }}>查看場地</ThemedText>
-          <IconSymbol name="chevron.right" size={12} color={colors.primary} />
         </View>
       </View>
     </TouchableOpacity>
@@ -665,9 +726,9 @@ function PromotionCard({
         )}
         <View style={styles.cardBody}>
           <View style={styles.cardTopRow}>
-            <View style={[styles.typeBadge, { backgroundColor: colors.primary + '15' }]}>
-              <IconSymbol name={typeConfig.icon} size={11} color={colors.primary} />
-              <ThemedText type="label" style={{ color: colors.primary }}>{typeConfig.label}</ThemedText>
+            <View style={[styles.typeBadge, { backgroundColor: colors.secondary }]}>
+              <IconSymbol name={typeConfig.icon} size={11} color={colors.textSecondary} />
+              <ThemedText type="label" style={{ color: colors.textSecondary }}>{typeConfig.label}</ThemedText>
             </View>
             {featured && (
               <View style={[styles.featuredBadge, { backgroundColor: colors.text }]}>
@@ -676,7 +737,7 @@ function PromotionCard({
             )}
           </View>
 
-          <Text style={[styles.cardTitle, { color: colors.text }]}>{item.title}</Text>
+          <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>{item.title}</Text>
 
           {item.description && (
             <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={2}>
@@ -688,23 +749,16 @@ function PromotionCard({
             {item.location && (
               <View style={styles.metaItem}>
                 <IconSymbol name="location.fill" size={12} color={colors.textSecondary} />
-                <ThemedText type="caption" style={{ color: colors.textSecondary }}>{item.location}</ThemedText>
+                <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={1}>{item.location}</ThemedText>
               </View>
             )}
             {publisher && (
               <View style={styles.metaItem}>
                 <IconSymbol name="person.fill" size={12} color={colors.textSecondary} />
-                <ThemedText type="caption" style={{ color: colors.textSecondary }}>{publisher}</ThemedText>
+                <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={1}>{publisher}</ThemedText>
               </View>
             )}
           </View>
-
-          {item.link_url && /^https?:\/\//.test(item.link_url) && (
-            <View style={styles.linkHint}>
-              <ThemedText type="caption" style={{ color: colors.primary }}>查看詳情</ThemedText>
-              <IconSymbol name="chevron.right" size={12} color={colors.primary} />
-            </View>
-          )}
         </View>
       </TouchableOpacity>
 
@@ -730,7 +784,7 @@ function PromotionCard({
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
-  container: { flex: 1, paddingHorizontal: Spacing.lg },
+  container: { flex: 1 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 120 },
   headerRow: {
@@ -739,6 +793,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: Spacing.md,
     marginBottom: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
   },
   pageTitle: {
     fontSize: 32,
@@ -767,6 +822,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: Spacing.lg,
+    marginHorizontal: Spacing.lg,
   },
   cityBackdrop: {
     flex: 1,
@@ -803,6 +859,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.sm,
     marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.lg,
   },
   tab: {
     flex: 1,
@@ -815,42 +872,76 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  section: {
-    marginBottom: Spacing.xl,
-  },
-  sectionTitle: {
+  // Curated section
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
   },
-  sectionHeaderRow: {
+  sectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+  },
+  sectionTitleText: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  moreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  moreText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  hScrollContent: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.md,
+  },
+  hCardWrap: {
+    width: HCARD_W,
+  },
+  vCardWrap: {
+    marginBottom: Spacing.md,
   },
   sponsorBadge: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: Radius.sm,
     borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: Spacing.md,
+  },
+  sponsorText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   card: {
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: Spacing.sm,
     overflow: 'hidden',
   },
   cardImage: {
     width: '100%',
-    height: 160,
+    height: 140,
   },
   cardBody: {
-    padding: Spacing.lg,
-    gap: Spacing.sm,
+    padding: Spacing.md,
+    gap: Spacing.xs,
   },
   cardTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   typeBadge: {
     flexDirection: 'row',
@@ -871,23 +962,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    marginVertical: 2,
   },
   cardMeta: {
-    flexDirection: 'row',
-    gap: Spacing.lg,
+    gap: 4,
+    marginTop: 2,
   },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-  },
-  linkHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    marginTop: Spacing.xs,
   },
   ownerActions: {
     flexDirection: 'row',
@@ -899,7 +986,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   ctaSection: {
     padding: Spacing.xxl,
@@ -907,5 +994,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     gap: Spacing.sm,
     marginBottom: Spacing.xl,
+    marginTop: Spacing.md,
   },
 });

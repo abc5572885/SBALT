@@ -7,6 +7,7 @@ import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createComment } from '@/services/database';
+import { toast } from '@/store/useToast';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -26,12 +27,12 @@ export function CommentInput({ entityType, entityId, onCommentAdded }: CommentIn
 
   const handleSubmit = async () => {
     if (!user) {
-      Alert.alert('請先登入', '留言功能需要先登入帳號');
+      toast.error('留言功能需要先登入');
       return;
     }
 
     if (!content.trim()) {
-      Alert.alert('請輸入內容', '留言內容不能為空');
+      toast.error('留言內容不能為空');
       return;
     }
 
@@ -50,7 +51,7 @@ export function CommentInput({ entityType, entityId, onCommentAdded }: CommentIn
       }
     } catch (error: any) {
       console.error('建立留言失敗:', error);
-      Alert.alert('錯誤', error.message || '建立留言失敗，請稍後再試');
+      toast.error(error.message || '建立留言失敗');
     } finally {
       setLoading(false);
     }

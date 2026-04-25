@@ -10,6 +10,7 @@ import { deleteEvent, getEvents, getRegistrationCounts, updateEvent } from '@/se
 import { Event } from '@/types/database';
 import { formatDateChinese } from '@/utils/dateFormat';
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
+import { toast } from '@/store/useToast';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -54,7 +55,7 @@ export default function MyEventsScreen() {
       }
     } catch (error) {
       console.error('載入活動失敗:', error);
-      Alert.alert('錯誤', '無法載入活動列表');
+      toast.error('無法載入活動列表');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -82,7 +83,7 @@ export default function MyEventsScreen() {
               loadEvents();
             } catch (error: any) {
               console.error('刪除活動失敗:', error);
-              Alert.alert('錯誤', error.message || '刪除活動失敗');
+              toast.error(error.message || '刪除活動失敗');
             }
           },
         },
@@ -117,7 +118,7 @@ export default function MyEventsScreen() {
             await updateEvent(event.id, { status: opt.status as any });
             loadEvents();
           } catch (error: any) {
-            Alert.alert('錯誤', error.message || '操作失敗');
+            toast.error(error.message || '操作失敗');
           }
         },
       })),
@@ -261,8 +262,8 @@ export default function MyEventsScreen() {
                   </ThemedText>
                   {event.recurrence_rule && (
                     <View style={styles.recurrenceBadge}>
-                      <IconSymbol name="arrow.clockwise" size={12} color={colors.primary} />
-                      <ThemedText type="caption" style={{ color: colors.primary, fontWeight: '600' }}>
+                      <IconSymbol name="arrow.clockwise" size={12} color={colors.textSecondary} />
+                      <ThemedText type="caption" style={{ color: colors.textSecondary, fontWeight: '600' }}>
                         重複
                       </ThemedText>
                     </View>
@@ -271,36 +272,37 @@ export default function MyEventsScreen() {
 
                 {/* Actions */}
                 <View style={[styles.actionSection, { borderTopColor: colors.border }]}>
+                  {/* Primary actions row */}
                   <View style={styles.actionRow}>
-                    <TouchableOpacity style={[styles.actionButton, { borderColor: colors.border }]} onPress={() => router.push({ pathname: '/event/registrations', params: { eventId: event.id } })} activeOpacity={0.6}>
-                      <IconSymbol name="person.fill" size={16} color={colors.primary} />
-                      <ThemedText style={[styles.actionButtonText, { color: colors.primary }]}>報名</ThemedText>
+                    <TouchableOpacity style={[styles.primaryButton, { borderColor: colors.border }]} onPress={() => router.push({ pathname: '/event/registrations', params: { eventId: event.id } })} activeOpacity={0.6}>
+                      <IconSymbol name="person.fill" size={18} color={colors.text} />
+                      <ThemedText style={styles.primaryButtonText}>報名</ThemedText>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionButton, { borderColor: colors.border }]} onPress={() => router.push({ pathname: '/event/checkin', params: { eventId: event.id } })} activeOpacity={0.6}>
-                      <IconSymbol name="magnifyingglass" size={16} color={colors.text} />
-                      <ThemedText style={styles.actionButtonText}>簽到</ThemedText>
+                    <TouchableOpacity style={[styles.primaryButton, { borderColor: colors.border }]} onPress={() => router.push({ pathname: '/event/checkin', params: { eventId: event.id } })} activeOpacity={0.6}>
+                      <IconSymbol name="checkmark.circle" size={18} color={colors.text} />
+                      <ThemedText style={styles.primaryButtonText}>簽到</ThemedText>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionButton, { borderColor: colors.border }]} onPress={() => router.push({ pathname: '/event/scores', params: { eventId: event.id } })} activeOpacity={0.6}>
-                      <IconSymbol name="chart.bar.fill" size={16} color={colors.text} />
-                      <ThemedText style={styles.actionButtonText}>記分</ThemedText>
+                    <TouchableOpacity style={[styles.primaryButton, { borderColor: colors.border }]} onPress={() => router.push({ pathname: '/event/scores', params: { eventId: event.id } })} activeOpacity={0.6}>
+                      <IconSymbol name="chart.bar.fill" size={18} color={colors.text} />
+                      <ThemedText style={styles.primaryButtonText}>記分</ThemedText>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionButton, { borderColor: colors.border }]} onPress={() => handleShare(event)} activeOpacity={0.6}>
-                      <IconSymbol name="paperplane.fill" size={16} color={colors.text} />
-                      <ThemedText style={styles.actionButtonText}>分享</ThemedText>
+                    <TouchableOpacity style={[styles.primaryButton, { borderColor: colors.border }]} onPress={() => handleShare(event)} activeOpacity={0.6}>
+                      <IconSymbol name="paperplane.fill" size={18} color={colors.text} />
+                      <ThemedText style={styles.primaryButtonText}>分享</ThemedText>
                     </TouchableOpacity>
                   </View>
-                  <View style={styles.actionRow}>
-                    <TouchableOpacity style={[styles.actionButton, { borderColor: colors.border }]} onPress={() => handleDuplicate(event)} activeOpacity={0.6}>
-                      <IconSymbol name="plus" size={16} color={colors.text} />
-                      <ThemedText style={styles.actionButtonText}>複製</ThemedText>
+                  {/* Secondary actions: text-only mini links */}
+                  <View style={styles.secondaryRow}>
+                    <TouchableOpacity style={styles.secondaryLink} onPress={() => handleDuplicate(event)} activeOpacity={0.5} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+                      <ThemedText style={[styles.secondaryLinkText, { color: colors.textSecondary }]}>複製</ThemedText>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionButton, { borderColor: colors.border }]} onPress={() => handleEdit(event)} activeOpacity={0.6}>
-                      <IconSymbol name="pencil" size={16} color={colors.text} />
-                      <ThemedText style={styles.actionButtonText}>編輯</ThemedText>
+                    <View style={[styles.secondaryDot, { backgroundColor: colors.border }]} />
+                    <TouchableOpacity style={styles.secondaryLink} onPress={() => handleEdit(event)} activeOpacity={0.5} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+                      <ThemedText style={[styles.secondaryLinkText, { color: colors.textSecondary }]}>編輯</ThemedText>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionButton, { borderColor: colors.border }]} onPress={() => handleDelete(event)} activeOpacity={0.6}>
-                      <IconSymbol name="trash" size={16} color={colors.error} />
-                      <ThemedText style={[styles.actionButtonText, { color: colors.error }]}>刪除</ThemedText>
+                    <View style={[styles.secondaryDot, { backgroundColor: colors.border }]} />
+                    <TouchableOpacity style={styles.secondaryLink} onPress={() => handleDelete(event)} activeOpacity={0.5} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+                      <ThemedText style={[styles.secondaryLinkText, { color: colors.error }]}>刪除</ThemedText>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -379,7 +381,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   actionSection: {
-    gap: Spacing.sm,
+    gap: Spacing.md,
     paddingTop: Spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
@@ -387,18 +389,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.sm,
   },
-  actionButton: {
+  primaryButton: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
+    gap: 4,
+    paddingVertical: Spacing.md,
     borderRadius: Radius.sm,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  actionButtonText: {
-    fontSize: 14,
+  primaryButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  secondaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.md,
+  },
+  secondaryLink: {
+    paddingVertical: 2,
+  },
+  secondaryLinkText: {
+    fontSize: 13,
     fontWeight: '500',
+  },
+  secondaryDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
   },
 });

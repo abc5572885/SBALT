@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { createNotification } from './appNotifications';
+import { getUserTotalPoints } from './sportStats';
 
 interface Achievement {
   id: string;
@@ -45,7 +46,7 @@ export async function checkAndUnlockAchievements(userId: string) {
   const [
     { count: organizedCount },
     { count: joinedCount },
-    { data: scoreRows },
+    totalPoints,
     { count: groupCount },
   ] = await Promise.all([
     supabase.from('events').select('*', { count: 'exact', head: true })
@@ -53,12 +54,10 @@ export async function checkAndUnlockAchievements(userId: string) {
       .or('is_recurring_instance.is.null,is_recurring_instance.eq.false'),
     supabase.from('registrations').select('*', { count: 'exact', head: true })
       .eq('user_id', userId).eq('status', 'registered'),
-    supabase.from('player_stats').select('points').eq('user_id', userId),
+    getUserTotalPoints(userId),
     supabase.from('groups').select('*', { count: 'exact', head: true })
       .eq('creator_id', userId),
   ]);
-
-  const totalPoints = (scoreRows || []).reduce((sum: number, r: any) => sum + (r.points || 0), 0);
 
   // Get all achievements
   const { data: achievements } = await supabase.from('achievements').select('*');

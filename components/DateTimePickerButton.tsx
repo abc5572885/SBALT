@@ -4,6 +4,7 @@
  */
 
 import { ThemedText } from '@/components/themed-text';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatDateChinese, formatTime } from '@/utils/dateFormat';
@@ -86,7 +87,7 @@ export function DateTimePickerButton({
         disabled={disabled}
       >
         <ThemedText style={[styles.text, { color: colors.text }]}>{formatDisplay(value)}</ThemedText>
-        <ThemedText style={styles.icon}>{mode === 'date' ? '📅' : '🕐'}</ThemedText>
+        <IconSymbol name={mode === 'date' ? 'calendar' : 'clock.fill'} size={18} color={colors.textSecondary} />
       </TouchableOpacity>
 
       {showPicker && (

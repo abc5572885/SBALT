@@ -12,6 +12,7 @@ import { Comment } from '@/types/database';
 import { useRouter } from 'expo-router';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { UserActionMenu } from '@/components/UserActionMenu';
+import { toast } from '@/store/useToast';
 
 interface CommentListProps {
   comments: Comment[];
@@ -71,7 +72,7 @@ export function CommentList({ comments, onCommentDeleted }: CommentListProps) {
               onCommentDeleted();
             }
           } catch (error: any) {
-            Alert.alert('錯誤', error.message || '刪除失敗');
+            toast.error(error.message || '刪除失敗');
           }
         },
       },

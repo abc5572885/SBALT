@@ -79,6 +79,26 @@ export async function getVenuesByOperator(groupId: string): Promise<Venue[]> {
   return (data || []) as Venue[];
 }
 
+/**
+ * 搜尋公開 venues（給打卡 / 戰績 venue picker 用）
+ * 空字串時回傳最近建立的 N 筆，作為「最近場地」清單
+ */
+export async function searchPublicVenues(query: string, limit = 20): Promise<Venue[]> {
+  let q = supabase
+    .from('venues')
+    .select('*')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  const term = query.trim();
+  if (term) {
+    q = q.or(`name.ilike.%${term}%,address.ilike.%${term}%,region.ilike.%${term}%`);
+  }
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data || []) as Venue[];
+}
+
 export async function getPublicVenues(options?: { region?: string; sportType?: string; limit?: number }): Promise<Venue[]> {
   let query = supabase
     .from('venues')

@@ -12,13 +12,20 @@ Notifications.setNotificationHandler({
 
 /**
  * Request notification permission. Returns true if granted.
+ * Wrapped in try/catch — on simulators without code signing, the underlying
+ * Keychain/push-registration call can throw and crash app start.
  */
 export async function requestNotificationPermission(): Promise<boolean> {
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  if (existing === 'granted') return true;
+  try {
+    const { status: existing } = await Notifications.getPermissionsAsync();
+    if (existing === 'granted') return true;
 
-  const { status } = await Notifications.requestPermissionsAsync();
-  return status === 'granted';
+    const { status } = await Notifications.requestPermissionsAsync();
+    return status === 'granted';
+  } catch (e) {
+    console.warn('[notifications] permission request failed (likely no code signing):', e);
+    return false;
+  }
 }
 
 /**

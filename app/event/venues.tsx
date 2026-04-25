@@ -101,8 +101,8 @@ export default function VenuesScreen() {
               </ThemedText>
               <View style={styles.sportTags}>
                 {venue.sports.map((sport) => (
-                  <View key={sport} style={[styles.sportTag, { backgroundColor: colors.primary + '12' }]}>
-                    <ThemedText type="label" style={{ color: colors.primary }}>{sport}</ThemedText>
+                  <View key={sport} style={[styles.sportTag, { backgroundColor: colors.secondary }]}>
+                    <ThemedText type="label" style={{ color: colors.textSecondary }}>{sport}</ThemedText>
                   </View>
                 ))}
               </View>

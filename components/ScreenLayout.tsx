@@ -14,7 +14,12 @@ export function ScreenLayout({ children, scrollable = false }: ScreenLayoutProps
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       {scrollable ? (
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets
+          keyboardShouldPersistTaps="handled"
+        >
           {content}
         </ScrollView>
       ) : (

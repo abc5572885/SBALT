@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/PageHeader';
 import { RegionPicker } from '@/components/RegionPicker';
+import { toast } from '@/store/useToast';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
 import { SPORT_OPTIONS } from '@/constants/sports';
@@ -83,7 +84,7 @@ export default function EditTournamentScreen() {
         setMaxParticipants(t.max_participants ? t.max_participants.toString() : '');
         setRules(t.rules || '');
       } catch (e: any) {
-        Alert.alert('載入失敗', e.message || '請稍後再試');
+        toast.error(e.message || '載入失敗');
       } finally {
         setLoading(false);
       }
@@ -117,7 +118,7 @@ export default function EditTournamentScreen() {
       });
       router.back();
     } catch (error: any) {
-      Alert.alert('儲存失敗', error.message || '請稍後再試');
+      toast.error(error.message || '儲存失敗');
     } finally {
       setSaving(false);
     }
@@ -136,7 +137,7 @@ export default function EditTournamentScreen() {
             await deleteTournament(id);
             router.dismissAll();
           } catch (error: any) {
-            Alert.alert('刪除失敗', error.message || '請稍後再試');
+            toast.error(error.message || '刪除失敗');
             setSaving(false);
           }
         },

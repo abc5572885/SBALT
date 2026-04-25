@@ -1,22 +1,31 @@
-import { PageHeader } from '@/components/PageHeader';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { SPORT_OPTIONS } from '@/constants/sports';
+import { SPORT_OPTIONS, getSportConfig } from '@/constants/sports';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { autoExpireEvents, getOpenEvents, getRegistrationCounts, getUserStats, getMyRegisteredEvents } from '@/services/database';
-import { getUnreadCount } from '@/services/appNotifications';
 import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { getUnreadCount } from '@/services/appNotifications';
+import { autoExpireEvents, getMyRegisteredEvents, getOpenEvents, getRegistrationCounts } from '@/services/database';
+import { getMonthlySummary, MonthlySummary } from '@/services/monthlyStats';
 import { useAppStore } from '@/store/useAppStore';
-import { getSportConfig } from '@/constants/sports';
 import { Event } from '@/types/database';
 import { formatDateChinese } from '@/utils/dateFormat';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const HORIZONTAL_CARD_WIDTH = 260;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -24,18 +33,19 @@ export default function HomeScreen() {
   const { selectedSport } = useAppStore();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+
   const [events, setEvents] = React.useState<Event[]>([]);
   const [myNextEvent, setMyNextEvent] = React.useState<Event | null>(null);
   const [regCounts, setRegCounts] = React.useState<Record<string, number>>({});
-  const [stats, setStats] = React.useState({ organized: 0, joined: 0 });
   const [unread, setUnread] = React.useState(0);
+  const [monthly, setMonthly] = React.useState<MonthlySummary | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState(false);
 
   React.useEffect(() => {
     loadData();
-  }, []);
+  }, [selectedSport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadData = async () => {
     try {
@@ -47,14 +57,13 @@ export default function HomeScreen() {
         const counts = await getRegistrationCounts(data.map((e) => e.id));
         setRegCounts(counts);
       }
-      // Load user stats and next event
       if (user) {
-        getUserStats(user.id).then(setStats).catch(() => {});
         getMyRegisteredEvents(user.id).then((myEvents) => {
           const upcoming = myEvents.find((e) => new Date(e.scheduled_at) > new Date());
           setMyNextEvent(upcoming || null);
         }).catch(() => {});
         getUnreadCount(user.id).then(setUnread).catch(() => {});
+        getMonthlySummary(user.id, selectedSport).then(setMonthly).catch(() => {});
       }
     } catch (err) {
       console.error('載入資料失敗:', err);
@@ -70,17 +79,15 @@ export default function HomeScreen() {
     loadData();
   };
 
-  // Filter by selected sport
   const filteredEvents = selectedSport === 'all'
     ? events
     : events.filter((e) => e.sport_type === selectedSport);
 
-  // Split events: upcoming (within 7 days) vs later
-  const now = new Date();
-  const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const upcomingEvents = filteredEvents.filter((e) => new Date(e.scheduled_at) <= weekLater);
-  const laterEvents = filteredEvents.filter((e) => new Date(e.scheduled_at) > weekLater);
+  // 推薦活動：依 selectedSport 過濾後最早的 8 筆（橫向 scroll 用）
+  const recommendedEvents = filteredEvents.slice(0, 8);
+
   const sportLabel = selectedSport !== 'all' ? getSportConfig(selectedSport).label : null;
+  const displayName = user?.displayName || user?.email?.split('@')[0] || '球友';
 
   if (loading) {
     return (
@@ -113,74 +120,218 @@ export default function HomeScreen() {
     );
   }
 
-  const renderEventCard = (evt: Event) => {
-    const sportLabel = SPORT_OPTIONS.find((s) => s.key === evt.sport_type)?.label || '';
-    const count = regCounts[evt.id] || 0;
+  // ─── Hero card (永不空) ──────────────────────────────────────
+  const renderHero = () => {
+    if (myNextEvent) {
+      const sportName = SPORT_OPTIONS.find((s) => s.key === myNextEvent.sport_type)?.label || '';
+      const count = regCounts[myNextEvent.id] || 0;
+      const diffMs = new Date(myNextEvent.scheduled_at).getTime() - Date.now();
+      const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+      const hours = Math.floor((diffMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+      const countdown = days > 0 ? `還有 ${days} 天 ${hours} 小時` : `還有 ${hours} 小時`;
 
+      return (
+        <TouchableOpacity
+          style={[styles.heroCard, { backgroundColor: colors.text }, Shadows.md]}
+          onPress={() => router.push({ pathname: '/event/detail', params: { eventId: myNextEvent.id } })}
+          activeOpacity={0.85}
+        >
+          <View style={styles.heroTopRow}>
+            <Text style={[styles.heroLabel, { color: colors.background, opacity: 0.55 }]}>下一場</Text>
+            {sportName && (
+              <View style={[styles.heroSportPill, { backgroundColor: colors.background + '25' }]}>
+                <Text style={[styles.heroSportText, { color: colors.background }]}>{sportName}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={[styles.heroTitle, { color: colors.background }]} numberOfLines={1}>
+            {myNextEvent.title}
+          </Text>
+          <Text style={[styles.heroMeta, { color: colors.background, opacity: 0.7 }]} numberOfLines={1}>
+            {formatDateChinese(new Date(myNextEvent.scheduled_at))} · {myNextEvent.location}
+          </Text>
+          <View style={[styles.heroBottomRow, { borderTopColor: colors.background + '25' }]}>
+            <View style={styles.heroBottomItem}>
+              <IconSymbol name="person.fill" size={13} color={colors.background} />
+              <Text style={[styles.heroBottomText, { color: colors.background }]}>
+                {count}/{myNextEvent.quota} 人
+              </Text>
+            </View>
+            <View style={styles.heroBottomItem}>
+              <IconSymbol name="clock.fill" size={13} color={colors.background} />
+              <Text style={[styles.heroBottomText, { color: colors.background }]}>{countdown}</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
+    // CTA fallback：沒下場活動
+    const isRun = selectedSport === 'running';
+    return (
+      <TouchableOpacity
+        style={[styles.heroCtaCard, { borderColor: colors.border, backgroundColor: colors.surface }]}
+        onPress={() => router.push(isRun ? '/sport/run' : '/event/new')}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.heroCtaIcon, { backgroundColor: colors.secondary }]}>
+          <IconSymbol name={isRun ? 'bolt.fill' : 'plus'} size={22} color={colors.text} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.heroCtaTitle, { color: colors.text }]}>
+            {isRun ? '今天還沒跑' : '還沒下一場活動'}
+          </Text>
+          <Text style={[styles.heroCtaSub, { color: colors.textSecondary }]}>
+            {isRun ? '出門五公里，回來再說' : '揪一場，朋友的時間表才能對齊'}
+          </Text>
+        </View>
+        <IconSymbol name="chevron.right" size={16} color={colors.disabled} />
+      </TouchableOpacity>
+    );
+  };
+
+  // ─── Recommended events (橫向) ────────────────────────────
+  const renderRecommendedCard = (evt: Event) => {
+    const sportName = SPORT_OPTIONS.find((s) => s.key === evt.sport_type)?.label || '';
+    const count = regCounts[evt.id] || 0;
     return (
       <TouchableOpacity
         key={evt.id}
-        style={[styles.eventCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+        style={[styles.hCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
         onPress={() => router.push({ pathname: '/event/detail', params: { eventId: evt.id } })}
         activeOpacity={0.7}
       >
-        {evt.image_url && (
-          <Image source={{ uri: evt.image_url }} style={styles.cardImage} />
+        {evt.image_url ? (
+          <Image source={{ uri: evt.image_url }} style={styles.hCardImage} />
+        ) : (
+          <View style={[styles.hCardImage, { backgroundColor: colors.secondary, alignItems: 'center', justifyContent: 'center' }]}>
+            <IconSymbol name="sportscourt.fill" size={32} color={colors.disabled} />
+          </View>
         )}
-        <View style={styles.cardContent}>
-        <View style={styles.cardHeader}>
-          <ThemedText style={styles.cardTitle} numberOfLines={1}>{evt.title}</ThemedText>
-          {sportLabel && (
-            <View style={[styles.sportTag, { backgroundColor: colors.primary + '12' }]}>
-              <ThemedText type="label" style={{ color: colors.primary }}>{sportLabel}</ThemedText>
-            </View>
-          )}
-        </View>
-        <View style={styles.cardInfo}>
-          <View style={styles.cardInfoItem}>
-            <IconSymbol name="calendar" size={13} color={colors.textSecondary} />
-            <ThemedText type="caption" style={{ color: colors.textSecondary }}>
-              {formatDateChinese(new Date(evt.scheduled_at))}
-            </ThemedText>
-          </View>
-          <View style={styles.cardInfoItem}>
-            <IconSymbol name="location.fill" size={13} color={colors.textSecondary} />
-            <ThemedText type="caption" style={{ color: colors.textSecondary }} numberOfLines={1}>
-              {evt.location}
-            </ThemedText>
-          </View>
-        </View>
-        <View style={styles.cardFooter}>
-          <View style={styles.cardInfoItem}>
-            <IconSymbol name="person.fill" size={13} color={colors.primary} />
-            <ThemedText type="caption" style={{ color: colors.primary, fontWeight: '600' }}>
+        <View style={styles.hCardBody}>
+          <View style={styles.hCardTopRow}>
+            {sportName && (
+              <View style={[styles.hSportPill, { backgroundColor: colors.secondary }]}>
+                <Text style={[styles.hSportText, { color: colors.text }]}>{sportName}</Text>
+              </View>
+            )}
+            <Text style={[styles.hCardCount, { color: colors.textSecondary }]}>
               {count}/{evt.quota}
-            </ThemedText>
+            </Text>
           </View>
-          {evt.fee > 0 && (
-            <ThemedText type="label" style={{ color: colors.text }}>
-              NT$ {evt.fee}
-            </ThemedText>
-          )}
-        </View>
+          <Text style={[styles.hCardTitle, { color: colors.text }]} numberOfLines={1}>
+            {evt.title}
+          </Text>
+          <Text style={[styles.hCardMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+            {formatDateChinese(new Date(evt.scheduled_at))}
+          </Text>
+          <Text style={[styles.hCardMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+            {evt.location}
+          </Text>
         </View>
       </TouchableOpacity>
     );
   };
 
+  // ─── 月戰績 widget ────────────────────────────────────────
+  const renderMonthlyWidget = () => {
+    if (!monthly) return null;
+
+    if (monthly.games === 0) {
+      // CTA fallback：N=0
+      const isRun = selectedSport === 'running';
+      return (
+        <TouchableOpacity
+          style={[styles.statsWidget, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          onPress={() => router.push(isRun ? '/(tabs)/settings' : '/check-in/new')}
+          activeOpacity={0.7}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.statsWidgetLabel, { color: colors.textSecondary }]}>本月戰績</Text>
+            <Text style={[styles.statsWidgetEmpty, { color: colors.text }]}>還沒紀錄</Text>
+            <Text style={[styles.statsWidgetSub, { color: colors.textSecondary }]}>
+              {isRun ? '同步 Apple Health →' : '打第一張卡 →'}
+            </Text>
+          </View>
+          <IconSymbol name="chevron.right" size={16} color={colors.disabled} />
+        </TouchableOpacity>
+      );
+    }
+
+    const deltaArrow = monthly.delta > 0 ? '↑' : monthly.delta < 0 ? '↓' : '→';
+    const deltaColor = monthly.delta > 0 ? colors.statusSuccess : monthly.delta < 0 ? colors.error : colors.textSecondary;
+    const sportName = monthly.sportLabel
+      ? SPORT_OPTIONS.find((s) => s.key === monthly.sportLabel)?.label
+      : null;
+
+    return (
+      <TouchableOpacity
+        style={[styles.statsWidget, { borderColor: colors.border, backgroundColor: colors.surface }]}
+        onPress={() => router.push('/(tabs)/calendar')}
+        activeOpacity={0.7}
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.statsWidgetLabel, { color: colors.textSecondary }]}>本月戰績</Text>
+          <View style={styles.statsWidgetMain}>
+            <Text style={[styles.statsWidgetGames, { color: colors.text }]}>
+              {monthly.games}
+            </Text>
+            <Text style={[styles.statsWidgetGamesUnit, { color: colors.textSecondary }]}>場</Text>
+            {sportName && (
+              <Text style={[styles.statsWidgetSportTag, { color: colors.textSecondary }]}>
+                · {sportName}
+              </Text>
+            )}
+            {monthly.mainStat && (
+              <Text style={[styles.statsWidgetSportTag, { color: colors.textSecondary }]}>
+                · {monthly.mainStat.value} {monthly.mainStat.label}
+              </Text>
+            )}
+          </View>
+          {monthly.delta !== 0 && (
+            <Text style={[styles.statsWidgetDelta, { color: deltaColor }]}>
+              比上月 {monthly.delta > 0 ? '+' : ''}{monthly.delta} {deltaArrow}
+            </Text>
+          )}
+        </View>
+        <IconSymbol name="chevron.right" size={16} color={colors.disabled} />
+      </TouchableOpacity>
+    );
+  };
+
+  // ─── Quick actions ────────────────────────────────────────
+  const isRunningMode = selectedSport === 'running';
+  const hasTacticalBoard = selectedSport === 'basketball' || selectedSport === 'volleyball';
+  const quickActions = isRunningMode
+    ? [
+        { icon: 'plus' as const, label: '揪跑團', onPress: () => router.push('/event/new') },
+        { icon: 'location.fill' as const, label: '附近場地', onPress: () => router.push('/event/venues') },
+        { icon: 'map.fill' as const, label: '路線規劃', onPress: () => router.push('/sport/plan-route') },
+        { icon: 'chart.bar.fill' as const, label: '跑步紀錄', onPress: () => router.push('/sport/run-history') },
+      ]
+    : [
+        { icon: 'plus' as const, label: '舉辦活動', onPress: () => router.push('/event/new') },
+        { icon: 'location.fill' as const, label: '附近場地', onPress: () => router.push('/event/venues') },
+        { icon: 'checkmark.circle' as const, label: '打卡', onPress: () => router.push('/check-in/new') },
+        hasTacticalBoard
+          ? {
+              icon: 'sportscourt.fill' as const,
+              label: '戰術板',
+              onPress: () => router.push({ pathname: '/sport/board', params: { type: selectedSport } }),
+            }
+          : {
+              icon: 'medal.fill' as const,
+              label: '歷史戰績',
+              onPress: () => router.push('/event/history'),
+            },
+      ];
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
         {/* Header */}
-        <View style={styles.greetingSection}>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm }}>
-            <Text style={[styles.brandTitle, { color: colors.text }]}>SBALT</Text>
-            {sportLabel && (
-              <ThemedText type="caption" style={{ color: colors.primary, fontWeight: '600' }}>
-                {sportLabel}
-              </ThemedText>
-            )}
-          </View>
+        <View style={styles.headerRow}>
+          <Text style={[styles.brand, { color: colors.text }]}>SBALT</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
             <TouchableOpacity
               onPress={() => router.push('/notifications')}
@@ -211,115 +362,76 @@ export default function HomeScreen() {
 
         <ScrollView
           style={styles.scrollView}
+          contentContainerStyle={{ paddingBottom: Spacing.xxxl }}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
-          {/* Next event reminder */}
-          {myNextEvent && (
-            <TouchableOpacity
-              style={[styles.nextEventCard, { backgroundColor: colors.primary }, Shadows.md]}
-              onPress={() => router.push({ pathname: '/event/detail', params: { eventId: myNextEvent.id } })}
-              activeOpacity={0.8}
-            >
-              <ThemedText type="caption" style={{ color: 'rgba(255,255,255,0.7)' }}>下一場活動</ThemedText>
-              <Text style={styles.nextEventTitle}>{myNextEvent.title}</Text>
-              <Text style={styles.nextEventInfo}>
-                {formatDateChinese(new Date(myNextEvent.scheduled_at))} · {myNextEvent.location}
+          {/* Greeting */}
+          <View style={styles.greetingBlock}>
+            <Text style={[styles.greetingName, { color: colors.text }]}>{displayName}</Text>
+            {sportLabel && (
+              <Text style={[styles.greetingSport, { color: colors.primary }]}>
+                正在看 {sportLabel}
               </Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Quick Actions */}
-          <View style={styles.quickActions}>
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-              onPress={() => router.push('/event/new')}
-              activeOpacity={0.7}
-            >
-              <IconSymbol name="plus" size={20} color={colors.primary} />
-              <ThemedText style={styles.actionText}>舉辦活動</ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-              onPress={() => router.push('/event/venues')}
-              activeOpacity={0.7}
-            >
-              <IconSymbol name="location.fill" size={20} color={colors.primary} />
-              <ThemedText style={styles.actionText}>附近場地</ThemedText>
-            </TouchableOpacity>
+            )}
           </View>
 
-          {/* Sport tools */}
-          {selectedSport === 'running' && (
-            <TouchableOpacity
-              style={[styles.toolCard, { backgroundColor: '#22C55E' }, Shadows.md]}
-              onPress={() => router.push('/sport/run')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.toolCardContent}>
-                <Text style={styles.toolCardTitle}>開始跑步</Text>
-                <Text style={styles.toolCardSubtitle}>GPS 追蹤 · 配速 · 路線記錄</Text>
-              </View>
-              <IconSymbol name="chevron.right" size={18} color="rgba(255,255,255,0.5)" />
-            </TouchableOpacity>
-          )}
+          {/* Hero card (A 元素，永不空) */}
+          {renderHero()}
 
-          {(selectedSport === 'basketball' || selectedSport === 'volleyball') && (
-            <TouchableOpacity
-              style={[styles.toolCard, { backgroundColor: selectedSport === 'basketball' ? '#E87A2A' : '#2563EB' }, Shadows.md]}
-              onPress={() => router.push({ pathname: '/sport/board', params: { type: selectedSport } })}
-              activeOpacity={0.8}
-            >
-              <View style={styles.toolCardContent}>
-                <Text style={styles.toolCardTitle}>
-                  {selectedSport === 'basketball' ? '戰術板' : '戰術板 / 輪轉表'}
-                </Text>
-                <Text style={styles.toolCardSubtitle}>
-                  {selectedSport === 'basketball' ? '安排進攻防守站位' : '追蹤輪轉與戰術位置'}
-                </Text>
-              </View>
-              <IconSymbol name="chevron.right" size={18} color="rgba(255,255,255,0.5)" />
-            </TouchableOpacity>
-          )}
+          {/* Quick actions */}
+          <View style={styles.quickActions}>
+            {quickActions.map((action) => (
+              <TouchableOpacity
+                key={action.label}
+                style={[styles.qaButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={action.onPress}
+                activeOpacity={0.7}
+              >
+                <IconSymbol name={action.icon} size={22} color={colors.text} />
+                <Text style={[styles.qaLabel, { color: colors.text }]}>{action.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-          {/* Upcoming events (within 7 days) */}
-          {upcomingEvents.length > 0 && (
+          {/* Recommended events 橫向 scroll */}
+          {recommendedEvents.length > 0 && (
             <View style={styles.section}>
-              <ThemedText type="subtitle" style={styles.sectionTitle}>
-                即將開始
-              </ThemedText>
-              {upcomingEvents.slice(0, 5).map(renderEventCard)}
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>推薦給你</Text>
+                {recommendedEvents.length >= 5 && (
+                  <Text style={[styles.sectionMore, { color: colors.textSecondary }]}>← 滑動</Text>
+                )}
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingRight: Spacing.lg, gap: Spacing.md }}
+              >
+                {recommendedEvents.map(renderRecommendedCard)}
+              </ScrollView>
             </View>
           )}
 
-          {/* Later events */}
-          {laterEvents.length > 0 && (
-            <View style={styles.section}>
-              <ThemedText type="subtitle" style={styles.sectionTitle}>
-                更多活動
-              </ThemedText>
-              {laterEvents.slice(0, 5).map(renderEventCard)}
-            </View>
-          )}
-
-          {/* Empty state */}
+          {/* Empty state for events */}
           {events.length === 0 && (
             <View style={[styles.emptyContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <ThemedText style={{ color: colors.textSecondary, marginBottom: Spacing.md }}>
+              <Text style={{ color: colors.textSecondary, marginBottom: Spacing.md, fontSize: 14 }}>
                 目前尚無公開活動
-              </ThemedText>
+              </Text>
               <TouchableOpacity
                 style={[styles.createBtn, { backgroundColor: colors.primary }, Shadows.sm]}
                 onPress={() => router.push('/event/new')}
                 activeOpacity={0.7}
               >
                 <IconSymbol name="plus" size={16} color={colors.primaryText} />
-                <ThemedText style={{ color: colors.primaryText, fontWeight: '600' }}>建立活動</ThemedText>
+                <Text style={{ color: colors.primaryText, fontWeight: '600' }}>建立活動</Text>
               </TouchableOpacity>
             </View>
           )}
 
-          <View style={{ height: Spacing.xxxl }} />
+          {/* 月戰績 widget (B 元素) */}
+          <View style={{ marginTop: Spacing.lg }}>{renderMonthlyWidget()}</View>
         </ScrollView>
       </ThemedView>
     </SafeAreaView>
@@ -327,49 +439,22 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: Spacing.lg,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  greetingSection: {
+  safeArea: { flex: 1 },
+  container: { flex: 1, paddingHorizontal: Spacing.lg },
+  scrollView: { flex: 1 },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  // Header
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginTop: Spacing.md,
-    marginBottom: Spacing.xl,
-  },
-  greeting: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: Spacing.xs,
-  },
-  brandTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -1,
-  },
-  headerAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
     alignItems: 'center',
-    justifyContent: 'center',
+    marginTop: Spacing.md,
+    marginBottom: Spacing.lg,
   },
-  headerAvatarText: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  brand: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
+  headerAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  headerAvatarText: { fontSize: 14, fontWeight: '700' },
   unreadDot: {
     position: 'absolute',
     top: -4,
@@ -381,119 +466,132 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  unreadText: {
-    color: '#FFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  nextEventCard: {
+  unreadText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
+
+  // Greeting + chip
+  greetingBlock: { marginBottom: Spacing.lg, gap: Spacing.sm },
+  greetingName: { fontSize: 28, fontWeight: '800', letterSpacing: -1 },
+  greetingSport: { fontSize: 12, fontWeight: '600', letterSpacing: 0.3 },
+
+  // Hero
+  heroCard: {
     padding: Spacing.lg,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     marginBottom: Spacing.xl,
-    gap: Spacing.xs,
+    gap: 6,
   },
-  nextEventTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  nextEventInfo: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.8)',
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginBottom: Spacing.xxl,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    padding: Spacing.lg,
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  actionText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  toolCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.lg,
-    borderRadius: Radius.md,
-    marginBottom: Spacing.xl,
-  },
-  toolCardContent: {
-    flex: 1,
-    gap: Spacing.xs,
-  },
-  toolCardTitle: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  toolCardSubtitle: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 13,
-  },
-  section: {
-    marginBottom: Spacing.xxl,
-  },
-  sectionTitle: {
-    marginBottom: Spacing.md,
-  },
-  // Event card
-  eventCard: {
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: Spacing.sm,
-    overflow: 'hidden',
-  },
-  cardImage: {
-    width: '100%',
-    height: 140,
-  },
-  cardContent: {
-    padding: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.sm,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    flex: 1,
-  },
-  sportTag: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.sm,
-  },
-  cardInfo: {
+  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  heroLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase' },
+  heroSportPill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999 },
+  heroSportText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+  heroTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5, marginTop: Spacing.xs },
+  heroMeta: { fontSize: 13, marginTop: 2 },
+  heroBottomRow: {
     flexDirection: 'row',
     gap: Spacing.lg,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  cardInfoItem: {
+  heroBottomItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  heroBottomText: { fontSize: 12, fontWeight: '600' },
+
+  // Hero CTA fallback
+  heroCtaCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: Spacing.md,
+    padding: Spacing.lg,
+    borderRadius: Radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderStyle: 'dashed',
+    marginBottom: Spacing.xl,
   },
-  cardFooter: {
-    flexDirection: 'row',
+  heroCtaIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroCtaTitle: { fontSize: 16, fontWeight: '700' },
+  heroCtaSub: { fontSize: 12, marginTop: 2 },
+
+  // Quick actions
+  quickActions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.xl,
+  },
+  qaButton: {
+    flex: 1,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: 4,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  qaLabel: { fontSize: 12, fontWeight: '600' },
+
+  // Section
+  section: { marginBottom: Spacing.xl },
+  sectionHeader: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
   },
-  // Empty
+  sectionTitle: { fontSize: 18, fontWeight: '700', letterSpacing: -0.4 },
+  sectionMore: { fontSize: 12, fontWeight: '600' },
+
+  // Horizontal card
+  hCard: {
+    width: HORIZONTAL_CARD_WIDTH,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  hCardImage: { width: '100%', height: 130 },
+  hCardBody: { padding: Spacing.md, gap: 4 },
+  hCardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  hSportPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  hSportText: { fontSize: 11, fontWeight: '700' },
+  hCardCount: { fontSize: 11, fontWeight: '600' },
+  hCardTitle: { fontSize: 15, fontWeight: '700', marginTop: 2 },
+  hCardMeta: { fontSize: 12 },
+
+  // Stats widget
+  statsWidget: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  statsWidgetLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  statsWidgetMain: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+    marginTop: 4,
+  },
+  statsWidgetGames: { fontSize: 28, fontWeight: '900', letterSpacing: -0.5 },
+  statsWidgetGamesUnit: { fontSize: 13, fontWeight: '600' },
+  statsWidgetSportTag: { fontSize: 13, fontWeight: '500' },
+  statsWidgetDelta: { fontSize: 12, fontWeight: '600', marginTop: 4 },
+  statsWidgetEmpty: { fontSize: 18, fontWeight: '700', marginTop: 4 },
+  statsWidgetSub: { fontSize: 12, marginTop: 4 },
+
+  // Empty state
   emptyContainer: {
-    padding: Spacing.xxxl,
+    padding: Spacing.xxl,
     alignItems: 'center',
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,

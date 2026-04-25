@@ -7,7 +7,7 @@ import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getUserStats } from '@/services/database';
-import { getUserRuns, getUserRunStats, formatDistance, formatDuration, formatPace } from '@/services/running';
+import { getUserRuns, getUserRunStats, formatDuration, formatPace } from '@/services/running';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/store/useAppStore';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -22,6 +22,20 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+type Period = 'week' | 'month' | 'year';
+
+const PERIOD_LABEL: Record<Period, string> = {
+  week: '本週',
+  month: '本月',
+  year: '今年',
+};
+
+const PERIOD_AVG_UNIT: Record<Period, string> = {
+  week: '天',
+  month: '週',
+  year: '月',
+};
+
 export default function StatsScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -31,10 +45,15 @@ export default function StatsScreen() {
   const sportConfig = getSportConfig(selectedSport === 'all' ? null : selectedSport);
 
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<'week' | 'month' | 'year'>('month');
+  const [period, setPeriod] = useState<Period>('month');
   const [eventStats, setEventStats] = useState({ organized: 0, joined: 0 });
   const [runStats, setRunStats] = useState({ totalDistance: 0, totalDuration: 0, totalRuns: 0 });
   const [chartData, setChartData] = useState<{ label: string; value: number }[]>([]);
+
+  const isRunning = selectedSport === 'running';
+  const isBallSport = selectedSport === 'basketball' || selectedSport === 'volleyball' || selectedSport === 'badminton';
+  const showRunning = isRunning || selectedSport === 'all';
+  const showBall = isBallSport || selectedSport === 'all';
 
   useFocusEffect(
     useCallback(() => {
@@ -52,12 +71,10 @@ export default function StatsScreen() {
       setEventStats(evtStats);
       setRunStats(rStats);
 
-      // Build chart data
       if (isRunning || selectedSport === 'all') {
         const runs = await getUserRuns(user.id);
         setChartData(buildChartData(runs, period, 'distance'));
       } else {
-        // For ball sports, chart events by date
         const { data: regs } = await supabase
           .from('registrations')
           .select('created_at')
@@ -74,13 +91,12 @@ export default function StatsScreen() {
 
   function buildChartData(
     items: any[],
-    p: 'week' | 'month' | 'year',
+    p: Period,
     mode: 'distance' | 'count'
   ): { label: string; value: number }[] {
     const now = new Date();
 
     if (p === 'week') {
-      // Last 7 days
       const days = ['日', '一', '二', '三', '四', '五', '六'];
       const result = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(now);
@@ -100,7 +116,6 @@ export default function StatsScreen() {
     }
 
     if (p === 'month') {
-      // Last 4 weeks
       const result = Array.from({ length: 4 }, (_, i) => {
         const weekStart = new Date(now);
         weekStart.setDate(weekStart.getDate() - (3 - i) * 7);
@@ -117,7 +132,6 @@ export default function StatsScreen() {
       return result.map((r) => ({ label: r.label, value: Math.round(r.value * 10) / 10 }));
     }
 
-    // Year - last 12 months
     const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
     const result = Array.from({ length: 12 }, (_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
@@ -133,9 +147,6 @@ export default function StatsScreen() {
     return result.map((r) => ({ label: r.label, value: Math.round(r.value * 10) / 10 }));
   }
 
-  const isRunning = selectedSport === 'running';
-  const isBallSport = selectedSport === 'basketball' || selectedSport === 'volleyball' || selectedSport === 'badminton';
-
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -146,14 +157,25 @@ export default function StatsScreen() {
     );
   }
 
+  // Hero metric: sum chart values (distance for running, count for ball/all)
+  const periodTotal = chartData.reduce((sum, d) => sum + d.value, 0);
+  const periodAvg = chartData.length > 0 ? periodTotal / chartData.length : 0;
+  const heroUnit = showRunning && (isRunning || (selectedSport === 'all' && periodTotal > 0)) ? 'km' : '場';
+  const heroLabel = isRunning
+    ? '跑步距離'
+    : isBallSport
+      ? `${sportConfig.label}場次`
+      : '參與場次';
+  const heroValue = heroUnit === 'km' ? periodTotal.toFixed(1) : Math.round(periodTotal).toString();
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ThemedView style={styles.container}>
         <View style={styles.headerRow}>
           <Text style={[styles.pageTitle, { color: colors.text }]}>數據</Text>
           {selectedSport !== 'all' && (
-            <View style={[styles.sportBadge, { backgroundColor: colors.primary + '15' }]}>
-              <ThemedText type="label" style={{ color: colors.primary }}>
+            <View style={[styles.sportBadge, { backgroundColor: colors.secondary }]}>
+              <ThemedText type="label" style={{ color: colors.text }}>
                 {sportConfig.label}
               </ThemedText>
             </View>
@@ -166,65 +188,91 @@ export default function StatsScreen() {
             {(['year', 'month', 'week'] as const).map((p) => (
               <TouchableOpacity
                 key={p}
-                style={[styles.periodBtn, period === p && { backgroundColor: colors.text }]}
+                style={[
+                  styles.periodBtn,
+                  { borderColor: colors.border },
+                  period === p && { backgroundColor: colors.text, borderColor: colors.text },
+                ]}
                 onPress={() => setPeriod(p)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.periodText, { color: period === p ? colors.background : colors.textSecondary }]}>
+                <Text style={[
+                  styles.periodText,
+                  { color: period === p ? colors.background : colors.textSecondary },
+                ]}>
                   {p === 'week' ? '週' : p === 'month' ? '月' : '年'}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
+          {/* HERO METRIC */}
+          <View style={[styles.hero, { backgroundColor: colors.text }]}>
+            <Text style={[styles.heroPeriodLabel, { color: colors.background, opacity: 0.55 }]}>
+              {PERIOD_LABEL[period]} · {heroLabel}
+            </Text>
+            <View style={styles.heroNumberRow}>
+              <Text style={[styles.heroNumber, { color: colors.background }]}>
+                {heroValue}
+              </Text>
+              <Text style={[styles.heroUnit, { color: colors.background, opacity: 0.55 }]}>
+                {heroUnit}
+              </Text>
+            </View>
+            {periodTotal > 0 ? (
+              <Text style={[styles.heroSubtext, { color: colors.primary }]}>
+                平均 {heroUnit === 'km' ? periodAvg.toFixed(1) : periodAvg.toFixed(1)} {heroUnit} / {PERIOD_AVG_UNIT[period]}
+              </Text>
+            ) : (
+              <Text style={[styles.heroSubtext, { color: colors.background, opacity: 0.45 }]}>
+                {showRunning ? '還沒開始記錄' : '還沒參加活動'}
+              </Text>
+            )}
+          </View>
+
           {/* Chart */}
-          {chartData.length > 0 && (
+          {chartData.length > 0 && periodTotal > 0 && (
             <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
               <ThemedText type="caption" style={{ color: colors.textSecondary, marginBottom: Spacing.md }}>
-                {isRunning || selectedSport === 'all' ? '跑步距離 (km)' : '活動場次'}
+                趨勢
               </ThemedText>
               <LineChart data={chartData} />
             </View>
           )}
 
-          {/* Running stats */}
-          {(isRunning || selectedSport === 'all') && (
+          {/* Running supporting stats */}
+          {showRunning && (
             <View style={styles.section}>
-              <ThemedText type="subtitle" style={styles.sectionTitle}>跑步</ThemedText>
-
-              <View style={styles.bigStatRow}>
-                <View style={styles.bigStat}>
-                  <Text style={[styles.bigStatNumber, { color: colors.primary }]}>
-                    {(runStats.totalDistance / 1000).toFixed(1)}
-                  </Text>
-                  <ThemedText type="caption" style={{ color: colors.textSecondary }}>總公里</ThemedText>
-                </View>
-                <View style={[styles.bigStatDivider, { backgroundColor: colors.border }]} />
-                <View style={styles.bigStat}>
-                  <Text style={[styles.bigStatNumber, { color: colors.primary }]}>
-                    {runStats.totalRuns}
-                  </Text>
-                  <ThemedText type="caption" style={{ color: colors.textSecondary }}>跑步次數</ThemedText>
-                </View>
+              <ThemedText type="label" style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+                跑步累計
+              </ThemedText>
+              <View style={styles.supportGrid}>
+                <SupportStat
+                  colors={colors}
+                  value={(runStats.totalDistance / 1000).toFixed(1)}
+                  unit="km"
+                  label="總距離"
+                />
+                <SupportStat
+                  colors={colors}
+                  value={runStats.totalRuns.toString()}
+                  unit="次"
+                  label="總次數"
+                />
+                <SupportStat
+                  colors={colors}
+                  value={formatDuration(runStats.totalDuration)}
+                  label="總時間"
+                />
+                <SupportStat
+                  colors={colors}
+                  value={runStats.totalRuns > 0
+                    ? formatPace((runStats.totalDuration / 60) / (runStats.totalDistance / 1000))
+                    : '--:--'}
+                  unit="/km"
+                  label="平均配速"
+                />
               </View>
-
-              <View style={styles.statsGrid}>
-                <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
-                  <ThemedText type="caption" style={{ color: colors.textSecondary }}>總時間</ThemedText>
-                  <Text style={[styles.statValue, { color: colors.text }]}>
-                    {formatDuration(runStats.totalDuration)}
-                  </Text>
-                </View>
-                <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
-                  <ThemedText type="caption" style={{ color: colors.textSecondary }}>平均配速</ThemedText>
-                  <Text style={[styles.statValue, { color: colors.text }]}>
-                    {runStats.totalRuns > 0
-                      ? formatPace((runStats.totalDuration / 60) / (runStats.totalDistance / 1000))
-                      : '--:--'} /km
-                  </Text>
-                </View>
-              </View>
-
               <TouchableOpacity
                 style={[styles.actionLink, { borderColor: colors.border }]}
                 onPress={() => router.push('/sport/run-history')}
@@ -236,29 +284,26 @@ export default function StatsScreen() {
             </View>
           )}
 
-          {/* Ball sport stats */}
-          {(isBallSport || selectedSport === 'all') && (
+          {/* Ball sport supporting stats */}
+          {showBall && (
             <View style={styles.section}>
-              <ThemedText type="subtitle" style={styles.sectionTitle}>
-                {selectedSport === 'all' ? '活動' : sportConfig.label}
+              <ThemedText type="label" style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+                {selectedSport === 'all' ? '活動累計' : `${sportConfig.label}累計`}
               </ThemedText>
-
-              <View style={styles.bigStatRow}>
-                <View style={styles.bigStat}>
-                  <Text style={[styles.bigStatNumber, { color: colors.primary }]}>
-                    {eventStats.organized}
-                  </Text>
-                  <ThemedText type="caption" style={{ color: colors.textSecondary }}>主辦場次</ThemedText>
-                </View>
-                <View style={[styles.bigStatDivider, { backgroundColor: colors.border }]} />
-                <View style={styles.bigStat}>
-                  <Text style={[styles.bigStatNumber, { color: colors.primary }]}>
-                    {eventStats.joined}
-                  </Text>
-                  <ThemedText type="caption" style={{ color: colors.textSecondary }}>參加場次</ThemedText>
-                </View>
+              <View style={styles.supportGrid}>
+                <SupportStat
+                  colors={colors}
+                  value={eventStats.organized.toString()}
+                  unit="場"
+                  label="主辦"
+                />
+                <SupportStat
+                  colors={colors}
+                  value={eventStats.joined.toString()}
+                  unit="場"
+                  label="參加"
+                />
               </View>
-
               <View style={styles.linksRow}>
                 <TouchableOpacity
                   style={[styles.actionLink, { borderColor: colors.border, flex: 1 }]}
@@ -280,7 +325,6 @@ export default function StatsScreen() {
             </View>
           )}
 
-          {/* All mode — show everything */}
           {selectedSport === 'all' && (
             <View style={[styles.tipCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <ThemedText type="caption" style={{ color: colors.textSecondary, textAlign: 'center' }}>
@@ -293,6 +337,28 @@ export default function StatsScreen() {
         </ScrollView>
       </ThemedView>
     </SafeAreaView>
+  );
+}
+
+function SupportStat({
+  colors,
+  value,
+  unit,
+  label,
+}: {
+  colors: typeof Colors.light;
+  value: string;
+  unit?: string;
+  label: string;
+}) {
+  return (
+    <View style={[styles.supportCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
+      <View style={styles.supportValueRow}>
+        <Text style={[styles.supportValue, { color: colors.text }]}>{value}</Text>
+        {unit && <Text style={[styles.supportUnit, { color: colors.textSecondary }]}>{unit}</Text>}
+      </View>
+      <Text style={[styles.supportLabel, { color: colors.textSecondary }]}>{label}</Text>
+    </View>
   );
 }
 
@@ -327,59 +393,96 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: Radius.sm,
     alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
   },
   periodText: {
     fontSize: 14,
     fontWeight: '600',
   },
+  // HERO
+  hero: {
+    padding: Spacing.xl,
+    borderRadius: Radius.lg,
+    marginBottom: Spacing.lg,
+    gap: Spacing.xs,
+    ...Shadows.md,
+  },
+  heroPeriodLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  heroNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  heroNumber: {
+    fontSize: 64,
+    fontWeight: '800',
+    letterSpacing: -3,
+    lineHeight: 68,
+  },
+  heroUnit: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  heroSubtext: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: Spacing.xs,
+  },
+  // Chart
   chartCard: {
     padding: Spacing.lg,
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: Spacing.xl,
   },
+  // Sections
   section: {
-    marginBottom: Spacing.xxl,
-  },
-  sectionTitle: {
-    marginBottom: Spacing.lg,
-  },
-  bigStatRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: Spacing.xl,
   },
-  bigStat: {
-    flex: 1,
-    alignItems: 'center',
-    gap: Spacing.xs,
+  sectionTitle: {
+    marginBottom: Spacing.md,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
-  bigStatNumber: {
-    fontSize: 40,
-    fontWeight: '800',
-    letterSpacing: -1.5,
-  },
-  bigStatDivider: {
-    width: 1,
-    height: 50,
-  },
-  statsGrid: {
+  supportGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.sm,
     marginBottom: Spacing.md,
   },
-  statCard: {
+  supportCard: {
     flex: 1,
-    alignItems: 'center',
+    minWidth: '47%',
     paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md,
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     gap: Spacing.xs,
   },
-  statValue: {
-    fontSize: 16,
-    fontWeight: '700',
+  supportValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  supportValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+  },
+  supportUnit: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  supportLabel: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   actionLink: {
     flexDirection: 'row',
@@ -388,7 +491,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     paddingVertical: Spacing.md,
     borderRadius: Radius.sm,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   linksRow: {
     flexDirection: 'row',

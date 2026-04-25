@@ -19,6 +19,7 @@ import {
   TournamentTeamMember,
 } from '@/services/tournamentTeams';
 import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
+import { toast } from '@/store/useToast';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -130,9 +131,9 @@ export default function TeamDetailScreen() {
       await loadData();
     } catch (error: any) {
       if (error?.code === '23505') {
-        Alert.alert('已邀請', '此用戶已在邀請列表中');
+        toast.info('此用戶已在邀請列表中');
       } else {
-        Alert.alert('邀請失敗', error.message || '請稍後再試');
+        toast.error(error.message || '邀請失敗');
       }
     } finally {
       setInviting(false);
@@ -144,7 +145,7 @@ export default function TeamDetailScreen() {
       await respondToInvite(memberId, status);
       await loadData();
     } catch (error: any) {
-      Alert.alert('失敗', error.message || '請稍後再試');
+      toast.error(error.message || '請稍後再試');
     }
   };
 
@@ -160,7 +161,7 @@ export default function TeamDetailScreen() {
             await removeTeamMember(member.id);
             await loadData();
           } catch (error: any) {
-            Alert.alert('失敗', error.message || '請稍後再試');
+            toast.error(error.message || '請稍後再試');
           }
         },
       },
@@ -179,7 +180,7 @@ export default function TeamDetailScreen() {
             await removeTeamMember(myMembership.id);
             router.back();
           } catch (error: any) {
-            Alert.alert('失敗', error.message || '請稍後再試');
+            toast.error(error.message || '請稍後再試');
           }
         },
       },
@@ -198,7 +199,7 @@ export default function TeamDetailScreen() {
             await deleteTeam(team.id);
             router.dismissAll();
           } catch (error: any) {
-            Alert.alert('失敗', error.message || '請稍後再試');
+            toast.error(error.message || '請稍後再試');
           }
         },
       },

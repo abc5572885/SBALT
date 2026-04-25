@@ -6,3 +6,4 @@ const MAPBOX_TOKEN = Constants.expoConfig?.extra?.mapboxToken || process.env.EXP
 Mapbox.setAccessToken(MAPBOX_TOKEN);
 
 export default Mapbox;
+export { MAPBOX_TOKEN };

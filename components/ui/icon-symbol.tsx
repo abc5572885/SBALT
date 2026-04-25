@@ -1,53 +1,70 @@
-// Fallback for using MaterialIcons on Android and web.
+// SBALT icons — using Feather (clean 2px stroke, modern minimal aesthetic
+// matching the SBALT bold/sharp brand). Feather icon names are stable;
+// keys still use SF Symbol naming for legacy compatibility.
 
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { SymbolWeight, SymbolViewProps } from 'expo-symbols';
+import Feather from '@expo/vector-icons/Feather';
 import { ComponentProps } from 'react';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
 
-type IconMapping = Record<SymbolViewProps['name'], ComponentProps<typeof MaterialIcons>['name']>;
-type IconSymbolName = keyof typeof MAPPING;
+type FeatherName = ComponentProps<typeof Feather>['name'];
 
-/**
- * Add your SF Symbols to Material Icons mappings here.
- * - see Material Icons in the [Icons Directory](https://icons.expo.fyi).
- * - see SF Symbols in the [SF Symbols](https://developer.apple.com/sf-symbols/) app.
- */
 const MAPPING = {
+  // Navigation
   'house.fill': 'home',
-  'paperplane.fill': 'send',
-  'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
   'chevron.left': 'chevron-left',
-  'heart': 'favorite-border',
-  'heart.fill': 'favorite',
-  'location.fill': 'location-on',
-  'calendar': 'event',
-  'person.fill': 'person',
-  'sportscourt.fill': 'sports-basketball',
-  'plus': 'add',
-  'gearshape.fill': 'settings',
-  'arrow.right.square': 'logout',
-  'pencil': 'edit',
-  'trash': 'delete',
-  'arrow.clockwise': 'refresh',
+  'chevron.left.forwardslash.chevron.right': 'code',
+
+  // Actions
+  'plus': 'plus',
+  'pencil': 'edit-2',
+  'trash': 'trash-2',
+  'arrow.clockwise': 'refresh-cw',
   'magnifyingglass': 'search',
-  'bolt.fill': 'flash-on',
-  'chart.bar.fill': 'bar-chart',
-  'hand.raised.fill': 'pan-tool',
-  'star.fill': 'star',
-  'ellipsis': 'more-horiz',
-  'camera.fill': 'photo-camera',
-  'f.square.fill': 'facebook',
-  'message.fill': 'chat',
+  'square.and.arrow.up': 'share',
+  'xmark': 'x',
+  'arrow.right.square': 'log-out',
+  'gearshape.fill': 'settings',
+  'ellipsis': 'more-horizontal',
+  'checkmark.circle': 'check-circle',
+  'compass.fill': 'compass',
+  'map.fill': 'map',
+
+  // Communication
+  'paperplane.fill': 'send',
   'envelope.fill': 'mail',
-  'clock.fill': 'access-time',
-} as IconMapping;
+  'message.fill': 'message-square',
+
+  // Content
+  'heart': 'heart',
+  'heart.fill': 'heart',
+  'star.fill': 'star',
+  'bolt.fill': 'zap',
+  'camera.fill': 'camera',
+
+  // Info
+  'location.fill': 'map-pin',
+  'calendar': 'calendar',
+  'clock.fill': 'clock',
+  'chart.bar.fill': 'bar-chart-2',
+  'person.fill': 'user',
+  'person.2.fill': 'users',
+  'medal.fill': 'award',
+
+  // Sport (generic — Feather has no sport-specific icons; target = concentric circles)
+  'sportscourt.fill': 'target',
+
+  // Pan / move (TacticalBoard non-draw mode)
+  'hand.raised.fill': 'move',
+
+  // Brand
+  'f.square.fill': 'facebook',
+} as Record<string, FeatherName>;
+
+export type IconSymbolName = keyof typeof MAPPING;
 
 /**
- * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.
- * This ensures a consistent look across platforms, and optimal resource usage.
- * Icon `name`s are based on SF Symbols and require manual mapping to Material Icons.
+ * Icon wrapper using Feather. Pass an SF Symbol-style key from MAPPING.
  */
 export function IconSymbol({
   name,
@@ -59,7 +76,6 @@ export function IconSymbol({
   size?: number;
   color: string | OpaqueColorValue;
   style?: StyleProp<TextStyle>;
-  weight?: SymbolWeight;
 }) {
-  return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style} />;
+  return <Feather color={color} size={size} name={MAPPING[name]} style={style} />;
 }

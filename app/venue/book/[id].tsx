@@ -75,7 +75,7 @@ export default function BookVenueScreen() {
         const b = await getVenueBookings(v.id, new Date());
         setExistingBookings(b);
       } catch (e: any) {
-        Alert.alert('載入失敗', e.message || '請稍後再試');
+        toast.error(e.message || '載入失敗');
       } finally {
         setLoading(false);
       }
@@ -155,7 +155,7 @@ export default function BookVenueScreen() {
       toast.success('已送出預約，等待場地方確認');
       router.back();
     } catch (error: any) {
-      Alert.alert('預約失敗', error.message || '請稍後再試');
+      toast.error(error.message || '預約失敗');
     } finally {
       setSaving(false);
     }

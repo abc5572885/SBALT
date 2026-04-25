@@ -73,7 +73,7 @@ export default function NewEventScreen() {
 
       const newEvent = await createEvent(eventData);
 
-      console.log('✅ 活動建立成功:', newEvent.id);
+      console.log('活動建立成功:', newEvent.id);
 
       const message = data.recurrence_rule
         ? '重複活動已建立，系統已自動生成所有活動實例'
@@ -86,7 +86,7 @@ export default function NewEventScreen() {
         },
       ]);
     } catch (error) {
-      console.error('❌ 建立活動失敗:', error);
+      console.error('建立活動失敗:', error);
 
       const errorMessage = getErrorMessage(error);
       Alert.alert('錯誤', errorMessage);

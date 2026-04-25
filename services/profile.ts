@@ -6,6 +6,7 @@ export type OfficialKind = 'competition' | 'venue' | 'brand';
 
 export type Gender = 'male' | 'female' | 'other';
 export type AgeRange = '18-24' | '25-34' | '35-44' | '45+';
+export type TaggingPrivacy = 'public' | 'approval_required';
 
 export interface SportPositions {
   basketball?: string[];
@@ -35,6 +36,7 @@ export interface Profile {
   instagram_url: string | null;
   facebook_url: string | null;
   line_id: string | null;
+  tagging_privacy: TaggingPrivacy;
 }
 
 export async function isUsernameTaken(username: string): Promise<boolean> {

@@ -7,6 +7,7 @@ import { getLikeCount, hasUserLiked, toggleLike } from '@/services/database';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect } from 'react';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { toast } from '@/store/useToast';
 
 interface LikeButtonProps {
   entityId: string;
@@ -41,7 +42,7 @@ export function LikeButton({ entityId, entityType, onToggle }: LikeButtonProps) 
 
   const handlePress = async () => {
     if (!user) {
-      Alert.alert('請先登入', '按讚功能需要先登入帳號');
+      toast.error('按讚功能需要先登入');
       return;
     }
 
@@ -67,7 +68,7 @@ export function LikeButton({ entityId, entityType, onToggle }: LikeButtonProps) 
       console.error('切換按讚失敗:', error);
       setLiked(prevLiked);
       setCount(prevCount);
-      Alert.alert('錯誤', error.message || '操作失敗，請稍後再試');
+      toast.error(error.message || '操作失敗');
     } finally {
       setLoading(false);
     }

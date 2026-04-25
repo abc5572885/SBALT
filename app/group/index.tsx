@@ -24,6 +24,7 @@ import {
   View,
 } from 'react-native';
 import { getGroupByInviteCode, joinGroup } from '@/services/groups';
+import { toast } from '@/store/useToast';
 
 export default function GroupsScreen() {
   const router = useRouter();
@@ -63,13 +64,13 @@ export default function GroupsScreen() {
         try {
           const group = await getGroupByInviteCode(code.trim());
           await joinGroup(group.id, user.id);
-          Alert.alert('加入成功', `已加入「${group.name}」`);
+          toast.success(`已加入「${group.name}」`);
           loadGroups();
         } catch (error: any) {
           if (error?.code === '23505') {
-            Alert.alert('提示', '您已經是此群組的成員');
+            toast.info('您已經是此群組的成員');
           } else {
-            Alert.alert('錯誤', '邀請碼無效或加入失敗');
+            toast.error('邀請碼無效或加入失敗');
           }
         }
       },

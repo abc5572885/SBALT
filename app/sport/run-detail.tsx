@@ -1,4 +1,5 @@
 import { PageHeader } from '@/components/PageHeader';
+import { RunShareModal } from '@/components/shareCards/RunShareModal';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,7 +13,6 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -23,10 +23,12 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 
 export default function RunDetailScreen() {
   const { runId } = useLocalSearchParams<{ runId: string }>();
+  const { user } = useAuth();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [run, setRun] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     loadRun();
@@ -48,16 +50,9 @@ export default function RunDetailScreen() {
     }
   };
 
-  const handleShare = async () => {
+  const handleShare = () => {
     if (!run) return;
-    const dist = (parseFloat(run.distance) / 1000).toFixed(2);
-    const pace = formatPace(parseFloat(run.avg_pace || '0'));
-    const dur = formatDuration(run.duration);
-    const date = new Date(run.started_at).toLocaleDateString('zh-TW');
-
-    await Share.share({
-      message: `${date} 跑步紀錄\n${dist} km | ${dur} | ${pace} /km\n\nSBALT`,
-    });
+    setShareOpen(true);
   };
 
   if (loading) {
@@ -154,16 +149,24 @@ export default function RunDetailScreen() {
         <View style={styles.content}>
           {/* Date */}
           <View style={styles.dateRow}>
-            <ThemedText style={styles.dateText}>
-              {startTime.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
-            </ThemedText>
-            <TouchableOpacity onPress={handleShare} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <IconSymbol name="paperplane.fill" size={18} color={colors.textSecondary} />
+            <View style={{ flex: 1 }}>
+              <ThemedText style={styles.dateText}>
+                {startTime.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+              </ThemedText>
+              <ThemedText type="caption" style={{ color: colors.textSecondary, marginTop: 2 }}>
+                {startTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })} 開始
+              </ThemedText>
+            </View>
+            <TouchableOpacity
+              onPress={handleShare}
+              style={[styles.shareBtn, { backgroundColor: colors.text }]}
+              activeOpacity={0.85}
+            >
+              <IconSymbol name="square.and.arrow.up" size={14} color={colors.background} />
+              <Text style={[styles.shareBtnText, { color: colors.background }]}>分享</Text>
             </TouchableOpacity>
           </View>
-          <ThemedText type="caption" style={{ color: colors.textSecondary, marginBottom: Spacing.xl }}>
-            {startTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })} 開始
-          </ThemedText>
+          <View style={{ marginBottom: Spacing.xl }} />
 
           {/* Main distance */}
           <View style={styles.mainStat}>
@@ -192,6 +195,20 @@ export default function RunDetailScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <RunShareModal
+        visible={shareOpen}
+        run={run ? {
+          distance: parseFloat(run.distance) || 0,
+          duration: run.duration || 0,
+          avg_pace: run.avg_pace ? parseFloat(run.avg_pace) : null,
+          calories: run.calories ? parseFloat(run.calories) : null,
+          route: run.route || [],
+          started_at: run.started_at,
+        } : null}
+        displayName={user?.displayName || user?.email?.split('@')[0] || '跑者'}
+        onClose={() => setShareOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -209,6 +226,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dateText: { fontSize: 16, fontWeight: '600' },
+  shareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Radius.sm,
+  },
+  shareBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
   mainStat: {
     alignItems: 'center',
     marginBottom: Spacing.xl,

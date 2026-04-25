@@ -21,7 +21,7 @@ import {
   hasUserRegistered,
 } from '@/services/database';
 import { Comment, Event, EventScore } from '@/types/database';
-import { getEventPlayerSummaries, PlayerEventSummary } from '@/services/playerStats';
+import { BasketballStat, basketballTotalPoints, getEventBasketballStats } from '@/services/sportStats';
 import { getProfilesByIds, Profile, getDisplayName } from '@/services/profile';
 import { addToDeviceCalendar } from '@/services/calendar';
 import { pickAndUploadEventImage } from '@/services/eventImage';
@@ -29,6 +29,7 @@ import { scheduleEventReminder, sendLocalNotification } from '@/services/notific
 import { getWeatherForDate } from '@/services/weather';
 import { formatDateChinese, formatTime } from '@/utils/dateFormat';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { toast } from '@/store/useToast';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -55,11 +56,12 @@ export default function EventDetailScreen() {
   const [waitlisted, setWaitlisted] = useState(false);
   const [regCount, setRegCount] = useState(0);
   const [scores, setScores] = useState<EventScore[]>([]);
-  const [playerSummaries, setPlayerSummaries] = useState<PlayerEventSummary[]>([]);
-  const [statProfiles, setStatProfiles] = useState<Record<string, Profile>>({});
+  // player summaries 暫時移除，等 Stage 1 重做
+  const [bballStats, setBballStats] = useState<BasketballStat[]>([]);
+  const [bballProfiles, setBballProfiles] = useState<Record<string, Profile>>({});
   const [comments, setComments] = useState<Comment[]>([]);
   const [eventImage, setEventImage] = useState<string | null>(null);
-  const [weather, setWeather] = useState<{ temperature: number; description: string; icon: string; isRainy: boolean; uvIndex: number | null; uvLevel: string | null } | null>(null);
+  const [weather, setWeather] = useState<{ temperature: number; description: string; isRainy: boolean; uvIndex: number | null; uvLevel: string | null } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -72,17 +74,19 @@ export default function EventDetailScreen() {
       setEvent(eventData);
       setEventImage(eventData.image_url || null);
 
-      const [count, eventScores] = await Promise.all([
+      const [count, eventScores, bbStats] = await Promise.all([
         getRegistrationCount(eventId),
         getEventScores(eventId),
-        getEventPlayerSummaries(eventId).then(async (summaries) => {
-          setPlayerSummaries(summaries);
-          if (summaries.length > 0) {
-            const p = await getProfilesByIds(summaries.map((s) => s.user_id));
-            setStatProfiles(p);
-          }
-        }).catch(() => {}),
+        getEventBasketballStats(eventId).catch(() => [] as BasketballStat[]),
       ]);
+      setBballStats(bbStats);
+      const userIds = bbStats.map((s) => s.user_id).filter(Boolean) as string[];
+      if (userIds.length > 0) {
+        try {
+          const ps = await getProfilesByIds(userIds);
+          setBballProfiles(ps);
+        } catch {}
+      }
       setRegCount(count);
       setScores(eventScores);
 
@@ -180,7 +184,7 @@ export default function EventDetailScreen() {
       if (error?.code === '23505') {
         Alert.alert('重複報名', '您已經報名過此活動');
       } else {
-        Alert.alert('錯誤', error?.message || '報名失敗，請稍後再試');
+        toast.error(error?.message || '報名失敗');
       }
     } finally {
       setSubmitting(false);
@@ -202,7 +206,7 @@ export default function EventDetailScreen() {
             setRegistered(false);
             setRegCount((prev) => prev - 1);
           } catch (error: any) {
-            Alert.alert('錯誤', error?.message || '操作失敗');
+            toast.error(error?.message || '操作失敗');
           } finally {
             setSubmitting(false);
           }
@@ -394,7 +398,6 @@ export default function EventDetailScreen() {
             { backgroundColor: weather.isRainy ? colors.error + '08' : colors.primary + '08', borderColor: weather.isRainy ? colors.error + '20' : colors.border },
             Shadows.sm,
           ]}>
-            <Text style={styles.weatherIcon}>{weather.icon}</Text>
             <View style={styles.weatherInfo}>
               <ThemedText style={styles.weatherTemp}>{weather.temperature}°C · {weather.description}</ThemedText>
               <View style={styles.weatherDetails}>
@@ -435,39 +438,47 @@ export default function EventDetailScreen() {
           </View>
         )}
 
-        {/* Player Rankings */}
-        {playerSummaries.length > 0 && (
+        {/* 球員數據（籃球） */}
+        {event.sport_type === 'basketball' && bballStats.length > 0 && (
           <View style={styles.descSection}>
             <ThemedText type="label" style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-              球員得分
+              球員數據
             </ThemedText>
             <View style={[styles.scoresCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
-              {playerSummaries.map((p, i) => {
-                const name = getDisplayName(statProfiles[p.user_id], p.user_id, p.user_id === user?.id);
+              {[...bballStats].sort((a, b) => basketballTotalPoints(b) - basketballTotalPoints(a)).map((s, i) => {
+                const name = s.user_id
+                  ? getDisplayName(bballProfiles[s.user_id], s.user_id, s.user_id === user?.id)
+                  : s.display_name || '';
+                const total = basketballTotalPoints(s);
                 return (
-                  <View key={p.user_id}>
+                  <View key={s.id}>
                     {i > 0 && <View style={[styles.scoreDivider, { backgroundColor: colors.border }]} />}
                     <TouchableOpacity
                       style={styles.scoreRow}
-                      onPress={() => p.user_id !== user?.id && router.push(`/user/${p.user_id}`)}
-                      activeOpacity={p.user_id === user?.id ? 1 : 0.6}
-                      disabled={p.user_id === user?.id}
+                      onPress={() => s.user_id && s.user_id !== user?.id && router.push(`/user/${s.user_id}`)}
+                      activeOpacity={s.user_id && s.user_id !== user?.id ? 0.6 : 1}
+                      disabled={!s.user_id || s.user_id === user?.id}
                     >
-                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
-                        <Text style={[styles.scoreLabel, { color: colors.textSecondary, fontSize: 14 }]}>
-                          {i + 1}.
-                        </Text>
-                        <Text style={[styles.scoreLabel, { color: colors.text }]} numberOfLines={1}>
-                          {name}
-                        </Text>
-                        {p.team_label && (
-                          <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                            {p.team_label}
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
+                          {s.jersey_number && (
+                            <Text style={{ color: colors.textSecondary, fontSize: 12 }}>#{s.jersey_number}</Text>
+                          )}
+                          <Text style={[styles.scoreLabel, { color: colors.text }]} numberOfLines={1}>
+                            {name}
                           </Text>
-                        )}
+                          <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
+                            {s.team_label}
+                          </Text>
+                        </View>
+                        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                          {total} 分 · {s.rebounds} 板 · {s.assists} 助
+                          {s.steals > 0 && ` · ${s.steals} 抄`}
+                          {s.blocks > 0 && ` · ${s.blocks} 阻`}
+                        </Text>
                       </View>
-                      <Text style={[styles.scoreValue, { color: i === 0 ? colors.primary : colors.text, fontSize: 20 }]}>
-                        {p.points}
+                      <Text style={[styles.scoreValue, { color: i === 0 ? colors.primary : colors.text, fontSize: 22 }]}>
+                        {total}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -537,16 +548,16 @@ export default function EventDetailScreen() {
               style={[
                 styles.actionBtn,
                 isFull
-                  ? { backgroundColor: colors.secondary }
+                  ? { backgroundColor: colors.text }
                   : { backgroundColor: colors.primary },
-                !isFull && Shadows.md,
+                Shadows.md,
               ]}
               onPress={handleRegister}
               disabled={submitting}
               activeOpacity={0.7}
             >
-              <ThemedText style={[styles.actionBtnText, { color: isFull ? colors.text : colors.primaryText }]}>
-                {submitting ? '處理中...' : isFull ? '加入候補' : '立即報名'}
+              <ThemedText style={[styles.actionBtnText, { color: isFull ? colors.background : colors.primaryText }]}>
+                {submitting ? '處理中...' : isFull ? '已滿額 · 加入候補' : '立即報名'}
               </ThemedText>
             </TouchableOpacity>
           )}

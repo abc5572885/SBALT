@@ -120,18 +120,18 @@ export default function EditProfileScreen() {
     if (!user) return;
 
     if (username.length > 0 && username.length < 3) {
-      Alert.alert('錯誤', '用戶名稱至少 3 個字元');
+      toast.error('用戶名稱至少 3 個字元');
       return;
     }
 
     const h = height ? parseInt(height, 10) : null;
     const w = weight ? parseInt(weight, 10) : null;
     if (h !== null && (h < 100 || h > 250)) {
-      Alert.alert('驗證失敗', '身高請輸入 100-250 cm');
+      toast.error('身高請輸入 100-250 cm');
       return;
     }
     if (w !== null && (w < 30 || w > 200)) {
-      Alert.alert('驗證失敗', '體重請輸入 30-200 kg');
+      toast.error('體重請輸入 30-200 kg');
       return;
     }
 
@@ -143,7 +143,7 @@ export default function EditProfileScreen() {
         if (profile?.username !== username) {
           const taken = await isUsernameTaken(username);
           if (taken) {
-            Alert.alert('錯誤', '此用戶名稱已被使用');
+            toast.error('此用戶名稱已被使用');
             setSaving(false);
             return;
           }

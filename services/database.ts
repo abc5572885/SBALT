@@ -204,7 +204,7 @@ export async function createEvent(
 
   if (instancesError) throw instancesError;
 
-  console.log(`✅ 已建立 ${createdInstances.length + 1} 個活動（1 個母活動 + ${createdInstances.length} 個實例）`);
+  console.log(`已建立 ${createdInstances.length + 1} 個活動（1 個母活動 + ${createdInstances.length} 個實例）`);
 
   return parentEvent;
 }
