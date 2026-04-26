@@ -519,6 +519,20 @@ export default function EventDetailScreen() {
       </ScrollView>
 
       {/* Bottom action */}
+      {isOrganizer && (
+        <View style={[styles.bottomBar, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: colors.text }, Shadows.md]}
+            onPress={() => router.push({ pathname: '/event/invite-buddies', params: { eventId: event.id } })}
+            activeOpacity={0.85}
+          >
+            <ThemedText style={[styles.actionBtnText, { color: colors.background }]}>
+              邀請球友
+            </ThemedText>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {!isOrganizer && (
         <View style={[styles.bottomBar, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
           {registered ? (

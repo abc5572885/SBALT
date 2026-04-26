@@ -39,6 +39,8 @@ const TYPE_ICON: Record<NotificationType, any> = {
   official_approved: 'star.fill',
   achievement_unlocked: 'bolt.fill',
   check_in_tagged: 'sportscourt.fill',
+  event_invite: 'envelope.fill',
+  group_invite: 'envelope.fill',
 };
 
 function formatTime(iso: string): string {

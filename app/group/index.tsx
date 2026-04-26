@@ -10,8 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getMyGroups } from '@/services/groups';
 import { Group } from '@/types/database';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -29,18 +29,50 @@ import { toast } from '@/store/useToast';
 export default function GroupsScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const params = useLocalSearchParams<{ inviteCode?: string }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [groups, setGroups] = useState<Group[]>([]);
   const [activeType, setActiveType] = useState<GroupType | 'all'>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const handledInviteRef = useRef<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       if (user) loadGroups();
     }, [user])
   );
+
+  // Auto-handle ?inviteCode= from group_invite notifications
+  useEffect(() => {
+    const code = params.inviteCode;
+    if (!user || !code || handledInviteRef.current === code) return;
+    handledInviteRef.current = code;
+    (async () => {
+      try {
+        const group = await getGroupByInviteCode(String(code).trim());
+        Alert.alert('收到邀請', `加入「${group.name}」？`, [
+          { text: '取消', style: 'cancel' },
+          {
+            text: '加入',
+            onPress: async () => {
+              try {
+                await joinGroup(group.id, user.id);
+                toast.success(`已加入「${group.name}」`);
+                loadGroups();
+              } catch (e: any) {
+                if (e?.code === '23505') toast.info('您已經是此群組的成員');
+                else toast.error('加入失敗');
+              }
+            },
+          },
+        ]);
+      } catch {
+        toast.error('邀請碼無效');
+      }
+    })();
+  }, [params.inviteCode, user]);
 
   const loadGroups = async () => {
     if (!user) return;

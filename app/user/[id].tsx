@@ -13,6 +13,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getUserStats } from '@/services/database';
 import { BasketballCareerStats, CareerStats, getBasketballCareerStats, getUserCareerStats } from '@/services/sportStats';
 import { getProfile, Profile, SportPositions } from '@/services/profile';
+import { BuddyRelation, getBuddyRelation } from '@/services/buddies';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -36,6 +37,7 @@ export default function UserProfileScreen() {
   const [stats, setStats] = useState({ organized: 0, joined: 0 });
   const [career, setCareer] = useState<CareerStats | null>(null);
   const [bballCareer, setBballCareer] = useState<BasketballCareerStats | null>(null);
+  const [buddyRel, setBuddyRel] = useState<BuddyRelation | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -45,17 +47,24 @@ export default function UserProfileScreen() {
       router.replace('/profile');
       return;
     }
-    Promise.all([
+    const tasks: Promise<any>[] = [
       getProfile(id),
       getUserStats(id),
       getUserCareerStats(id),
       getBasketballCareerStats(id),
-    ])
-      .then(([p, s, c, bb]) => {
+    ];
+    if (user?.id) {
+      tasks.push(getBuddyRelation(user.id, id));
+    } else {
+      tasks.push(Promise.resolve(null));
+    }
+    Promise.all(tasks)
+      .then(([p, s, c, bb, rel]) => {
         setProfile(p);
         setStats(s);
         setCareer(c);
         setBballCareer(bb);
+        setBuddyRel(rel);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -184,6 +193,21 @@ export default function UserProfileScreen() {
           </Text>
         )}
       </View>
+
+      {/* Buddy relation */}
+      {buddyRel && (
+        <View style={[styles.relationCard, { backgroundColor: colors.text }, Shadows.md]}>
+          <Text style={[styles.relationLabel, { color: colors.background, opacity: 0.6 }]}>你們的關係</Text>
+          <Text style={[styles.relationCount, { color: colors.background }]}>
+            {buddyRel.sharedCount} 場同框
+          </Text>
+          {buddyRel.lastSeen && (
+            <Text style={[styles.relationMeta, { color: colors.background, opacity: 0.6 }]}>
+              最近一次 {new Date(buddyRel.lastSeen).toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric' })}
+            </Text>
+          )}
+        </View>
+      )}
 
       {/* Stats */}
       <View style={styles.statsRow}>
@@ -363,6 +387,28 @@ const styles = StyleSheet.create({
   region: {
     fontSize: 13,
     marginTop: Spacing.xs,
+  },
+  relationCard: {
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    marginBottom: Spacing.xl,
+    gap: 4,
+  },
+  relationLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  relationCount: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+  },
+  relationMeta: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 2,
   },
   statsRow: {
     flexDirection: 'row',

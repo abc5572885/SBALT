@@ -84,8 +84,17 @@ export default function NewEventScreen() {
 
       Alert.alert('成功', message, [
         {
-          text: '確定',
+          text: '邀請球友',
+          onPress: () =>
+            router.replace({
+              pathname: '/event/invite-buddies',
+              params: { eventId: newEvent.id },
+            }),
+        },
+        {
+          text: '完成',
           onPress: () => router.back(),
+          style: 'cancel',
         },
       ]);
     } catch (error) {

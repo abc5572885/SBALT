@@ -13,7 +13,9 @@ export type NotificationType =
   | 'event_starting_soon'  // 活動即將開始
   | 'official_approved'    // 官方帳號申請通過
   | 'achievement_unlocked' // 成就解鎖
-  | 'check_in_tagged';     // 被標記在打卡紀錄
+  | 'check_in_tagged'      // 被標記在打卡紀錄
+  | 'event_invite'         // 球友邀你參加活動
+  | 'group_invite';        // 球友拉你進群組
 
 export interface AppNotification {
   id: string;
@@ -115,6 +117,12 @@ export function getNotificationRoute(n: AppNotification): { pathname: string; pa
       return { pathname: '/event/achievements' };
     case 'check_in_tagged':
       return data.check_in_id ? { pathname: '/check-in/[id]', params: { id: data.check_in_id } } : null;
+    case 'event_invite':
+      return data.event_id ? { pathname: '/event/detail', params: { eventId: data.event_id } } : null;
+    case 'group_invite':
+      return data.invite_code
+        ? { pathname: '/group', params: { inviteCode: data.invite_code } }
+        : { pathname: '/group' };
     default:
       return null;
   }

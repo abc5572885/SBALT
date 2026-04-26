@@ -202,10 +202,19 @@ export default function GroupDetailScreen() {
         </View>
       </View>
 
-      {/* Invite code */}
+      {/* Invite code + buddy invite */}
       <View style={[styles.inviteBar, { backgroundColor: colors.surface, marginHorizontal: Spacing.lg, borderColor: colors.border }]}>
-        <ThemedText type="caption" style={{ color: colors.textSecondary }}>邀請碼</ThemedText>
-        <Text style={[styles.inviteCode, { color: colors.primary }]}>{group.invite_code}</Text>
+        <View style={{ flex: 1 }}>
+          <ThemedText type="caption" style={{ color: colors.textSecondary }}>邀請碼</ThemedText>
+          <Text style={[styles.inviteCode, { color: colors.primary }]}>{group.invite_code}</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => router.push({ pathname: '/group/invite-buddies', params: { groupId: id } })}
+          style={[styles.buddyInviteBtn, { backgroundColor: colors.text }]}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.buddyInviteText, { color: colors.background }]}>邀請球友</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Tabs */}
@@ -477,6 +486,15 @@ const styles = StyleSheet.create({
     padding: Spacing.md, borderRadius: Radius.sm, borderWidth: StyleSheet.hairlineWidth, marginBottom: Spacing.md,
   },
   inviteCode: { fontSize: 16, fontWeight: '700', letterSpacing: 2 },
+  buddyInviteBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.sm,
+  },
+  buddyInviteText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
   sportTag: { paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.sm },
   typeTag: {
     paddingHorizontal: Spacing.sm,

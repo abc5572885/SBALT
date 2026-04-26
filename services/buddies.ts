@@ -139,6 +139,83 @@ export async function getMyBuddies(userId: string, limit = 50): Promise<Buddy[]>
 }
 
 /**
+ * Relation summary between two users — used in /user/[id] to show
+ * "我跟你打過 X 場 · 最近 YY/MM/DD".
+ *
+ * Returns null if no shared activity (button/section should hide).
+ */
+export interface BuddyRelation {
+  sharedCount: number;
+  lastSeen: string | null;
+  eventCount: number;
+  partnerCount: number;
+}
+
+export async function getBuddyRelation(
+  myId: string,
+  otherId: string,
+): Promise<BuddyRelation | null> {
+  if (myId === otherId) return null;
+
+  let eventCount = 0;
+  let partnerCount = 0;
+  let lastSeen = '';
+
+  // Shared events
+  const { data: myRegs } = await supabase
+    .from('registrations')
+    .select('event_id')
+    .eq('user_id', myId)
+    .eq('status', 'registered');
+
+  const myEventIds = (myRegs || []).map((r) => r.event_id);
+  if (myEventIds.length > 0) {
+    const { data: shared } = await supabase
+      .from('registrations')
+      .select('event_id, created_at')
+      .in('event_id', myEventIds)
+      .eq('user_id', otherId)
+      .eq('status', 'registered');
+    for (const r of shared || []) {
+      eventCount++;
+      if (r.created_at > lastSeen) lastSeen = r.created_at;
+    }
+  }
+
+  // Tags from me to other (accepted)
+  const { data: myTagsToOther } = await supabase
+    .from('check_ins')
+    .select('played_at, partners')
+    .eq('user_id', myId)
+    .contains('partners', [{ user_id: otherId, status: 'accepted' }]);
+  for (const ci of myTagsToOther || []) {
+    partnerCount++;
+    if (ci.played_at > lastSeen) lastSeen = ci.played_at;
+  }
+
+  // Tags from other to me (accepted)
+  const { data: otherTagsToMe } = await supabase
+    .from('check_ins')
+    .select('played_at')
+    .eq('user_id', otherId)
+    .contains('partners', [{ user_id: myId, status: 'accepted' }]);
+  for (const ci of otherTagsToMe || []) {
+    partnerCount++;
+    if (ci.played_at > lastSeen) lastSeen = ci.played_at;
+  }
+
+  const sharedCount = Math.round(eventCount + partnerCount * 2);
+  if (sharedCount === 0) return null;
+
+  return {
+    sharedCount,
+    lastSeen: lastSeen || null,
+    eventCount,
+    partnerCount,
+  };
+}
+
+/**
  * Of this user's buddies, return those who have played at the given venue.
  * Used in venue detail page "你常打的球友也來這" section.
  */
