@@ -135,6 +135,37 @@ export async function leaveGroup(groupId: string, userId: string) {
   if (error) throw error;
 }
 
+/**
+ * Promote a member to admin (副隊長), or demote back to member.
+ * Caller should enforce permission (only creator can do this) before calling.
+ */
+export async function setMemberRole(
+  groupId: string,
+  userId: string,
+  role: 'admin' | 'member',
+) {
+  const { error } = await supabase
+    .from('group_members')
+    .update({ role })
+    .eq('group_id', groupId)
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
+/**
+ * Remove a member from group. Caller should enforce permission:
+ *   - creator can remove anyone except self
+ *   - admin can remove only role='member'
+ */
+export async function removeMember(groupId: string, userId: string) {
+  const { error } = await supabase
+    .from('group_members')
+    .delete()
+    .eq('group_id', groupId)
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
 export async function isGroupMember(groupId: string, userId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from('group_members')

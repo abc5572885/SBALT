@@ -413,23 +413,6 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* Empty state for events */}
-          {events.length === 0 && (
-            <View style={[styles.emptyContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={{ color: colors.textSecondary, marginBottom: Spacing.md, fontSize: 14 }}>
-                目前尚無公開活動
-              </Text>
-              <TouchableOpacity
-                style={[styles.createBtn, { backgroundColor: colors.primary }, Shadows.sm]}
-                onPress={() => router.push('/event/new')}
-                activeOpacity={0.7}
-              >
-                <IconSymbol name="plus" size={16} color={colors.primaryText} />
-                <Text style={{ color: colors.primaryText, fontWeight: '600' }}>建立活動</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
           {/* 月戰績 widget (B 元素) */}
           <View style={{ marginTop: Spacing.lg }}>{renderMonthlyWidget()}</View>
         </ScrollView>
@@ -589,21 +572,6 @@ const styles = StyleSheet.create({
   statsWidgetEmpty: { fontSize: 18, fontWeight: '700', marginTop: 4 },
   statsWidgetSub: { fontSize: 12, marginTop: 4 },
 
-  // Empty state
-  emptyContainer: {
-    padding: Spacing.xxl,
-    alignItems: 'center',
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  createBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
-    borderRadius: Radius.sm,
-  },
   retryButton: {
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,

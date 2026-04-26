@@ -14,6 +14,8 @@ import {
   getGroupMembers,
   getGroupPosts,
   leaveGroup,
+  removeMember,
+  setMemberRole,
 } from '@/services/groups';
 import { getTournamentsByGroup, Tournament } from '@/services/tournaments';
 import { getVenuesByOperator, Venue } from '@/services/venues';
@@ -155,7 +157,67 @@ export default function GroupDetailScreen() {
     ]);
   };
 
-  const isAdmin = group?.creator_id === user?.id;
+  const isCaptain = group?.creator_id === user?.id;
+  const myRole = members.find((m) => m.user_id === user?.id)?.role;
+  const isAdmin = isCaptain || myRole === 'admin';
+
+  const handleMemberAction = (member: GroupMember) => {
+    if (!group || !user) return;
+    if (member.user_id === user.id) return;
+    const isMemberCaptain = member.user_id === group.creator_id;
+    const isMemberAdmin = member.role === 'admin' && !isMemberCaptain;
+    if (isMemberCaptain) return; // 隊長不能被操作
+
+    const buttons: { text: string; style?: 'destructive' | 'cancel'; onPress?: () => void }[] = [];
+
+    if (isCaptain) {
+      // Captain can promote / demote / remove
+      if (isMemberAdmin) {
+        buttons.push({
+          text: '降為一般成員',
+          onPress: async () => {
+            try {
+              await setMemberRole(group.id, member.user_id, 'member');
+              await loadData();
+            } catch (e: any) {
+              Alert.alert('失敗', e?.message || '操作失敗');
+            }
+          },
+        });
+      } else {
+        buttons.push({
+          text: '升為副隊長',
+          onPress: async () => {
+            try {
+              await setMemberRole(group.id, member.user_id, 'admin');
+              await loadData();
+            } catch (e: any) {
+              Alert.alert('失敗', e?.message || '操作失敗');
+            }
+          },
+        });
+      }
+    }
+
+    if (isCaptain || (myRole === 'admin' && !isMemberAdmin)) {
+      buttons.push({
+        text: '移除成員',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await removeMember(group.id, member.user_id);
+            await loadData();
+          } catch (e: any) {
+            Alert.alert('失敗', e?.message || '移除失敗');
+          }
+        },
+      });
+    }
+
+    if (buttons.length === 0) return;
+    buttons.push({ text: '取消', style: 'cancel' });
+    Alert.alert(getDisplayName(profiles[member.user_id], member.user_id, false), undefined, buttons);
+  };
 
   if (loading) {
     return (
@@ -441,29 +503,46 @@ export default function GroupDetailScreen() {
 
         {activeTab === 'members' && (
           <View style={styles.membersList}>
-            {members.map((member, index) => (
-              <View
-                key={member.id}
-                style={[styles.memberRow, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
-              >
-                <View style={[styles.memberAvatar, { backgroundColor: member.role === 'admin' ? colors.primary : colors.disabled }]}>
-                  <Text style={styles.memberAvatarText}>{index + 1}</Text>
-                </View>
-                <View style={styles.memberInfo}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
-                    <ThemedText style={styles.memberName}>
-                      {getDisplayName(profiles[member.user_id], member.user_id, member.user_id === user?.id)}
-                    </ThemedText>
-                    {profiles[member.user_id]?.account_type !== 'regular' && (
-                      <VerifiedBadge accountType={profiles[member.user_id].account_type} size="small" />
+            {members.map((member, index) => {
+              const isMemberCaptain = member.user_id === group.creator_id;
+              const isMemberAdmin = member.role === 'admin' && !isMemberCaptain;
+              const roleLabel = isMemberCaptain ? '隊長' : isMemberAdmin ? '副隊長' : null;
+              const roleColor = isMemberCaptain ? colors.error : isMemberAdmin ? colors.primary : colors.disabled;
+              const canManage =
+                member.user_id !== user?.id &&
+                !isMemberCaptain &&
+                (isCaptain || (myRole === 'admin' && !isMemberAdmin));
+
+              return (
+                <TouchableOpacity
+                  key={member.id}
+                  style={[styles.memberRow, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}
+                  onPress={() => canManage && handleMemberAction(member)}
+                  disabled={!canManage}
+                  activeOpacity={canManage ? 0.6 : 1}
+                >
+                  <View style={[styles.memberAvatar, { backgroundColor: roleColor }]}>
+                    <Text style={styles.memberAvatarText}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.memberInfo}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
+                      <ThemedText style={styles.memberName}>
+                        {getDisplayName(profiles[member.user_id], member.user_id, member.user_id === user?.id)}
+                      </ThemedText>
+                      {profiles[member.user_id]?.account_type !== 'regular' && (
+                        <VerifiedBadge accountType={profiles[member.user_id].account_type} size="small" />
+                      )}
+                    </View>
+                    {roleLabel && (
+                      <ThemedText type="caption" style={{ color: roleColor }}>{roleLabel}</ThemedText>
                     )}
                   </View>
-                  {member.role === 'admin' && (
-                    <ThemedText type="caption" style={{ color: colors.primary }}>管理員</ThemedText>
+                  {canManage && (
+                    <IconSymbol name="ellipsis" size={18} color={colors.textSecondary} />
                   )}
-                </View>
-              </View>
-            ))}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
 

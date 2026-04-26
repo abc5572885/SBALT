@@ -3,11 +3,9 @@
  *
  * Used on Profile tab. Shows top 5 buddies derived from event co-attendance
  * and accepted check-in tags. Tap a buddy → their profile.
- *
- * Empty state encourages organizing an activity (護城河 #2 hook).
  */
 
-import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
+import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Buddy, getMyBuddies } from '@/services/buddies';
 import { Image } from 'expo-image';
@@ -56,15 +54,8 @@ export function BuddiesWidget({ userId }: Props) {
       {buddies.length === 0 ? (
         <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            還沒一起打過。揪一場活動，跟你打過的人會出現在這裡
+            跟你打過的人會自動出現在這裡
           </Text>
-          <TouchableOpacity
-            style={[styles.emptyCta, { backgroundColor: colors.text }, Shadows.sm]}
-            onPress={() => router.push('/event/new')}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.emptyCtaText, { color: colors.background }]}>揪一場</Text>
-          </TouchableOpacity>
         </View>
       ) : (
         <ScrollView
@@ -164,14 +155,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 19,
-  },
-  emptyCta: {
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.sm,
-  },
-  emptyCtaText: {
-    fontSize: 14,
-    fontWeight: '700',
   },
 });
