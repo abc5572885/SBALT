@@ -51,7 +51,7 @@ export default function VenueDetailScreen() {
       }
       setVenue(v);
       const [g, b] = await Promise.all([
-        getGroupById(v.operator_group_id),
+        v.operator_group_id ? getGroupById(v.operator_group_id) : Promise.resolve(null),
         getVenueBookings(v.id, new Date()),
       ]);
       setGroup(g);

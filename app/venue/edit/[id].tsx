@@ -55,7 +55,7 @@ export default function EditVenueScreen() {
           Alert.alert('錯誤', '找不到場地', [{ text: '確定', onPress: () => router.back() }]);
           return;
         }
-        const g = await getGroupById(v.operator_group_id);
+        const g = v.operator_group_id ? await getGroupById(v.operator_group_id) : null;
         if (g?.creator_id !== user?.id) {
           Alert.alert('無權限', '只有場地方可以編輯', [{ text: '確定', onPress: () => router.back() }]);
           return;

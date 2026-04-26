@@ -1,7 +1,9 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { searchPublicVenues, Venue } from '@/services/venues';
+import { searchPlaces } from '@/services/places';
+import { getPlaceDetails } from '@/services/placesSearch';
+import { searchPublicVenues, upsertVenueFromGooglePlace, Venue } from '@/services/venues';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,7 +19,7 @@ import {
 
 export interface VenuePickerValue {
   venue_id: string | null;
-  text: string;          // display text (venue.name OR free text)
+  text: string; // display text (venue.name OR free text fallback)
 }
 
 interface Props {
@@ -26,49 +28,84 @@ interface Props {
   placeholder?: string;
 }
 
-export function VenuePicker({ value, onChange, placeholder = '例：新竹國民運動中心' }: Props) {
+interface GoogleSuggestion {
+  placeId: string;
+  description: string;
+  mainText: string;
+}
+
+export function VenuePicker({ value, onChange, placeholder = '搜尋場地名稱或地址' }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Venue[] | null>(null);
+  const [sbaltResults, setSbaltResults] = useState<Venue[]>([]);
+  const [googleResults, setGoogleResults] = useState<GoogleSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
-  const [freeText, setFreeText] = useState(value.text);
+  const [upserting, setUpserting] = useState<string | null>(null); // placeId currently being upserted
 
-  // Load on open
+  // Search both SBALT venues and Google Places when query changes
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    searchPublicVenues(query, 30)
-      .then(setResults)
-      .catch(() => setResults([]))
-      .finally(() => setLoading(false));
+    const handle = setTimeout(async () => {
+      try {
+        const [sbalt, google] = await Promise.all([
+          searchPublicVenues(query, 10),
+          query.trim().length >= 2 ? searchPlaces(query) : Promise.resolve([]),
+        ]);
+        setSbaltResults(sbalt);
+        setGoogleResults(google);
+      } catch {
+        setSbaltResults([]);
+        setGoogleResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 200); // debounce
+    return () => clearTimeout(handle);
   }, [open, query]);
 
-  const handleSelectVenue = (v: Venue) => {
+  const handleSelectSbalt = (v: Venue) => {
     onChange({ venue_id: v.id, text: v.name });
     setOpen(false);
   };
 
-  const handleSaveFreeText = () => {
-    onChange({ venue_id: null, text: freeText.trim() });
-    setOpen(false);
+  const handleSelectGoogle = async (g: GoogleSuggestion) => {
+    if (upserting) return;
+    setUpserting(g.placeId);
+    try {
+      const details = await getPlaceDetails(g.placeId);
+      if (!details) {
+        throw new Error('無法取得地點詳情');
+      }
+      const venue = await upsertVenueFromGooglePlace(details);
+      onChange({ venue_id: venue.id, text: venue.name });
+      setOpen(false);
+    } catch (e: any) {
+      console.error('upsert venue failed:', e);
+    } finally {
+      setUpserting(null);
+    }
   };
 
   const handleClear = () => {
-    setFreeText('');
     onChange({ venue_id: null, text: '' });
   };
 
+  // Dedup: drop Google places whose place_id matches a SBALT venue we have
+  const sbaltGoogleIds = new Set(sbaltResults.map((v) => v.google_place_id).filter(Boolean));
+  const googleFiltered = googleResults.filter((g) => !sbaltGoogleIds.has(g.placeId));
+
   const isLinked = !!value.venue_id;
+  const hasResults = sbaltResults.length > 0 || googleFiltered.length > 0;
 
   return (
     <>
       <TouchableOpacity
         style={[styles.field, { borderColor: colors.border, backgroundColor: colors.surface }]}
         onPress={() => {
-          setFreeText(value.text);
           setQuery('');
           setOpen(true);
         }}
@@ -118,7 +155,7 @@ export function VenuePicker({ value, onChange, placeholder = '例：新竹國民
               </TouchableOpacity>
             </View>
 
-            <View style={{ padding: Spacing.xl, paddingBottom: 0 }}>
+            <View style={{ padding: Spacing.xl, paddingBottom: Spacing.md }}>
               <TextInput
                 style={[
                   styles.input,
@@ -126,80 +163,99 @@ export function VenuePicker({ value, onChange, placeholder = '例：新竹國民
                 ]}
                 value={query}
                 onChangeText={setQuery}
-                placeholder="搜尋場地名稱 / 地址 / 地區"
+                placeholder={placeholder}
                 placeholderTextColor={colors.placeholder}
                 autoCapitalize="none"
+                autoFocus
               />
             </View>
 
-            <ScrollView style={styles.list} contentContainerStyle={{ padding: Spacing.xl }}>
-              {loading ? (
+            <ScrollView style={styles.list} contentContainerStyle={{ paddingHorizontal: Spacing.xl, paddingBottom: Spacing.xl }}>
+              {/* SBALT venues section */}
+              {sbaltResults.length > 0 && (
+                <>
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>SBALT 場地</Text>
+                  {sbaltResults.map((v) => (
+                    <TouchableOpacity
+                      key={`sbalt-${v.id}`}
+                      style={[styles.row, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                      onPress={() => handleSelectSbalt(v)}
+                      activeOpacity={0.6}
+                    >
+                      <View style={[styles.icon, { backgroundColor: colors.text }]}>
+                        <IconSymbol name="location.fill" size={12} color={colors.background} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
+                          {v.name}
+                        </Text>
+                        {v.address && (
+                          <Text style={[styles.rowMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+                            {v.address}
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+
+              {/* Google Places section */}
+              {googleFiltered.length > 0 && (
+                <>
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginTop: sbaltResults.length > 0 ? Spacing.lg : 0 }]}>
+                    Google 地點
+                  </Text>
+                  {googleFiltered.map((g) => {
+                    const isUpserting = upserting === g.placeId;
+                    return (
+                      <TouchableOpacity
+                        key={`google-${g.placeId}`}
+                        style={[styles.row, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                        onPress={() => handleSelectGoogle(g)}
+                        activeOpacity={0.6}
+                        disabled={!!upserting}
+                      >
+                        <View style={[styles.icon, { backgroundColor: colors.secondary }]}>
+                          <IconSymbol name="magnifyingglass" size={12} color={colors.textSecondary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
+                            {g.mainText}
+                          </Text>
+                          <Text style={[styles.rowMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+                            {g.description}
+                          </Text>
+                        </View>
+                        {isUpserting && <ActivityIndicator size="small" color={colors.text} />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* Loading */}
+              {loading && (
                 <View style={styles.center}>
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
-              ) : results && results.length > 0 ? (
-                results.map((v) => (
-                  <TouchableOpacity
-                    key={v.id}
-                    style={[styles.venueRow, { borderColor: colors.border, backgroundColor: colors.surface }]}
-                    onPress={() => handleSelectVenue(v)}
-                    activeOpacity={0.6}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.venueName, { color: colors.text }]} numberOfLines={1}>
-                        {v.name}
-                      </Text>
-                      {v.address && (
-                        <Text style={[styles.venueMeta, { color: colors.textSecondary }]} numberOfLines={1}>
-                          {v.address}
-                        </Text>
-                      )}
-                    </View>
-                    <IconSymbol name="chevron.right" size={14} color={colors.disabled} />
-                  </TouchableOpacity>
-                ))
-              ) : (
+              )}
+
+              {/* Empty */}
+              {!loading && !hasResults && query.trim().length >= 2 && (
                 <View style={styles.center}>
-                  <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-                    {query.trim() ? '沒找到符合的場地' : '尚無公開場地'}
-                  </Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 13 }}>找不到符合的場地</Text>
                 </View>
               )}
 
-              {/* Fallback: free text */}
-              <View style={[styles.fallbackBox, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-                <Text style={[styles.fallbackTitle, { color: colors.textSecondary }]}>
-                  找不到場地？保留為自由文字
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      color: colors.text,
-                      borderColor: colors.border,
-                      backgroundColor: colors.background,
-                      marginTop: Spacing.sm,
-                    },
-                  ]}
-                  value={freeText}
-                  onChangeText={setFreeText}
-                  placeholder={placeholder}
-                  placeholderTextColor={colors.placeholder}
-                />
-                <TouchableOpacity
-                  style={[
-                    styles.saveBtn,
-                    { backgroundColor: freeText.trim() ? colors.text : colors.disabled },
-                  ]}
-                  onPress={handleSaveFreeText}
-                  disabled={!freeText.trim()}
-                  activeOpacity={0.7}
-                >
-                  <Text style={{ color: colors.background, fontWeight: '700', fontSize: 14 }}>
-                    使用此文字
+              {/* Initial hint */}
+              {!loading && !hasResults && query.trim().length < 2 && (
+                <View style={styles.center}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 13, textAlign: 'center', lineHeight: 19 }}>
+                    輸入場地名稱或地址{'\n'}例：新科運動中心 / 大安森林公園
                   </Text>
-                </TouchableOpacity>
-              </View>
+                </View>
+              )}
             </ScrollView>
           </Pressable>
         </Pressable>
@@ -264,33 +320,33 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   list: { flexGrow: 0 },
-  center: {
-    paddingVertical: Spacing.xxl,
-    alignItems: 'center',
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: Spacing.sm,
   },
-  venueRow: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: Spacing.md,
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
     gap: Spacing.sm,
   },
-  venueName: { fontSize: 15, fontWeight: '600' },
-  venueMeta: { fontSize: 12, marginTop: 2 },
-  fallbackBox: {
-    marginTop: Spacing.lg,
-    padding: Spacing.md,
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderStyle: 'dashed',
+  icon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  fallbackTitle: { fontSize: 12, fontWeight: '600' },
-  saveBtn: {
-    marginTop: Spacing.sm,
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.sm,
+  rowName: { fontSize: 15, fontWeight: '600' },
+  rowMeta: { fontSize: 12, marginTop: 2 },
+  center: {
+    paddingVertical: Spacing.xxl,
     alignItems: 'center',
   },
 });

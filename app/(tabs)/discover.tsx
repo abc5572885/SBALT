@@ -362,7 +362,7 @@ export default function DiscoverScreen() {
                   );
                 })}
                 {showVenues && filteredVenues.map((v) => {
-                  const isOwner = ownedGroupIds.has(v.operator_group_id);
+                  const isOwner = !!v.operator_group_id && ownedGroupIds.has(v.operator_group_id);
                   return (
                     <View key={v.id} style={styles.vCardWrap}>
                       <VenueCard

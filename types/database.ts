@@ -161,6 +161,7 @@ export interface Database {
           organizer_id: string;
           scheduled_at: string;
           location: string;
+          venue_id: string | null;
           quota: number;
           fee: number;
           status: 'draft' | 'open' | 'closed' | 'cancelled' | 'finished';
@@ -182,6 +183,7 @@ export interface Database {
           organizer_id: string;
           scheduled_at: string;
           location: string;
+          venue_id?: string | null;
           quota: number;
           fee?: number;
           form_schema?: Json | null;
@@ -201,6 +203,7 @@ export interface Database {
           description?: string | null;
           scheduled_at?: string;
           location?: string;
+          venue_id?: string | null;
           quota?: number;
           fee?: number;
           form_schema?: Json | null;

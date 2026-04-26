@@ -1,7 +1,7 @@
 import { DateTimePickerButton } from '@/components/DateTimePickerButton';
-import { LocationInput } from '@/components/LocationInput';
 import { RecurrenceSelector } from '@/components/RecurrenceSelector';
 import { ThemedText } from '@/components/themed-text';
+import { VenuePicker, VenuePickerValue } from '@/components/VenuePicker';
 import { SPORT_OPTIONS } from '@/constants/sports';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -21,7 +21,10 @@ export function EventForm({ event, onSubmit, onCancel, loading = false }: EventF
   const colors = Colors[colorScheme ?? 'light'];
   const [title, setTitle] = React.useState(event?.title || '');
   const [description, setDescription] = React.useState(event?.description || '');
-  const [location, setLocation] = React.useState(event?.location || '');
+  const [venue, setVenue] = React.useState<VenuePickerValue>({
+    venue_id: event?.venue_id || null,
+    text: event?.location || '',
+  });
   const [quota, setQuota] = React.useState(event?.quota?.toString() || '');
   const [fee, setFee] = React.useState(event?.fee?.toString() || '0');
   const [sportType, setSportType] = React.useState(event?.sport_type || 'basketball');
@@ -59,8 +62,8 @@ export function EventForm({ event, onSubmit, onCancel, loading = false }: EventF
       Alert.alert('驗證失敗', '請輸入活動標題');
       return false;
     }
-    if (!location.trim()) {
-      Alert.alert('驗證失敗', '請輸入活動地點');
+    if (!venue.text.trim()) {
+      Alert.alert('驗證失敗', '請選擇活動地點');
       return false;
     }
     const quotaNum = parseInt(quota, 10);
@@ -81,7 +84,8 @@ export function EventForm({ event, onSubmit, onCancel, loading = false }: EventF
     onSubmit({
       title: title.trim(),
       description: description.trim() || null,
-      location: location.trim(),
+      location: venue.text.trim(),
+      venue_id: venue.venue_id,
       quota: parseInt(quota, 10),
       fee: parseFloat(fee) || 0,
       sport_type: sportType,
@@ -195,11 +199,10 @@ export function EventForm({ event, onSubmit, onCancel, loading = false }: EventF
           <ThemedText type="label" style={[styles.label, { color: colors.textSecondary }]}>
             地點 *
           </ThemedText>
-          <LocationInput
-            value={location}
-            onChange={setLocation}
-            placeholder="搜尋場地或地址"
-            disabled={loading}
+          <VenuePicker
+            value={venue}
+            onChange={setVenue}
+            placeholder="選擇場地（搜尋 SBALT 或 Google）"
           />
         </View>
 

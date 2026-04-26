@@ -58,6 +58,7 @@ export default function NewEventScreen() {
         organizer_id: user.id,
         scheduled_at: data.scheduled_at!,
         location: data.location!,
+        venue_id: data.venue_id || null,
         quota: data.quota!,
         fee: data.fee || 0,
         status: 'open',

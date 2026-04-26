@@ -1,10 +1,11 @@
 import { supabase } from '@/lib/supabase';
 import { WeeklySchedule } from '@/constants/venues';
 import { createNotification } from './appNotifications';
+import type { GooglePlace } from './placesSearch';
 
 export interface Venue {
   id: string;
-  operator_group_id: string;
+  operator_group_id: string | null;
   name: string;
   description: string | null;
   address: string;
@@ -20,6 +21,16 @@ export interface Venue {
   status: 'active' | 'inactive';
   created_at: string;
   updated_at: string;
+  // Phase 1: GPS + Google integration
+  latitude: number | null;
+  longitude: number | null;
+  google_place_id: string | null;
+  is_public_landmark: boolean;
+}
+
+/** Distance from user GPS, computed client-side. Not stored in DB. */
+export interface VenueWithDistance extends Venue {
+  distanceMeters: number;
 }
 
 export interface VenueBooking {
@@ -33,7 +44,18 @@ export interface VenueBooking {
   created_at: string;
 }
 
-export async function createVenue(params: Omit<Venue, 'id' | 'created_at' | 'updated_at' | 'status'> & { status?: Venue['status'] }): Promise<Venue> {
+type CreateVenueInput = Omit<
+  Venue,
+  'id' | 'created_at' | 'updated_at' | 'status' | 'latitude' | 'longitude' | 'google_place_id' | 'is_public_landmark'
+> & {
+  status?: Venue['status'];
+  latitude?: number | null;
+  longitude?: number | null;
+  google_place_id?: string | null;
+  is_public_landmark?: boolean;
+};
+
+export async function createVenue(params: CreateVenueInput): Promise<Venue> {
   const { data, error } = await supabase
     .from('venues')
     .insert(params)
@@ -97,6 +119,205 @@ export async function searchPublicVenues(query: string, limit = 20): Promise<Ven
   const { data, error } = await q;
   if (error) throw error;
   return (data || []) as Venue[];
+}
+
+// ─── GPS / Discovery helpers ────────────────────────────────────────────
+
+/** Haversine distance between two lat/lng points, in meters. */
+export function haversineDistance(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const R = 6371000; // Earth radius in meters
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.asin(Math.sqrt(a));
+}
+
+/**
+ * Get SBALT venues near a GPS coord, sorted by distance.
+ * Filters by radius (default 30km) and active status.
+ */
+export async function getNearbyVenues(
+  lat: number,
+  lng: number,
+  radiusMeters = 30000,
+): Promise<VenueWithDistance[]> {
+  // Crude bounding-box prefilter (faster than scanning all venues; refined client-side)
+  const degLat = radiusMeters / 111000;
+  const degLng = radiusMeters / (111000 * Math.cos((lat * Math.PI) / 180));
+
+  const { data, error } = await supabase
+    .from('venues')
+    .select('*')
+    .eq('status', 'active')
+    .not('latitude', 'is', null)
+    .gte('latitude', lat - degLat)
+    .lte('latitude', lat + degLat)
+    .gte('longitude', lng - degLng)
+    .lte('longitude', lng + degLng);
+  if (error) throw error;
+
+  const withDistance: VenueWithDistance[] = (data || [])
+    .map((v: any) => {
+      const distanceMeters = haversineDistance(lat, lng, v.latitude, v.longitude);
+      return { ...(v as Venue), distanceMeters };
+    })
+    .filter((v) => v.distanceMeters <= radiusMeters)
+    .sort((a, b) => a.distanceMeters - b.distanceMeters);
+
+  return withDistance;
+}
+
+/**
+ * Upsert a Google place as a SBALT public-landmark venue.
+ * Called when a user creates an event/check-in at a Google POI for the first time.
+ */
+export async function upsertVenueFromGooglePlace(place: GooglePlace): Promise<Venue> {
+  // Check if already exists
+  const { data: existing } = await supabase
+    .from('venues')
+    .select('*')
+    .eq('google_place_id', place.id)
+    .maybeSingle();
+  if (existing) return existing as Venue;
+
+  // Derive region from address (rough — first 2 segments before street name)
+  const region = deriveRegionFromAddress(place.address);
+
+  const { data, error } = await supabase
+    .from('venues')
+    .insert({
+      name: place.name,
+      address: place.address,
+      region,
+      latitude: place.latitude,
+      longitude: place.longitude,
+      google_place_id: place.id,
+      sport_types: place.inferredSports,
+      is_public_landmark: true,
+      operator_group_id: null,
+      amenities: [],
+      weekly_schedule: {},
+      status: 'active',
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Venue;
+}
+
+function deriveRegionFromAddress(address: string): string | null {
+  // Taiwan address pattern: "{city}{district}..."
+  // e.g. "新竹縣竹北市光明六路10號" → "新竹縣竹北市"
+  const match = address.match(/^(\D+?(?:市|縣)\D+?(?:區|市|鄉|鎮))/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Get nearby venues with event activity counts.
+ *
+ * Strategy: 場地的存在感由 events 定義，不是 venue.sport_types。
+ * 籃球模式 → 顯示有籃球活動的場地
+ * 跑步模式 → 顯示有跑團活動的場地
+ * 全部 → 任何活動
+ *
+ * Match logic:
+ * - venue_id linked events（新活動）
+ * - 模糊匹配舊活動：events.location 字串包含 venue.name
+ */
+export interface ActiveVenue extends VenueWithDistance {
+  totalEventCount: number;
+  upcomingEventCount: number;
+  /** Sport types derived from actual events at this venue (not venue.sport_types). */
+  eventSportTypes: string[];
+}
+
+export async function getNearbyActiveVenues(
+  lat: number,
+  lng: number,
+  radiusMeters = 5000,
+  sportFilter: string = 'all', // 'all' | 'basketball' | 'volleyball' | 'badminton' | 'running'
+): Promise<ActiveVenue[]> {
+  const venues = await getNearbyVenues(lat, lng, radiusMeters);
+  if (!venues.length) return [];
+
+  const venueIds = venues.map((v) => v.id);
+
+  // Build event query with optional sport filter
+  let linkedQuery = supabase
+    .from('events')
+    .select('venue_id, scheduled_at, location, sport_type')
+    .in('venue_id', venueIds)
+    .neq('status', 'cancelled');
+  if (sportFilter !== 'all') {
+    linkedQuery = linkedQuery.eq('sport_type', sportFilter);
+  }
+
+  let stringQuery = supabase
+    .from('events')
+    .select('venue_id, scheduled_at, location, sport_type')
+    .is('venue_id', null)
+    .neq('status', 'cancelled');
+  if (sportFilter !== 'all') {
+    stringQuery = stringQuery.eq('sport_type', sportFilter);
+  }
+
+  const [{ data: linkedEvents }, { data: stringMatchEvents }] = await Promise.all([
+    linkedQuery,
+    stringQuery,
+  ]);
+
+  const totalCount = new Map<string, number>();
+  const upcomingCount = new Map<string, number>();
+  const sportTypesByVenue = new Map<string, Set<string>>();
+  const now = Date.now();
+
+  const tally = (venueId: string, scheduledAt: string, sportType: string | null) => {
+    totalCount.set(venueId, (totalCount.get(venueId) || 0) + 1);
+    if (new Date(scheduledAt).getTime() > now) {
+      upcomingCount.set(venueId, (upcomingCount.get(venueId) || 0) + 1);
+    }
+    if (sportType) {
+      const set = sportTypesByVenue.get(venueId) || new Set<string>();
+      set.add(sportType);
+      sportTypesByVenue.set(venueId, set);
+    }
+  };
+
+  for (const e of linkedEvents || []) {
+    if (!e.venue_id) continue;
+    tally(e.venue_id, e.scheduled_at, e.sport_type);
+  }
+
+  // Fuzzy match legacy events by location string
+  for (const e of stringMatchEvents || []) {
+    if (!e.location) continue;
+    const matched = venues.find((v) => e.location.includes(v.name));
+    if (!matched) continue;
+    tally(matched.id, e.scheduled_at, e.sport_type);
+  }
+
+  return venues
+    .map((v) => ({
+      ...v,
+      totalEventCount: totalCount.get(v.id) || 0,
+      upcomingEventCount: upcomingCount.get(v.id) || 0,
+      eventSportTypes: [...(sportTypesByVenue.get(v.id) || [])],
+    }))
+    .filter((v) => v.totalEventCount > 0)
+    .sort((a, b) => {
+      if (a.upcomingEventCount !== b.upcomingEventCount) {
+        return b.upcomingEventCount - a.upcomingEventCount;
+      }
+      return a.distanceMeters - b.distanceMeters;
+    });
 }
 
 export async function getPublicVenues(options?: { region?: string; sportType?: string; limit?: number }): Promise<Venue[]> {

@@ -1,8 +1,15 @@
 /**
  * Google Places Autocomplete Service (New API)
+ *
+ * API key shared with services/placesSearch.ts (nearby search).
+ * Both endpoints belong to Places API (New) v1.
+ *
+ * Future: move to app.json extra.googlePlacesKey or behind a Supabase Edge Function
+ * for production hardening (limit by Bundle ID + daily quota in Google Cloud Console).
  */
 
-const API_KEY = 'AIzaSyB3aidrEtiPumHpO_ntXwBnzhM99CUFr6w';
+export const GOOGLE_PLACES_KEY = 'AIzaSyB3aidrEtiPumHpO_ntXwBnzhM99CUFr6w';
+const API_KEY = GOOGLE_PLACES_KEY;
 
 interface PlacePrediction {
   placeId: string;
