@@ -1,3 +1,4 @@
+import { BuddiesWidget } from '@/components/BuddiesWidget';
 import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
@@ -261,6 +262,9 @@ export default function ProfileScreen() {
           </View>
         </View>
       )}
+
+      {/* Buddies — 常打球友 */}
+      <BuddiesWidget userId={user.id} />
 
       {/* Menu */}
       <View style={styles.menuSection}>

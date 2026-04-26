@@ -21,6 +21,8 @@ export default function NewEventScreen() {
     templateFee?: string;
     templateSportType?: string;
     groupId?: string;
+    venueId?: string;
+    venueName?: string;
   }>();
   const colorScheme = useColorScheme();
   const { user, loading: authLoading } = useAuth();
@@ -122,14 +124,29 @@ export default function NewEventScreen() {
     <ScreenLayout scrollable>
       <PageHeader title="建立活動" />
       <EventForm
-        event={params.templateTitle ? {
-          title: params.templateTitle,
-          description: params.templateDescription || null,
-          location: params.templateLocation || '',
-          quota: parseInt(params.templateQuota || '20', 10),
-          fee: parseFloat(params.templateFee || '0'),
-          sport_type: params.templateSportType || 'other',
-        } as any : undefined}
+        event={
+          params.templateTitle
+            ? {
+                title: params.templateTitle,
+                description: params.templateDescription || null,
+                location: params.templateLocation || '',
+                quota: parseInt(params.templateQuota || '20', 10),
+                fee: parseFloat(params.templateFee || '0'),
+                sport_type: params.templateSportType || 'other',
+              } as any
+            : params.venueId
+              ? {
+                  // Prefill venue from /venue/[id] "在這裡辦活動" CTA
+                  title: '',
+                  description: null,
+                  location: (params.venueName as string) || '',
+                  venue_id: params.venueId as string,
+                  quota: 20,
+                  fee: 0,
+                  sport_type: 'basketball',
+                } as any
+              : undefined
+        }
         onSubmit={handleSubmit}
         onCancel={handleCancel}
         loading={loading}

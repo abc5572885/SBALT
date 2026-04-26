@@ -213,6 +213,127 @@ export async function upsertVenueFromGooglePlace(place: GooglePlace): Promise<Ve
   return data as Venue;
 }
 
+// ─── Venue activity: events at a specific venue ─────────────────────────
+
+export interface VenueEvent {
+  id: string;
+  title: string;
+  scheduled_at: string;
+  location: string;
+  venue_id: string | null;
+  sport_type: string | null;
+  quota: number;
+  fee: number;
+  status: string;
+  organizer_id: string;
+  image_url: string | null;
+}
+
+export interface VenueActivity {
+  upcoming: VenueEvent[];
+  past: VenueEvent[];
+  totalCount: number;
+  uniqueParticipantCount: number;
+  /** Sport breakdown sorted by count desc */
+  sportDistribution: { sport: string; count: number }[];
+}
+
+/**
+ * Get all events at a venue (both via venue_id and fuzzy location match).
+ * Returns sorted upcoming + past + aggregates.
+ */
+export async function getVenueActivity(venueId: string, venueName: string): Promise<VenueActivity> {
+  // venue_id matches
+  const { data: linked = [] } = await supabase
+    .from('events')
+    .select('id, title, scheduled_at, location, venue_id, sport_type, quota, fee, status, organizer_id, image_url')
+    .eq('venue_id', venueId)
+    .neq('status', 'cancelled')
+    .order('scheduled_at', { ascending: false });
+
+  // Fuzzy location-string matches (legacy events without venue_id)
+  const { data: legacy = [] } = await supabase
+    .from('events')
+    .select('id, title, scheduled_at, location, venue_id, sport_type, quota, fee, status, organizer_id, image_url')
+    .is('venue_id', null)
+    .ilike('location', `%${venueName}%`)
+    .neq('status', 'cancelled')
+    .order('scheduled_at', { ascending: false });
+
+  // Merge + dedup by id
+  const seen = new Set<string>();
+  const all: VenueEvent[] = [];
+  for (const e of [...(linked || []), ...(legacy || [])]) {
+    if (seen.has(e.id)) continue;
+    seen.add(e.id);
+    all.push(e as VenueEvent);
+  }
+
+  // Split upcoming / past
+  const now = Date.now();
+  const upcoming = all
+    .filter((e) => new Date(e.scheduled_at).getTime() > now)
+    .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+  const past = all
+    .filter((e) => new Date(e.scheduled_at).getTime() <= now)
+    .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime());
+
+  // Sport distribution
+  const sportMap = new Map<string, number>();
+  for (const e of all) {
+    if (!e.sport_type) continue;
+    sportMap.set(e.sport_type, (sportMap.get(e.sport_type) || 0) + 1);
+  }
+  const sportDistribution = [...sportMap.entries()]
+    .map(([sport, count]) => ({ sport, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // Unique participants (based on registrations across all events at this venue)
+  const eventIds = all.map((e) => e.id);
+  let uniqueParticipantCount = 0;
+  if (eventIds.length > 0) {
+    const { data: regs } = await supabase
+      .from('registrations')
+      .select('user_id')
+      .in('event_id', eventIds)
+      .eq('status', 'registered');
+    if (regs) {
+      uniqueParticipantCount = new Set(regs.map((r) => r.user_id)).size;
+    }
+  }
+
+  return {
+    upcoming,
+    past,
+    totalCount: all.length,
+    uniqueParticipantCount,
+    sportDistribution,
+  };
+}
+
+/**
+ * Generate a deterministic gradient pair for venue cover fallback.
+ * Same venue always gets the same colors.
+ */
+export function venueGradientFromId(id: string): [string, string] {
+  // Hash venue id to pick from a curated palette
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  }
+  const palettes: [string, string][] = [
+    ['#1F2937', '#374151'], // slate
+    ['#1E3A8A', '#1E40AF'], // navy
+    ['#365314', '#4D7C0F'], // forest
+    ['#7C2D12', '#B45309'], // burnt
+    ['#3F1D38', '#831843'], // plum
+    ['#0F4C5C', '#155E75'], // teal
+    ['#1F1147', '#312E81'], // indigo
+    ['#3D1A0F', '#9A3412'], // mahogany
+  ];
+  return palettes[hash % palettes.length];
+}
+
 function deriveRegionFromAddress(address: string): string | null {
   // Taiwan address pattern: "{city}{district}..."
   // e.g. "新竹縣竹北市光明六路10號" → "新竹縣竹北市"
