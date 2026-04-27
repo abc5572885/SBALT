@@ -167,6 +167,95 @@ export async function closeBadmintonGame(gameId: string) {
 
 // ── Display helpers ─────────────────────────────────────────────
 
+// ── Reset ──────────────────────────────────────────────────────
+
+const BASKETBALL_RESET_FIELDS = {
+  points_1pt: 0,
+  points_2pt: 0,
+  points_3pt: 0,
+  misses_1pt: 0,
+  misses_2pt: 0,
+  misses_3pt: 0,
+  rebounds: 0,
+  offensive_rebounds: 0,
+  defensive_rebounds: 0,
+  assists: 0,
+  steals: 0,
+  blocks: 0,
+  turnovers: 0,
+  fouls: 0,
+};
+
+const VOLLEYBALL_RESET_FIELDS = {
+  spikes: 0,
+  spike_errors: 0,
+  blocks: 0,
+  block_errors: 0,
+  serve_aces: 0,
+  serve_errors: 0,
+  reception_successes: 0,
+  reception_errors: 0,
+  set_assists: 0,
+  digs: 0,
+  errors: 0,
+  points_total: 0,
+};
+
+const BADMINTON_RESET_FIELDS = {
+  smashes: 0,
+  smash_errors: 0,
+  drops: 0,
+  drop_errors: 0,
+  net_kills: 0,
+  net_kill_errors: 0,
+  clears: 0,
+  clear_errors: 0,
+  drives: 0,
+  drive_errors: 0,
+  lifts: 0,
+  lift_errors: 0,
+  errors: 0,
+  points_won: 0,
+  points_lost: 0,
+  sets_won: 0,
+  sets_lost: 0,
+};
+
+/**
+ * Wipe all recorded stats / actions / sets / games for an event, keeping the
+ * lineup (rows) intact so the recorder can re-record from scratch. Match start
+ * and end are also cleared so the timer restarts on next action.
+ *
+ * Caller MUST get explicit user confirmation — this is destructive.
+ */
+export async function resetMatchData(
+  eventId: string,
+  sport: 'basketball' | 'volleyball' | 'badminton',
+): Promise<void> {
+  const table =
+    sport === 'basketball' ? 'basketball_stats'
+      : sport === 'volleyball' ? 'volleyball_stats'
+        : 'badminton_stats';
+  const fields =
+    sport === 'basketball' ? BASKETBALL_RESET_FIELDS
+      : sport === 'volleyball' ? VOLLEYBALL_RESET_FIELDS
+        : BADMINTON_RESET_FIELDS;
+
+  await supabase.from(table).update(fields).eq('event_id', eventId);
+  await supabase.from('event_actions').delete().eq('event_id', eventId);
+  if (sport === 'volleyball') {
+    await supabase.from('volleyball_sets').delete().eq('event_id', eventId);
+  }
+  if (sport === 'badminton') {
+    await supabase.from('badminton_games').delete().eq('event_id', eventId);
+  }
+  await supabase
+    .from('events')
+    .update({ match_started_at: null, match_ended_at: null })
+    .eq('id', eventId);
+  await supabase.from('event_scores').delete().eq('event_id', eventId);
+}
+
 export function formatMatchDuration(startISO: string | null, endISO: string | null): string {
   if (!startISO) return '—';
   const start = new Date(startISO).getTime();

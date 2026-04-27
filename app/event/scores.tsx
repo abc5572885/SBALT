@@ -36,6 +36,7 @@ import {
   markMatchStarted,
   openBadmintonGame,
   openVolleyballSet,
+  resetMatchData,
   updateBadmintonGameScore,
   updateVolleyballSetScore,
 } from '@/services/matchTime';
@@ -431,6 +432,56 @@ export default function EventScoresScreen() {
     }
   };
 
+  // 重置全部紀錄 — 雙重確認，避免球經誤觸
+  const handleResetAll = () => {
+    if (!sportKey || !isProSport(sportKey)) return;
+    Alert.alert(
+      '重置全部紀錄？',
+      '所有球員數據、換人紀錄、單局比分都會歸零。陣容會保留。',
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '重置...',
+          style: 'destructive',
+          onPress: () => {
+            // Second confirmation — extra friction for an irreversible action
+            Alert.alert(
+              '再確認一次',
+              '比賽資料無法復原。確定要重置嗎？',
+              [
+                { text: '取消', style: 'cancel' },
+                {
+                  text: '我確定，全部歸零',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await resetMatchData(eventId, sportKey as 'basketball' | 'volleyball' | 'badminton');
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                      // Reset local state
+                      setMatchStartedAt(null);
+                      setMatchEndedAt(null);
+                      setVballSets([]);
+                      setBminGames([]);
+                      setActions([]);
+                      setLog([]);
+                      setCurrentQuarter(1);
+                      setSelectedStatId(null);
+                      // Reload from DB so stats reflect fresh state
+                      await loadData();
+                      toast.success('紀錄已重置');
+                    } catch (e: any) {
+                      toast.error(e?.message || '重置失敗');
+                    }
+                  },
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
+  };
+
   // 結束本節 (basketball)
   const handleEndQuarter = () => {
     if (sportKey !== 'basketball') return;
@@ -659,16 +710,25 @@ export default function EventScoresScreen() {
               );
             })}
           </View>
-          <TouchableOpacity
-            onPress={handleSave}
-            style={styles.topBtn}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            disabled={saving}
-          >
-            <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '600' }}>
-              {saving ? '...' : '結束'}
-            </Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row' }}>
+            <TouchableOpacity
+              onPress={handleResetAll}
+              style={[styles.topBtn, { width: 36 }]}
+              hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+            >
+              <IconSymbol name="ellipsis" size={18} color="rgba(255,255,255,0.7)" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSave}
+              style={styles.topBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              disabled={saving}
+            >
+              <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '600' }}>
+                {saving ? '...' : '結束'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Match meta row: timer + current set / game / quarter */}
