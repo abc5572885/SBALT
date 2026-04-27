@@ -76,44 +76,54 @@ export async function deleteAction(id: string) {
 export interface SubstitutionInput {
   eventId: string;
   sport: 'basketball' | 'volleyball' | 'badminton';
-  outStatId: string;
-  outUserId: string | null;
-  inStatId: string;
-  inUserId: string | null;
+  /** Player coming off court (omit for solo on-court promotion). */
+  outStatId?: string | null;
+  outUserId?: string | null;
+  /** Player coming on court (omit if just taking someone off without replacement). */
+  inStatId?: string | null;
+  inUserId?: string | null;
   teamLabel: string;
   quarter?: number | null;
   setNumber?: number | null;
 }
 
-/** Record a substitution as paired sub_out + sub_in events at the same instant. */
+/**
+ * Record a substitution. Both sides are optional: pass only `out` to take someone
+ * off court without replacement, or only `in` to put a bench player on court
+ * (e.g., amateur teams with a small roster).
+ */
 export async function recordSubstitution(input: SubstitutionInput): Promise<void> {
   const ts = new Date().toISOString();
-  const rows = [
-    {
+  const rows: any[] = [];
+  if (input.outStatId) {
+    rows.push({
       event_id: input.eventId,
       sport: input.sport,
       stat_id: input.outStatId,
-      user_id: input.outUserId,
+      user_id: input.outUserId ?? null,
       team_label: input.teamLabel,
       action_type: 'sub_out',
       points_delta: 0,
       quarter: input.quarter ?? null,
       set_number: input.setNumber ?? null,
       ts,
-    },
-    {
+    });
+  }
+  if (input.inStatId) {
+    rows.push({
       event_id: input.eventId,
       sport: input.sport,
       stat_id: input.inStatId,
-      user_id: input.inUserId,
+      user_id: input.inUserId ?? null,
       team_label: input.teamLabel,
       action_type: 'sub_in',
       points_delta: 0,
       quarter: input.quarter ?? null,
       set_number: input.setNumber ?? null,
       ts,
-    },
-  ];
+    });
+  }
+  if (rows.length === 0) return;
   const { error } = await supabase.from('event_actions').insert(rows);
   if (error) throw error;
 }

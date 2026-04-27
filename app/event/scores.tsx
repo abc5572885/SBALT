@@ -398,29 +398,28 @@ export default function EventScoresScreen() {
 
   const handleSubmitSub = async () => {
     if (!sportKey || !isProSport(sportKey)) return;
-    if (!subTeam || !subOutStatId || !subInStatId) {
-      toast.error('請選擇下場和上場球員');
+    if (!subTeam || (!subOutStatId && !subInStatId)) {
+      toast.error('至少選一位球員');
       return;
     }
-    const outStat = stats.find((s) => s.id === subOutStatId);
-    const inStat = stats.find((s) => s.id === subInStatId);
-    if (!outStat || !inStat) return;
+    const outStat = subOutStatId ? stats.find((s) => s.id === subOutStatId) : null;
+    const inStat = subInStatId ? stats.find((s) => s.id === subInStatId) : null;
     try {
       await recordSubstitution({
         eventId,
         sport: sportKey,
         outStatId: subOutStatId,
-        outUserId: outStat.user_id,
+        outUserId: outStat?.user_id || null,
         inStatId: subInStatId,
-        inUserId: inStat.user_id,
+        inUserId: inStat?.user_id || null,
         teamLabel: subTeam,
       });
       const outId = subOutStatId;
       const inId = subInStatId;
       setActiveStatIds((prev) => {
         const next = new Set(prev);
-        next.delete(outId);
-        next.add(inId);
+        if (outId) next.delete(outId);
+        if (inId) next.add(inId);
         return next;
       });
       const updated = await getEventActions(eventId);
@@ -916,16 +915,21 @@ export default function EventScoresScreen() {
           <Pressable style={styles.modalOverlay} onPress={() => setSubModalOpen(false)}>
             <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
               <Text style={styles.modalTitle}>換人 · {subTeam || ''}</Text>
-              <Text style={styles.modalHint}>選一位下場、一位上場</Text>
+              <Text style={styles.modalHint}>選下場、上場（任一邊或兩邊都選）</Text>
 
               <View style={styles.subColumnsRow}>
                 {/* On-court column */}
                 <View style={styles.subColumn}>
                   <Text style={styles.subColumnLabel}>在場</Text>
                   <ScrollView style={styles.subColumnScroll}>
-                    {stats
-                      .filter((s) => s.team_label === subTeam && activeStatIds.has(s.id))
-                      .map((s) => {
+                    {(() => {
+                      const onCourt = stats.filter((s) => s.team_label === subTeam && activeStatIds.has(s.id));
+                      if (onCourt.length === 0) {
+                        return (
+                          <Text style={styles.subEmptyHint}>無人在場</Text>
+                        );
+                      }
+                      return onCourt.map((s) => {
                         const name = s.user_id
                           ? getDisplayName(profiles[s.user_id], s.user_id, false)
                           : s.display_name || '';
@@ -946,7 +950,8 @@ export default function EventScoresScreen() {
                             {picked && <Text style={styles.subPickIcon}>↓</Text>}
                           </TouchableOpacity>
                         );
-                      })}
+                      });
+                    })()}
                   </ScrollView>
                 </View>
 
@@ -954,9 +959,14 @@ export default function EventScoresScreen() {
                 <View style={styles.subColumn}>
                   <Text style={styles.subColumnLabel}>板凳</Text>
                   <ScrollView style={styles.subColumnScroll}>
-                    {stats
-                      .filter((s) => s.team_label === subTeam && !activeStatIds.has(s.id))
-                      .map((s) => {
+                    {(() => {
+                      const bench = stats.filter((s) => s.team_label === subTeam && !activeStatIds.has(s.id));
+                      if (bench.length === 0) {
+                        return (
+                          <Text style={styles.subEmptyHint}>板凳沒人</Text>
+                        );
+                      }
+                      return bench.map((s) => {
                         const name = s.user_id
                           ? getDisplayName(profiles[s.user_id], s.user_id, false)
                           : s.display_name || '';
@@ -977,7 +987,8 @@ export default function EventScoresScreen() {
                             {picked && <Text style={styles.subPickIcon}>↑</Text>}
                           </TouchableOpacity>
                         );
-                      })}
+                      });
+                    })()}
                   </ScrollView>
                 </View>
               </View>
@@ -993,13 +1004,21 @@ export default function EventScoresScreen() {
                 <TouchableOpacity
                   style={[
                     styles.subConfirm,
-                    (!subOutStatId || !subInStatId) && { opacity: 0.4 },
+                    (!subOutStatId && !subInStatId) && { opacity: 0.4 },
                   ]}
                   onPress={handleSubmitSub}
-                  disabled={!subOutStatId || !subInStatId}
+                  disabled={!subOutStatId && !subInStatId}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.subConfirmText}>確認換人</Text>
+                  <Text style={styles.subConfirmText}>
+                    {subOutStatId && subInStatId
+                      ? '確認換人'
+                      : subInStatId
+                        ? '上場'
+                        : subOutStatId
+                          ? '下場'
+                          : '選擇球員'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </Pressable>
@@ -1207,6 +1226,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#16A34A',
   },
   subPlayerName: { color: '#FFF', fontSize: 13, fontWeight: '600' },
+  subEmptyHint: {
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: 12,
+    paddingVertical: Spacing.lg,
+    textAlign: 'center',
+  },
   subPickIcon: { color: '#FFF', fontSize: 16, fontWeight: '800' },
   subActionRow: {
     flexDirection: 'row',

@@ -50,14 +50,25 @@ import {
 
 const TEAM_COLORS = ['#2563EB', '#DC2626'];
 
-const formatMA = (made: number, attempted: number): string =>
-  attempted === 0 ? '—' : `${made}-${attempted}`;
+const num = (v: any): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
 
-const formatPct = (made: number, attempted: number): string =>
-  attempted === 0 ? '—' : `${Math.round((made / attempted) * 100)}%`;
+const formatMA = (made: number, attempted: number): string => {
+  const m = num(made);
+  const a = num(attempted);
+  return a === 0 ? '—' : `${m}-${a}`;
+};
+
+const formatPct = (made: number, attempted: number): string => {
+  const m = num(made);
+  const a = num(attempted);
+  return a === 0 ? '—' : `${Math.round((m / a) * 100)}%`;
+};
 
 const sumBy = <T,>(arr: T[], fn: (x: T) => number): number =>
-  arr.reduce((sum, x) => sum + fn(x), 0);
+  arr.reduce((sum, x) => sum + num(fn(x)), 0);
 
 interface Column<T> {
   label: string;
@@ -162,14 +173,14 @@ const buildBasketballCols = (ctx: BasketballCtx): Column<BasketballStat>[] => [
   {
     label: 'OFF',
     width: 36,
-    render: (s) => String(s.offensive_rebounds),
-    total: (ss) => String(sumBy(ss, (s) => s.offensive_rebounds)),
+    render: (s) => String(num(s.offensive_rebounds)),
+    total: (ss) => String(sumBy(ss, (s) => num(s.offensive_rebounds))),
   },
   {
     label: 'DEF',
     width: 36,
-    render: (s) => String(s.defensive_rebounds),
-    total: (ss) => String(sumBy(ss, (s) => s.defensive_rebounds)),
+    render: (s) => String(num(s.defensive_rebounds)),
+    total: (ss) => String(sumBy(ss, (s) => num(s.defensive_rebounds))),
   },
   {
     label: '板',
@@ -177,11 +188,11 @@ const buildBasketballCols = (ctx: BasketballCtx): Column<BasketballStat>[] => [
     render: (s) => String(basketballTotalRebounds(s)),
     total: (ss) => String(sumBy(ss, basketballTotalRebounds)),
   },
-  { label: '助', width: 36, render: (s) => String(s.assists), total: (ss) => String(sumBy(ss, (s) => s.assists)) },
-  { label: '抄', width: 36, render: (s) => String(s.steals), total: (ss) => String(sumBy(ss, (s) => s.steals)) },
-  { label: '阻', width: 36, render: (s) => String(s.blocks), total: (ss) => String(sumBy(ss, (s) => s.blocks)) },
-  { label: '失', width: 36, render: (s) => String(s.turnovers), total: (ss) => String(sumBy(ss, (s) => s.turnovers)) },
-  { label: '犯', width: 36, render: (s) => String(s.fouls), total: (ss) => String(sumBy(ss, (s) => s.fouls)) },
+  { label: '助', width: 36, render: (s) => String(num(s.assists)), total: (ss) => String(sumBy(ss, (s) => num(s.assists))) },
+  { label: '抄', width: 36, render: (s) => String(num(s.steals)), total: (ss) => String(sumBy(ss, (s) => num(s.steals))) },
+  { label: '阻', width: 36, render: (s) => String(num(s.blocks)), total: (ss) => String(sumBy(ss, (s) => num(s.blocks))) },
+  { label: '失', width: 36, render: (s) => String(num(s.turnovers)), total: (ss) => String(sumBy(ss, (s) => num(s.turnovers))) },
+  { label: '犯', width: 36, render: (s) => String(num(s.fouls)), total: (ss) => String(sumBy(ss, (s) => num(s.fouls))) },
 ];
 
 // ─── Volleyball ────────────────────────────────────────────────
@@ -190,8 +201,8 @@ const VOLLEYBALL_COLS: Column<VolleyballStat>[] = [
     label: '分',
     width: 36,
     primary: true,
-    render: (s) => String(s.points_total),
-    total: (ss) => String(sumBy(ss, (s) => s.points_total)),
+    render: (s) => String(num(s.points_total)),
+    total: (ss) => String(sumBy(ss, (s) => num(s.points_total))),
   },
   {
     label: '扣',
@@ -241,8 +252,8 @@ const VOLLEYBALL_COLS: Column<VolleyballStat>[] = [
         sumBy(ss, (s) => s.reception_successes + s.reception_errors),
       ),
   },
-  { label: '助', width: 36, render: (s) => String(s.set_assists), total: (ss) => String(sumBy(ss, (s) => s.set_assists)) },
-  { label: '救', width: 36, render: (s) => String(s.digs), total: (ss) => String(sumBy(ss, (s) => s.digs)) },
+  { label: '助', width: 36, render: (s) => String(num(s.set_assists)), total: (ss) => String(sumBy(ss, (s) => num(s.set_assists))) },
+  { label: '救', width: 36, render: (s) => String(num(s.digs)), total: (ss) => String(sumBy(ss, (s) => num(s.digs))) },
 ];
 
 // ─── Badminton ────────────────────────────────────────────────
@@ -251,8 +262,8 @@ const BADMINTON_COLS: Column<BadmintonStat>[] = [
     label: '贏分',
     width: 44,
     primary: true,
-    render: (s) => String(s.points_won),
-    total: (ss) => String(sumBy(ss, (s) => s.points_won)),
+    render: (s) => String(num(s.points_won)),
+    total: (ss) => String(sumBy(ss, (s) => num(s.points_won))),
   },
   {
     label: '殺',
@@ -317,8 +328,8 @@ const BADMINTON_COLS: Column<BadmintonStat>[] = [
     total: (ss) =>
       formatMA(sumBy(ss, (s) => s.lifts), sumBy(ss, (s) => s.lifts + s.lift_errors)),
   },
-  { label: '失', width: 36, render: (s) => String(s.errors), total: (ss) => String(sumBy(ss, (s) => s.errors)) },
-  { label: '輸分', width: 44, render: (s) => String(s.points_lost), total: (ss) => String(sumBy(ss, (s) => s.points_lost)) },
+  { label: '失', width: 36, render: (s) => String(num(s.errors)), total: (ss) => String(sumBy(ss, (s) => num(s.errors))) },
+  { label: '輸分', width: 44, render: (s) => String(num(s.points_lost)), total: (ss) => String(sumBy(ss, (s) => num(s.points_lost))) },
 ];
 
 type AnyStat = BasketballStat | VolleyballStat | BadmintonStat;
