@@ -27,6 +27,12 @@ import {
   getBadmintonGames,
   getVolleyballSets,
 } from '@/services/matchTime';
+import {
+  ActionRow,
+  computePlayerIntervals,
+  getEventActions,
+  intervalsTotalSeconds,
+} from '@/services/eventActions';
 import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
 import { Event } from '@/types/database';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -59,8 +65,33 @@ interface Column<T> {
   primary?: boolean;
 }
 
-// ─── Basketball ─────────────────────────────────────────────────
-const BASKETBALL_COLS: Column<BasketballStat>[] = [
+interface BasketballCtx {
+  matchStart: string | null;
+  matchEnd: string | null;
+  actions: ActionRow[];
+}
+
+const formatMinutes = (sec: number): string => {
+  if (sec <= 0) return '—';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+};
+
+function basketballMinutesSec(s: BasketballStat, ctx: BasketballCtx): number {
+  if (!ctx.matchStart) return 0;
+  const end = ctx.matchEnd || new Date().toISOString();
+  const intervals = computePlayerIntervals(s.id, s.is_starter, ctx.matchStart, end, ctx.actions);
+  return intervalsTotalSeconds(intervals);
+}
+
+const buildBasketballCols = (ctx: BasketballCtx): Column<BasketballStat>[] => [
+  {
+    label: 'MIN',
+    width: 50,
+    render: (s) => formatMinutes(basketballMinutesSec(s, ctx)),
+    total: (ss) => formatMinutes(sumBy(ss, (s) => basketballMinutesSec(s, ctx))),
+  },
   {
     label: '分',
     width: 36,
@@ -264,6 +295,7 @@ export default function BoxScoreScreen() {
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [vballSets, setVballSets] = useState<VolleyballSet[]>([]);
   const [bminGames, setBminGames] = useState<BadmintonGame[]>([]);
+  const [actions, setActions] = useState<ActionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -281,6 +313,7 @@ export default function BoxScoreScreen() {
         setStats(data);
         if (sport === 'volleyball') setVballSets(await getVolleyballSets(eventId));
         if (sport === 'badminton') setBminGames(await getBadmintonGames(eventId));
+        setActions(await getEventActions(eventId));
         const userIds = data.map((s) => s.user_id).filter(Boolean) as string[];
         if (userIds.length > 0) {
           setProfiles(await getProfilesByIds(userIds));
@@ -316,8 +349,11 @@ export default function BoxScoreScreen() {
   }
 
   const sport = event.sport_type;
+  const matchStart = (event as any).match_started_at as string | null;
+  const matchEnd = (event as any).match_ended_at as string | null;
   const cols: Column<any>[] =
-    sport === 'basketball' ? BASKETBALL_COLS
+    sport === 'basketball'
+      ? buildBasketballCols({ matchStart, matchEnd, actions })
       : sport === 'volleyball' ? VOLLEYBALL_COLS
         : sport === 'badminton' ? BADMINTON_COLS
           : [];

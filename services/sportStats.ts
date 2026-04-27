@@ -10,6 +10,7 @@ export interface BasketballStat {
   team_label: string;
   display_name: string | null;
   jersey_number: string | null;
+  is_starter: boolean;
   points_1pt: number;
   points_2pt: number;
   points_3pt: number;
@@ -72,6 +73,7 @@ export interface VolleyballStat {
   display_name: string | null;
   jersey_number: string | null;
   position: string | null;
+  is_starter: boolean;
   spikes: number;
   spike_errors: number;
   blocks: number;
@@ -119,6 +121,7 @@ export interface BadmintonStat {
   jersey_number: string | null;
   match_format: 'singles' | 'doubles';
   partner_id: string | null;
+  is_starter: boolean;
   sets_won: number;
   sets_lost: number;
   smashes: number;

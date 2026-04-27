@@ -40,6 +40,11 @@ import {
   updateVolleyballSetScore,
 } from '@/services/matchTime';
 import {
+  ActionRow,
+  getEventActions,
+  recordSubstitution,
+} from '@/services/eventActions';
+import {
   BasketballStat,
   VolleyballStat,
   BadmintonStat,
@@ -56,6 +61,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -170,6 +177,14 @@ export default function EventScoresScreen() {
   const [bminGames, setBminGames] = useState<BadmintonGame[]>([]);
   const [tick, setTick] = useState(0); // forces timer re-render
 
+  // Phase 2: substitutions + on-court tracking
+  const [actions, setActions] = useState<ActionRow[]>([]);
+  const [activeStatIds, setActiveStatIds] = useState<Set<string>>(new Set());
+  const [subModalOpen, setSubModalOpen] = useState(false);
+  const [subTeam, setSubTeam] = useState<string | null>(null);
+  const [subOutStatId, setSubOutStatId] = useState<string | null>(null);
+  const [subInStatId, setSubInStatId] = useState<string | null>(null);
+
   const sportConfig = getSportConfig(event?.sport_type);
   const sportKey = event?.sport_type;
   const isPro = isProSport(sportKey);
@@ -202,6 +217,20 @@ export default function EventScoresScreen() {
       } else if (sport === 'badminton') {
         setBminGames(await getBadmintonGames(eventId));
       }
+
+      // Phase 2: load action log + derive active set from starters + sub events
+      const actionRows = await getEventActions(eventId);
+      setActions(actionRows);
+      const starterIds = new Set(
+        (sportStats as AnyStat[]).filter((s) => (s as any).is_starter).map((s) => s.id),
+      );
+      const active = new Set(starterIds);
+      for (const a of actionRows.sort((x, y) => x.ts.localeCompare(y.ts))) {
+        if (!a.stat_id) continue;
+        if (a.action_type === 'sub_in') active.add(a.stat_id);
+        if (a.action_type === 'sub_out') active.delete(a.stat_id);
+      }
+      setActiveStatIds(active);
 
       if (existingScores.length > 0) {
         setEntries(existingScores.map((s: EventScore) => ({ label: s.label, score: s.score })));
@@ -332,6 +361,49 @@ export default function EventScoresScreen() {
     } catch (e: any) {
       toast.error(e.message || '記錄失敗');
       setLog((prev) => prev.filter((l) => l.stat_id !== selectedStatId || l.ts !== prev[0].ts));
+    }
+  };
+
+  const openSubModal = (teamLabel: string) => {
+    setSubTeam(teamLabel);
+    setSubOutStatId(null);
+    setSubInStatId(null);
+    setSubModalOpen(true);
+  };
+
+  const handleSubmitSub = async () => {
+    if (!sportKey || !isProSport(sportKey)) return;
+    if (!subTeam || !subOutStatId || !subInStatId) {
+      toast.error('請選擇下場和上場球員');
+      return;
+    }
+    const outStat = stats.find((s) => s.id === subOutStatId);
+    const inStat = stats.find((s) => s.id === subInStatId);
+    if (!outStat || !inStat) return;
+    try {
+      await recordSubstitution({
+        eventId,
+        sport: sportKey,
+        outStatId: subOutStatId,
+        outUserId: outStat.user_id,
+        inStatId: subInStatId,
+        inUserId: inStat.user_id,
+        teamLabel: subTeam,
+      });
+      const outId = subOutStatId;
+      const inId = subInStatId;
+      setActiveStatIds((prev) => {
+        const next = new Set(prev);
+        next.delete(outId);
+        next.add(inId);
+        return next;
+      });
+      const updated = await getEventActions(eventId);
+      setActions(updated);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSubModalOpen(false);
+    } catch (e: any) {
+      toast.error(e.message || '換人失敗');
     }
   };
 
@@ -572,20 +644,37 @@ export default function EventScoresScreen() {
         <ScrollView style={{ flexGrow: 0 }}>
           {teamLabels.map((label, i) => {
             const teamStats = stats.filter((s) => s.team_label === label);
+            // Order: active players first, then bench (still on roster)
+            const sorted = [...teamStats].sort((a, b) => {
+              const aActive = activeStatIds.has(a.id) ? 0 : 1;
+              const bActive = activeStatIds.has(b.id) ? 0 : 1;
+              return aActive - bActive;
+            });
             return (
               <View key={label} style={styles.rosterSection}>
-                <View style={[styles.rosterDot, { backgroundColor: TEAM_COLORS[i] }]} />
+                <View style={styles.rosterTeamHeader}>
+                  <View style={[styles.rosterDot, { backgroundColor: TEAM_COLORS[i] }]} />
+                  <Text style={[styles.rosterTeamLabel, { color: TEAM_COLORS[i] }]}>{label}</Text>
+                  <TouchableOpacity
+                    onPress={() => openSubModal(label)}
+                    style={styles.subBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.subBtnText}>換人</Text>
+                  </TouchableOpacity>
+                </View>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.rosterRow}
                 >
-                  {teamStats.map((s) => {
+                  {sorted.map((s) => {
                     const name = s.user_id
                       ? getDisplayName(profiles[s.user_id], s.user_id, false)
                       : s.display_name || '';
                     const total = getPlayerTotalPoints(s, sportKey);
                     const selected = selectedStatId === s.id;
+                    const isActive = activeStatIds.has(s.id);
                     return (
                       <TouchableOpacity
                         key={s.id}
@@ -593,8 +682,10 @@ export default function EventScoresScreen() {
                           styles.playerChip,
                           { borderColor: TEAM_COLORS[i] },
                           selected && { backgroundColor: TEAM_COLORS[i] },
+                          !isActive && { opacity: 0.4, borderStyle: 'dashed' },
                         ]}
-                        onPress={() => handlePlayerSelect(s.id)}
+                        onPress={() => isActive && handlePlayerSelect(s.id)}
+                        disabled={!isActive}
                         activeOpacity={0.7}
                       >
                         {s.jersey_number && (
@@ -606,7 +697,7 @@ export default function EventScoresScreen() {
                           {name}
                         </Text>
                         <Text style={[styles.playerChipScore, { color: selected ? '#FFF' : 'rgba(255,255,255,0.5)' }]}>
-                          {total}
+                          {isActive ? total : '板凳'}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -744,6 +835,106 @@ export default function EventScoresScreen() {
             </ScrollView>
           )}
         </View>
+
+        {/* Substitution modal */}
+        <Modal
+          visible={subModalOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSubModalOpen(false)}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setSubModalOpen(false)}>
+            <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+              <Text style={styles.modalTitle}>換人 · {subTeam || ''}</Text>
+              <Text style={styles.modalHint}>選一位下場、一位上場</Text>
+
+              <View style={styles.subColumnsRow}>
+                {/* On-court column */}
+                <View style={styles.subColumn}>
+                  <Text style={styles.subColumnLabel}>在場</Text>
+                  <ScrollView style={styles.subColumnScroll}>
+                    {stats
+                      .filter((s) => s.team_label === subTeam && activeStatIds.has(s.id))
+                      .map((s) => {
+                        const name = s.user_id
+                          ? getDisplayName(profiles[s.user_id], s.user_id, false)
+                          : s.display_name || '';
+                        const picked = subOutStatId === s.id;
+                        return (
+                          <TouchableOpacity
+                            key={s.id}
+                            style={[
+                              styles.subPlayerRow,
+                              picked && styles.subPlayerRowOut,
+                            ]}
+                            onPress={() => setSubOutStatId(picked ? null : s.id)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.subPlayerName, picked && { color: '#FFF' }]}>
+                              {s.jersey_number ? `#${s.jersey_number} ` : ''}{name}
+                            </Text>
+                            {picked && <Text style={styles.subPickIcon}>↓</Text>}
+                          </TouchableOpacity>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+
+                {/* Bench column */}
+                <View style={styles.subColumn}>
+                  <Text style={styles.subColumnLabel}>板凳</Text>
+                  <ScrollView style={styles.subColumnScroll}>
+                    {stats
+                      .filter((s) => s.team_label === subTeam && !activeStatIds.has(s.id))
+                      .map((s) => {
+                        const name = s.user_id
+                          ? getDisplayName(profiles[s.user_id], s.user_id, false)
+                          : s.display_name || '';
+                        const picked = subInStatId === s.id;
+                        return (
+                          <TouchableOpacity
+                            key={s.id}
+                            style={[
+                              styles.subPlayerRow,
+                              picked && styles.subPlayerRowIn,
+                            ]}
+                            onPress={() => setSubInStatId(picked ? null : s.id)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.subPlayerName, picked && { color: '#FFF' }]}>
+                              {s.jersey_number ? `#${s.jersey_number} ` : ''}{name}
+                            </Text>
+                            {picked && <Text style={styles.subPickIcon}>↑</Text>}
+                          </TouchableOpacity>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              </View>
+
+              <View style={styles.subActionRow}>
+                <TouchableOpacity
+                  style={styles.subCancel}
+                  onPress={() => setSubModalOpen(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.subCancelText}>取消</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.subConfirm,
+                    (!subOutStatId || !subInStatId) && { opacity: 0.4 },
+                  ]}
+                  onPress={handleSubmitSub}
+                  disabled={!subOutStatId || !subInStatId}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.subConfirmText}>確認換人</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </SafeAreaView>
     );
   }
@@ -884,9 +1075,91 @@ const styles = StyleSheet.create({
 
   // Roster
   rosterSection: { paddingVertical: Spacing.sm },
-  rosterDot: {
-    height: 4, marginHorizontal: Spacing.lg, marginBottom: Spacing.xs, borderRadius: 2,
+  rosterTeamHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xs,
   },
+  rosterDot: {
+    width: 8, height: 8, borderRadius: 4,
+  },
+  rosterTeamLabel: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, flex: 1 },
+  subBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+    backgroundColor: 'rgba(255,255,255,0.13)',
+  },
+  subBtnText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
+
+  // Substitution modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    padding: Spacing.xl,
+  },
+  modalCard: {
+    backgroundColor: '#111',
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    maxHeight: '80%',
+  },
+  modalTitle: { color: '#FFF', fontSize: 18, fontWeight: '800', marginBottom: 4 },
+  modalHint: { color: 'rgba(255,255,255,0.5)', fontSize: 12, marginBottom: Spacing.md },
+  subColumnsRow: { flexDirection: 'row', gap: Spacing.md, minHeight: 200 },
+  subColumn: { flex: 1 },
+  subColumnLabel: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: Spacing.sm,
+    textTransform: 'uppercase',
+  },
+  subColumnScroll: { maxHeight: 280 },
+  subPlayerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: Radius.sm,
+    marginBottom: 4,
+  },
+  subPlayerRowOut: {
+    backgroundColor: '#DC2626',
+  },
+  subPlayerRowIn: {
+    backgroundColor: '#16A34A',
+  },
+  subPlayerName: { color: '#FFF', fontSize: 13, fontWeight: '600' },
+  subPickIcon: { color: '#FFF', fontSize: 16, fontWeight: '800' },
+  subActionRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  subCancel: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+  },
+  subCancelText: { color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: '600' },
+  subConfirm: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+  },
+  subConfirmText: { color: '#000', fontSize: 14, fontWeight: '700' },
   rosterRow: { paddingHorizontal: Spacing.lg, gap: Spacing.sm },
   playerChip: {
     minWidth: 80,

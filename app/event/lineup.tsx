@@ -28,6 +28,7 @@ interface LineupRow {
   display_name?: string | null;
   jersey_number?: string | null;
   team: 'A' | 'B' | null;  // null = unassigned
+  is_starter: boolean;
 }
 
 const TEAM_COLORS: Record<'A' | 'B', string> = {
@@ -77,6 +78,7 @@ export default function LineupScreen() {
             display_name: null,
             jersey_number: null,
             team: null as 'A' | 'B' | null,
+            is_starter: false,
           })));
         }
       } catch (e) {
@@ -95,6 +97,10 @@ export default function LineupScreen() {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, jersey_number: jersey } : r)));
   };
 
+  const toggleStarter = (key: string) => {
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, is_starter: !r.is_starter } : r)));
+  };
+
   const addTempPlayer = (team: 'A' | 'B') => {
     if (!tempName.trim()) {
       toast.error('請輸入臨時球員姓名');
@@ -108,6 +114,7 @@ export default function LineupScreen() {
         display_name: tempName.trim(),
         jersey_number: tempNumber.trim() || null,
         team,
+        is_starter: false,
       },
     ]);
     setTempName('');
@@ -137,6 +144,7 @@ export default function LineupScreen() {
           display_name: r.display_name ?? null,
           jersey_number: r.jersey_number ?? null,
           team_label: r.team === 'A' ? teamAName : teamBName,
+          is_starter: r.is_starter,
         }));
       const sport = event?.sport_type;
       if (sport === 'volleyball') {
@@ -263,6 +271,7 @@ export default function LineupScreen() {
         onRemove={(key) => removeRow(key)}
         onUnassign={(key) => setRowTeam(key, null)}
         onJerseyChange={setRowJersey}
+        onToggleStarter={toggleStarter}
       />
 
       {/* B 隊 */}
@@ -275,6 +284,7 @@ export default function LineupScreen() {
         onRemove={(key) => removeRow(key)}
         onUnassign={(key) => setRowTeam(key, null)}
         onJerseyChange={setRowJersey}
+        onToggleStarter={toggleStarter}
       />
 
       {/* 加入臨時球員 */}
@@ -333,7 +343,7 @@ export default function LineupScreen() {
 }
 
 function TeamSection({
-  team, teamName, rows, profiles, colors, onRemove, onUnassign, onJerseyChange,
+  team, teamName, rows, profiles, colors, onRemove, onUnassign, onJerseyChange, onToggleStarter,
 }: {
   team: 'A' | 'B';
   teamName: string;
@@ -343,13 +353,15 @@ function TeamSection({
   onRemove: (key: string) => void;
   onUnassign: (key: string) => void;
   onJerseyChange: (key: string, jersey: string) => void;
+  onToggleStarter: (key: string) => void;
 }) {
+  const starterCount = rows.filter((r) => r.is_starter).length;
   return (
     <View style={styles.section}>
       <View style={styles.teamHeaderRow}>
         <View style={[styles.teamColorDot, { backgroundColor: TEAM_COLORS[team] }]} />
         <Text style={[styles.teamHeader, { color: colors.text }]}>
-          {teamName}（{rows.length} 人）
+          {teamName}（{rows.length} 人 · 先發 {starterCount}）
         </Text>
       </View>
       {rows.length === 0 ? (
@@ -367,6 +379,26 @@ function TeamSection({
               key={r.key}
               style={[styles.playerRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
             >
+              <TouchableOpacity
+                onPress={() => onToggleStarter(r.key)}
+                style={[
+                  styles.starterChip,
+                  {
+                    backgroundColor: r.is_starter ? TEAM_COLORS[team] : 'transparent',
+                    borderColor: r.is_starter ? TEAM_COLORS[team] : colors.border,
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.starterChipText,
+                    { color: r.is_starter ? '#FFF' : colors.textSecondary },
+                  ]}
+                >
+                  {r.is_starter ? '先發' : '板凳'}
+                </Text>
+              </TouchableOpacity>
               <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={[styles.playerName, { color: colors.text }]}>{name}</Text>
                 {isTemp && (
@@ -447,6 +479,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
+  },
+  starterChip: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    minWidth: 48,
+    alignItems: 'center',
+  },
+  starterChipText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   jerseyInput: {
     width: 50,

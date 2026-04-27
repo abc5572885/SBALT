@@ -61,6 +61,7 @@ export interface LineupPlayer {
   display_name?: string | null;
   jersey_number?: string | null;
   team_label: string;
+  is_starter?: boolean;
 }
 
 export async function createLineup(eventId: string, players: LineupPlayer[]): Promise<BasketballStat[]> {
@@ -71,6 +72,7 @@ export async function createLineup(eventId: string, players: LineupPlayer[]): Pr
     display_name: p.display_name || null,
     jersey_number: p.jersey_number || null,
     team_label: p.team_label,
+    is_starter: p.is_starter || false,
   }));
   const { data, error } = await supabase
     .from('basketball_stats')

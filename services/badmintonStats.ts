@@ -47,6 +47,7 @@ export interface BadmintonLineupPlayer {
   match_format?: 'singles' | 'doubles';
   partner_id?: string | null;
   team_label: string;
+  is_starter?: boolean;
 }
 
 export async function createBadmintonLineup(
@@ -62,6 +63,7 @@ export async function createBadmintonLineup(
     match_format: p.match_format || 'singles',
     partner_id: p.partner_id || null,
     team_label: p.team_label,
+    is_starter: p.is_starter || false,
   }));
   const { data, error } = await supabase.from('badminton_stats').insert(rows).select();
   if (error) throw error;

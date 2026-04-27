@@ -53,6 +53,7 @@ export interface VolleyballLineupPlayer {
   jersey_number?: string | null;
   position?: string | null;
   team_label: string;
+  is_starter?: boolean;
 }
 
 export async function createVolleyballLineup(
@@ -67,6 +68,7 @@ export async function createVolleyballLineup(
     jersey_number: p.jersey_number || null,
     position: p.position || null,
     team_label: p.team_label,
+    is_starter: p.is_starter || false,
   }));
   const { data, error } = await supabase.from('volleyball_stats').insert(rows).select();
   if (error) throw error;
