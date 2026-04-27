@@ -1,10 +1,10 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import '@/lib/mapbox';
+import { MapUnavailable } from '@/components/MapUnavailable';
+import Mapbox, { isMapboxAvailable } from '@/lib/mapbox';
 import { formatDistance } from '@/services/running';
 import { getRoute } from '@/services/directions';
-import Mapbox from '@rnmapbox/maps';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import React, { useRef, useState } from 'react';
@@ -90,6 +90,14 @@ export default function PlanRouteScreen() {
       },
     }] : [],
   };
+
+  if (!isMapboxAvailable()) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <MapUnavailable />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>

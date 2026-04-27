@@ -4,11 +4,11 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { getSportConfig, SPORT_OPTIONS } from '@/constants/sports';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import '@/lib/mapbox';
+import { MapUnavailable } from '@/components/MapUnavailable';
+import Mapbox, { isMapboxAvailable } from '@/lib/mapbox';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ActiveVenue, getNearbyActiveVenues } from '@/services/venues';
 import { useAppStore } from '@/store/useAppStore';
-import Mapbox from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -47,7 +47,7 @@ export default function VenuesScreen() {
   const [venues, setVenues] = useState<ActiveVenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const cameraRef = useRef<Mapbox.Camera>(null);
+  const cameraRef = useRef<any>(null);
 
   useEffect(() => {
     (async () => {
@@ -91,6 +91,15 @@ export default function VenuesScreen() {
   const mapStyle = colorScheme === 'dark'
     ? 'mapbox://styles/abc5572885/cmo4dgsy200ba01st1sxsg3ci'
     : 'mapbox://styles/mapbox/outdoors-v12';
+
+  if (!isMapboxAvailable()) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}>
+        <PageHeader title="附近場地" />
+        <MapUnavailable />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}>

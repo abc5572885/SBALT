@@ -4,10 +4,10 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import '@/lib/mapbox';
+import { MapUnavailable } from '@/components/MapUnavailable';
+import Mapbox, { isMapboxAvailable } from '@/lib/mapbox';
 import { formatDistance, formatDuration, formatPace } from '@/services/running';
 import { supabase } from '@/lib/supabase';
-import Mapbox from '@rnmapbox/maps';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -102,6 +102,17 @@ export default function RunDetailScreen() {
   }
 
   const startTime = new Date(run.started_at);
+
+  if (!isMapboxAvailable()) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}>
+        <View style={styles.header}>
+          <PageHeader title="跑步詳情" />
+        </View>
+        <MapUnavailable />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}>

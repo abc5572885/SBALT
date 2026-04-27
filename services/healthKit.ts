@@ -1,12 +1,14 @@
 import { supabase } from '@/lib/supabase';
-import {
-  isHealthDataAvailable,
-  queryWorkoutSamples,
-  requestAuthorization,
-  WorkoutActivityType,
-  WorkoutTypeIdentifier,
-} from '@kingstinct/react-native-healthkit';
 import { Platform } from 'react-native';
+
+// Native module is missing in Expo Go and crashes the bundle on static import.
+// Use defensive require so the rest of the app keeps running.
+let HK: any = null;
+try {
+  HK = require('@kingstinct/react-native-healthkit');
+} catch {
+  // HealthKit unavailable (Expo Go / non-iOS)
+}
 
 interface SyncResult {
   inserted: number;
@@ -16,8 +18,9 @@ interface SyncResult {
 
 export function isHealthKitAvailable(): boolean {
   if (Platform.OS !== 'ios') return false;
+  if (!HK?.isHealthDataAvailable) return false;
   try {
-    return isHealthDataAvailable();
+    return HK.isHealthDataAvailable();
   } catch {
     return false;
   }
@@ -26,9 +29,9 @@ export function isHealthKitAvailable(): boolean {
 export async function requestHealthKitAuthorization(): Promise<boolean> {
   if (!isHealthKitAvailable()) return false;
   try {
-    const ok = await requestAuthorization({
+    const ok = await HK.requestAuthorization({
       toRead: [
-        WorkoutTypeIdentifier,
+        HK.WorkoutTypeIdentifier,
         'HKQuantityTypeIdentifierDistanceWalkingRunning',
         'HKQuantityTypeIdentifierActiveEnergyBurned',
       ],
@@ -51,9 +54,9 @@ export async function syncRunningWorkouts(userId: string, daysBack = 30): Promis
   const start = new Date();
   start.setDate(end.getDate() - daysBack);
 
-  const samples = await queryWorkoutSamples({
+  const samples = await HK.queryWorkoutSamples({
     filter: {
-      workoutActivityType: WorkoutActivityType.running,
+      workoutActivityType: HK.WorkoutActivityType.running,
       date: { startDate: start, endDate: end },
     },
     limit: 100,
@@ -64,8 +67,7 @@ export async function syncRunningWorkouts(userId: string, daysBack = 30): Promis
     return { inserted: 0, skipped: 0, total: 0 };
   }
 
-  // Existing external IDs for this user (dedup)
-  const externalIds = samples.map((s) => s.uuid).filter(Boolean);
+  const externalIds = samples.map((s: any) => s.uuid).filter(Boolean);
   const { data: existing } = await supabase
     .from('runs')
     .select('external_id')
@@ -90,16 +92,11 @@ export async function syncRunningWorkouts(userId: string, daysBack = 30): Promis
     const startedAt = w.startDate instanceof Date ? w.startDate.toISOString() : new Date(w.startDate as any).toISOString();
     const endedAt = w.endDate instanceof Date ? w.endDate.toISOString() : new Date(w.endDate as any).toISOString();
 
-    // Duration in seconds (Quantity has .quantity in the unit's base unit; for time it's typically seconds)
     const durationSec = w.duration?.quantity ?? 0;
-
-    // Distance in meters → convert to km
     const distanceMeters = w.totalDistance?.quantity ?? 0;
     const distanceKm = distanceMeters / 1000;
-
     const calories = w.totalEnergyBurned?.quantity ?? null;
     const avgPace = distanceKm > 0 ? durationSec / 60 / distanceKm : null;
-
     const sourceName = (w as any).sourceRevision?.source?.name ?? null;
 
     const { error } = await supabase.from('runs').insert({

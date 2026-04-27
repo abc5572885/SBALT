@@ -4,7 +4,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import '@/lib/mapbox';
+import Mapbox, { isMapboxAvailable } from '@/lib/mapbox';
 import {
   deleteRun,
   formatDistance,
@@ -13,7 +13,6 @@ import {
   getUserRuns,
   getUserRunStats,
 } from '@/services/running';
-import Mapbox from '@rnmapbox/maps';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
@@ -48,6 +47,8 @@ function RunRoutePreview({ route, colorScheme }: { route: any[]; colorScheme: st
     ne: [Math.max(...lngs) + 0.002, Math.max(...lats) + 0.002] as [number, number],
     sw: [Math.min(...lngs) - 0.002, Math.min(...lats) - 0.002] as [number, number],
   };
+
+  if (!isMapboxAvailable()) return <View style={styles.mapPreview} />;
 
   return (
     <View style={styles.mapPreview}>

@@ -2,7 +2,8 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import '@/lib/mapbox';
+import { MapUnavailable } from '@/components/MapUnavailable';
+import Mapbox, { isMapboxAvailable } from '@/lib/mapbox';
 import {
   calculatePace,
   estimateCalories,
@@ -11,7 +12,6 @@ import {
   formatPace,
   saveRun,
 } from '@/services/running';
-import Mapbox from '@rnmapbox/maps';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
@@ -57,7 +57,7 @@ export default function RunScreen() {
   const [targetHour, setTargetHour] = useState(params.targetHour || '0');
   const [targetMin, setTargetMin] = useState(params.targetMin || '30');
 
-  const cameraRef = useRef<Mapbox.Camera>(null);
+  const cameraRef = useRef<any>(null);
   const locationSub = useRef<Location.LocationSubscription | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef<string>('');
@@ -266,6 +266,14 @@ export default function RunScreen() {
   const mapStyle = colorScheme === 'dark'
     ? 'mapbox://styles/abc5572885/cmo4dgsy200ba01st1sxsg3ci'
     : 'mapbox://styles/mapbox/outdoors-v12';
+
+  if (!isMapboxAvailable()) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <MapUnavailable />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
