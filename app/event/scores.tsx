@@ -46,6 +46,7 @@ import {
   logAction,
   recordSubstitution,
 } from '@/services/eventActions';
+import { TimeoutOverlay } from '@/components/TimeoutOverlay';
 import {
   BasketballStat,
   VolleyballStat,
@@ -67,6 +68,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -186,9 +188,24 @@ export default function EventScoresScreen() {
   const [subTeam, setSubTeam] = useState<string | null>(null);
   const [subOutStatId, setSubOutStatId] = useState<string | null>(null);
   const [subInStatId, setSubInStatId] = useState<string | null>(null);
+  const [subsThisSession, setSubsThisSession] = useState(0);
 
   // Phase 3: basketball quarter tracking (1, 2, 3, 4, 5+ for OT)
   const [currentQuarter, setCurrentQuarter] = useState(1);
+
+  // Phase 5: basketball game clock + shot clock
+  const QUARTER_LENGTH_DEFAULT = 600; // 10 min
+  const [quarterLengthSec, setQuarterLengthSec] = useState(QUARTER_LENGTH_DEFAULT);
+  const [gameClockSec, setGameClockSec] = useState(QUARTER_LENGTH_DEFAULT);
+  const [gameClockRunning, setGameClockRunning] = useState(false);
+  const [shotClockEnabled, setShotClockEnabled] = useState(false);
+  const [shotClockMaxSec, setShotClockMaxSec] = useState(24);
+  const [shotClockSec, setShotClockSec] = useState(24);
+  const [shotClockRunning, setShotClockRunning] = useState(false);
+  const [clockSettingsOpen, setClockSettingsOpen] = useState(false);
+
+  // Phase 5b: timeout/break overlay for volleyball / badminton
+  const [timeout_, setTimeout_] = useState<{ seconds: number; label: string } | null>(null);
 
   const sportConfig = getSportConfig(event?.sport_type);
   const sportKey = event?.sport_type;
@@ -266,6 +283,39 @@ export default function EventScoresScreen() {
     const interval = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(interval);
   }, [matchStartedAt, matchEndedAt]);
+
+  // Phase 5: game clock + shot clock tick (drift-corrected)
+  useEffect(() => {
+    if (!gameClockRunning && !shotClockRunning) return;
+    let last = Date.now();
+    const id = setInterval(() => {
+      const now = Date.now();
+      const delta = (now - last) / 1000;
+      last = now;
+      if (gameClockRunning) {
+        setGameClockSec((s) => {
+          const next = Math.max(0, s - delta);
+          if (next <= 0 && s > 0) {
+            setGameClockRunning(false);
+            setShotClockRunning(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          }
+          return next;
+        });
+      }
+      if (shotClockRunning) {
+        setShotClockSec((s) => {
+          const next = Math.max(0, s - delta);
+          if (next <= 0 && s > 0) {
+            setShotClockRunning(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          }
+          return next;
+        });
+      }
+    }, 250);
+    return () => clearInterval(id);
+  }, [gameClockRunning, shotClockRunning]);
 
   // Pro mode：若沒陣容，跳到 lineup 頁
   useEffect(() => {
@@ -394,6 +444,7 @@ export default function EventScoresScreen() {
     setSubTeam(teamLabel);
     setSubOutStatId(null);
     setSubInStatId(null);
+    setSubsThisSession(0);
     setSubModalOpen(true);
   };
 
@@ -426,10 +477,63 @@ export default function EventScoresScreen() {
       const updated = await getEventActions(eventId);
       setActions(updated);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setSubModalOpen(false);
+      // Multi-sub: keep modal open, clear selection so user can sub again
+      setSubOutStatId(null);
+      setSubInStatId(null);
+      setSubsThisSession((n) => n + 1);
     } catch (e: any) {
       toast.error(e.message || '換人失敗');
     }
+  };
+
+  // ── Game clock helpers ───────────────────────────
+  const formatClock = (sec: number): string => {
+    const total = Math.max(0, Math.ceil(sec));
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
+  const toggleGameClock = () => {
+    if (gameClockSec <= 0) return;
+    Haptics.selectionAsync();
+    if (gameClockRunning) {
+      setGameClockRunning(false);
+      setShotClockRunning(false);
+    } else {
+      setGameClockRunning(true);
+      if (shotClockEnabled) {
+        if (shotClockSec <= 0) setShotClockSec(shotClockMaxSec);
+        setShotClockRunning(true);
+      }
+    }
+  };
+
+  const editGameClock = () => {
+    Alert.alert(
+      '微調本節時間',
+      `目前剩餘 ${formatClock(gameClockSec)}`,
+      [
+        { text: '+1 分', onPress: () => setGameClockSec((s) => Math.min(quarterLengthSec, s + 60)) },
+        { text: '+10 秒', onPress: () => setGameClockSec((s) => Math.min(quarterLengthSec, s + 10)) },
+        { text: '−10 秒', onPress: () => setGameClockSec((s) => Math.max(0, s - 10)) },
+        { text: '−1 分', onPress: () => setGameClockSec((s) => Math.max(0, s - 60)) },
+        { text: '重置本節', onPress: () => setGameClockSec(quarterLengthSec), style: 'destructive' },
+        { text: '取消', style: 'cancel' },
+      ],
+    );
+  };
+
+  const resetShotClockMax = () => {
+    Haptics.selectionAsync();
+    setShotClockSec(shotClockMaxSec);
+    if (gameClockRunning) setShotClockRunning(true);
+  };
+
+  const resetShotClockTo14 = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShotClockSec(14);
+    if (gameClockRunning) setShotClockRunning(true);
   };
 
   // 重置全部紀錄 — 雙重確認，避免球經誤觸
@@ -507,6 +611,11 @@ export default function EventScoresScreen() {
               });
               setActions((prev) => [...prev, logged]);
               setCurrentQuarter((q) => q + 1);
+              // Reset clocks for next quarter
+              setGameClockRunning(false);
+              setShotClockRunning(false);
+              setGameClockSec(quarterLengthSec);
+              setShotClockSec(shotClockMaxSec);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } catch (e: any) {
               toast.error(e.message || '無法結束本節');
@@ -731,43 +840,100 @@ export default function EventScoresScreen() {
           </View>
         </View>
 
-        {/* Match meta row: timer + current set / game / quarter */}
-        <View style={styles.matchMetaRow}>
-          <Text style={styles.matchMetaText}>
-            {matchStartedAt
-              ? `比賽中 · ${formatMatchDuration(matchStartedAt, matchEndedAt)}`
-              : '尚未開始 · 點任一動作即開始'}
-          </Text>
-          {sportKey === 'basketball' && (
-            <Text style={styles.matchMetaText}>
-              {currentQuarter <= 4 ? `第 ${currentQuarter} 節` : `延長賽 OT${currentQuarter - 4}`}
-            </Text>
-          )}
-          {sportKey === 'volleyball' && vballSets.length > 0 && (
-            <Text style={styles.matchMetaText}>
-              第 {vballSets.find((s) => !s.ended_at)?.set_number || vballSets.length} 局 · 局數 {vballSets.filter((s) => s.ended_at && s.home_score > s.away_score).length}-{vballSets.filter((s) => s.ended_at && s.away_score > s.home_score).length}
-            </Text>
-          )}
-          {sportKey === 'badminton' && bminGames.length > 0 && (
-            <Text style={styles.matchMetaText}>
-              第 {bminGames.find((g) => !g.ended_at)?.game_number || bminGames.length} 局 · 局數 {bminGames.filter((g) => g.ended_at && g.home_score > g.away_score).length}-{bminGames.filter((g) => g.ended_at && g.away_score > g.home_score).length}
-            </Text>
-          )}
-          {(sportKey === 'volleyball' || sportKey === 'badminton') && matchStartedAt && (
-            <TouchableOpacity onPress={handleEndCurrentSet} style={styles.endSetBtn} activeOpacity={0.7}>
-              <Text style={styles.endSetBtnText}>結束本局</Text>
+        {/* Match meta row: sport-specific clocks + controls */}
+        {sportKey === 'basketball' ? (
+          <View style={styles.clockRow}>
+            <View style={styles.quarterPill}>
+              <Text style={styles.quarterText}>
+                {currentQuarter <= 4 ? `Q${currentQuarter}` : `OT${currentQuarter - 4}`}
+              </Text>
+            </View>
+            <Pressable
+              onPress={toggleGameClock}
+              onLongPress={editGameClock}
+              style={[styles.gameClock, gameClockRunning && styles.gameClockActive]}
+            >
+              <Text style={styles.gameClockText}>{formatClock(gameClockSec)}</Text>
+              <Text style={styles.gameClockHint}>
+                {gameClockSec <= 0 ? '本節結束' : gameClockRunning ? '進行中 · 點擊暫停' : '點擊開始'}
+              </Text>
+            </Pressable>
+            {shotClockEnabled && (
+              <Pressable
+                onPress={resetShotClockMax}
+                onLongPress={resetShotClockTo14}
+                style={[
+                  styles.shotClock,
+                  shotClockSec <= 5 && styles.shotClockUrgent,
+                  shotClockSec <= 0 && styles.shotClockExpired,
+                ]}
+              >
+                <Text style={styles.shotClockText}>{Math.ceil(shotClockSec)}</Text>
+              </Pressable>
+            )}
+            <TouchableOpacity onPress={() => setClockSettingsOpen(true)} style={styles.iconBtn}>
+              <IconSymbol name="gearshape.fill" size={16} color="rgba(255,255,255,0.5)" />
             </TouchableOpacity>
-          )}
-          {sportKey === 'basketball' && matchStartedAt && (
-            <TouchableOpacity onPress={handleEndQuarter} style={styles.endSetBtn} activeOpacity={0.7}>
-              <Text style={styles.endSetBtnText}>結束本節</Text>
-            </TouchableOpacity>
-          )}
-          {/* Suppress unused-var warning for tick — drives the timer re-render */}
-          <View style={{ height: 0, width: 0, opacity: 0 }} pointerEvents="none">
-            <Text>{tick}</Text>
+            {matchStartedAt && (
+              <TouchableOpacity onPress={handleEndQuarter} style={styles.endSetBtn} activeOpacity={0.7}>
+                <Text style={styles.endSetBtnText}>結束本節</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        </View>
+        ) : (
+          <View style={styles.matchMetaRow}>
+            <Text style={styles.matchMetaText}>
+              {matchStartedAt
+                ? `比賽中 · ${formatMatchDuration(matchStartedAt, matchEndedAt)}`
+                : '尚未開始 · 點任一動作即開始'}
+            </Text>
+            {sportKey === 'volleyball' && vballSets.length > 0 && (
+              <Text style={styles.matchMetaText}>
+                第 {vballSets.find((s) => !s.ended_at)?.set_number || vballSets.length} 局 · 局數 {vballSets.filter((s) => s.ended_at && s.home_score > s.away_score).length}-{vballSets.filter((s) => s.ended_at && s.away_score > s.home_score).length}
+              </Text>
+            )}
+            {sportKey === 'badminton' && bminGames.length > 0 && (
+              <Text style={styles.matchMetaText}>
+                第 {bminGames.find((g) => !g.ended_at)?.game_number || bminGames.length} 局 · 局數 {bminGames.filter((g) => g.ended_at && g.home_score > g.away_score).length}-{bminGames.filter((g) => g.ended_at && g.away_score > g.home_score).length}
+              </Text>
+            )}
+            {sportKey === 'volleyball' && matchStartedAt && (
+              <TouchableOpacity
+                onPress={() => setTimeout_({ seconds: 30, label: '暫停 30 秒' })}
+                style={styles.endSetBtn}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.endSetBtnText}>暫停 30s</Text>
+              </TouchableOpacity>
+            )}
+            {sportKey === 'badminton' && matchStartedAt && (
+              <>
+                <TouchableOpacity
+                  onPress={() => setTimeout_({ seconds: 60, label: '局中休息 60 秒' })}
+                  style={styles.endSetBtn}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.endSetBtnText}>局中 60s</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setTimeout_({ seconds: 120, label: '局間休息 120 秒' })}
+                  style={styles.endSetBtn}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.endSetBtnText}>局間 120s</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {(sportKey === 'volleyball' || sportKey === 'badminton') && matchStartedAt && (
+              <TouchableOpacity onPress={handleEndCurrentSet} style={styles.endSetBtn} activeOpacity={0.7}>
+                <Text style={styles.endSetBtnText}>結束本局</Text>
+              </TouchableOpacity>
+            )}
+            <View style={{ height: 0, width: 0, opacity: 0 }} pointerEvents="none">
+              <Text>{tick}</Text>
+            </View>
+          </View>
+        )}
 
         {/* Player rosters per team */}
         <ScrollView style={{ flexGrow: 0 }}>
@@ -974,8 +1140,13 @@ export default function EventScoresScreen() {
         >
           <Pressable style={styles.modalOverlay} onPress={() => setSubModalOpen(false)}>
             <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-              <Text style={styles.modalTitle}>換人 · {subTeam || ''}</Text>
-              <Text style={styles.modalHint}>選下場、上場（任一邊或兩邊都選）</Text>
+              <View style={styles.modalTitleRow}>
+                <Text style={styles.modalTitle}>換人 · {subTeam || ''}</Text>
+                {subsThisSession > 0 && (
+                  <Text style={styles.modalCount}>已換 {subsThisSession} 次</Text>
+                )}
+              </View>
+              <Text style={styles.modalHint}>選下場、上場 → 確認 → 可繼續換</Text>
 
               <View style={styles.subColumnsRow}>
                 {/* On-court column */}
@@ -1059,7 +1230,9 @@ export default function EventScoresScreen() {
                   onPress={() => setSubModalOpen(false)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.subCancelText}>取消</Text>
+                  <Text style={styles.subCancelText}>
+                    {subsThisSession > 0 ? '完成' : '取消'}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
@@ -1084,6 +1257,109 @@ export default function EventScoresScreen() {
             </Pressable>
           </Pressable>
         </Modal>
+
+        {/* Clock settings modal (basketball) */}
+        <Modal
+          visible={clockSettingsOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setClockSettingsOpen(false)}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setClockSettingsOpen(false)}>
+            <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+              <Text style={styles.modalTitle}>計時器設定</Text>
+
+              <Text style={styles.settingsLabel}>單節時間</Text>
+              <View style={styles.settingsBtnRow}>
+                {[8, 10, 12].map((m) => {
+                  const active = quarterLengthSec === m * 60;
+                  return (
+                    <TouchableOpacity
+                      key={m}
+                      style={[styles.settingsBtn, active && styles.settingsBtnActive]}
+                      onPress={() => {
+                        setQuarterLengthSec(m * 60);
+                        if (!gameClockRunning) setGameClockSec(m * 60);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.settingsBtnText,
+                          active && { color: '#000' },
+                        ]}
+                      >
+                        {m} 分
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <View style={styles.settingsToggleRow}>
+                <Text style={styles.settingsLabel}>進攻時限（24/14 秒）</Text>
+                <Switch
+                  value={shotClockEnabled}
+                  onValueChange={(v) => {
+                    setShotClockEnabled(v);
+                    if (v) setShotClockSec(shotClockMaxSec);
+                    else setShotClockRunning(false);
+                  }}
+                />
+              </View>
+
+              {shotClockEnabled && (
+                <>
+                  <Text style={styles.settingsLabel}>時限上限</Text>
+                  <View style={styles.settingsBtnRow}>
+                    {[24, 30].map((s) => {
+                      const active = shotClockMaxSec === s;
+                      return (
+                        <TouchableOpacity
+                          key={s}
+                          style={[styles.settingsBtn, active && styles.settingsBtnActive]}
+                          onPress={() => {
+                            setShotClockMaxSec(s);
+                            setShotClockSec(s);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.settingsBtnText,
+                              active && { color: '#000' },
+                            ]}
+                          >
+                            {s} 秒
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <Text style={styles.settingsHint}>
+                    Tap shot clock 重置為 {shotClockMaxSec} 秒・長按重置為 14 秒（進攻籃板）
+                  </Text>
+                </>
+              )}
+
+              <TouchableOpacity
+                style={[styles.subConfirm, { marginTop: Spacing.lg }]}
+                onPress={() => setClockSettingsOpen(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.subConfirmText}>完成</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* Volleyball / badminton timeout overlay */}
+        <TimeoutOverlay
+          visible={!!timeout_}
+          seconds={timeout_?.seconds || 0}
+          label={timeout_?.label || ''}
+          onClose={() => setTimeout_(null)}
+        />
       </SafeAreaView>
     );
   }
@@ -1214,6 +1490,74 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   matchMetaText: { color: 'rgba(255,255,255,0.55)', fontSize: 12, fontVariant: ['tabular-nums'] },
+
+  // Basketball clock row
+  clockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  quarterPill: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  quarterText: { color: '#FFF', fontSize: 12, fontWeight: '800' },
+  gameClock: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.md,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+  },
+  gameClockActive: {
+    backgroundColor: 'rgba(34,197,94,0.18)',
+    borderColor: 'rgba(34,197,94,0.6)',
+  },
+  gameClockText: {
+    color: '#FFF',
+    fontSize: 24,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.5,
+  },
+  gameClockHint: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 10,
+    marginTop: 2,
+  },
+  shotClock: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.sm,
+    backgroundColor: 'rgba(220,38,38,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shotClockUrgent: {
+    backgroundColor: '#DC2626',
+  },
+  shotClockExpired: {
+    backgroundColor: '#7F1D1D',
+  },
+  shotClockText: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  iconBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   endSetBtn: {
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
@@ -1256,7 +1600,14 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     maxHeight: '80%',
   },
-  modalTitle: { color: '#FFF', fontSize: 18, fontWeight: '800', marginBottom: 4 },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  modalTitle: { color: '#FFF', fontSize: 18, fontWeight: '800' },
+  modalCount: { color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' },
   modalHint: { color: 'rgba(255,255,255,0.5)', fontSize: 12, marginBottom: Spacing.md },
   subColumnsRow: { flexDirection: 'row', gap: Spacing.md, minHeight: 200 },
   subColumn: { flex: 1 },
@@ -1315,6 +1666,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   subConfirmText: { color: '#000', fontSize: 14, fontWeight: '700' },
+
+  // Clock settings modal
+  settingsLabel: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  settingsBtnRow: { flexDirection: 'row', gap: Spacing.sm },
+  settingsBtn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.sm,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+  },
+  settingsBtnActive: {
+    backgroundColor: '#FFF',
+    borderColor: '#FFF',
+  },
+  settingsBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  settingsToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: Spacing.lg,
+  },
+  settingsHint: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 11,
+    marginTop: Spacing.sm,
+    lineHeight: 17,
+  },
   rosterRow: { paddingHorizontal: Spacing.lg, gap: Spacing.sm },
   playerChip: {
     minWidth: 80,
