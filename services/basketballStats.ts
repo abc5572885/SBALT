@@ -19,18 +19,19 @@ export interface ActionMeta {
   field: keyof Pick<BasketballStat, 'points_1pt' | 'points_2pt' | 'points_3pt' | 'rebounds' | 'assists' | 'steals' | 'blocks' | 'turnovers' | 'fouls'>;
   pointsDelta: number;  // 加到 event_scores 隊伍總分的點數
   category: 'primary' | 'secondary';
+  tone: 'score' | 'positive' | 'negative';
 }
 
 export const BASKETBALL_ACTIONS: ActionMeta[] = [
-  { key: 'point_1', label: '得分 +1', field: 'points_1pt', pointsDelta: 1, category: 'primary' },
-  { key: 'point_2', label: '得分 +2', field: 'points_2pt', pointsDelta: 2, category: 'primary' },
-  { key: 'point_3', label: '得分 +3', field: 'points_3pt', pointsDelta: 3, category: 'primary' },
-  { key: 'rebound', label: '籃板',    field: 'rebounds',  pointsDelta: 0, category: 'primary' },
-  { key: 'assist',  label: '助攻',    field: 'assists',   pointsDelta: 0, category: 'primary' },
-  { key: 'steal',   label: '抄截',    field: 'steals',    pointsDelta: 0, category: 'secondary' },
-  { key: 'block',   label: '阻攻',    field: 'blocks',    pointsDelta: 0, category: 'secondary' },
-  { key: 'turnover',label: '失誤',    field: 'turnovers', pointsDelta: 0, category: 'secondary' },
-  { key: 'foul',    label: '犯規',    field: 'fouls',     pointsDelta: 0, category: 'secondary' },
+  { key: 'point_1', label: '得分 +1', field: 'points_1pt', pointsDelta: 1, category: 'primary',   tone: 'score' },
+  { key: 'point_2', label: '得分 +2', field: 'points_2pt', pointsDelta: 2, category: 'primary',   tone: 'score' },
+  { key: 'point_3', label: '得分 +3', field: 'points_3pt', pointsDelta: 3, category: 'primary',   tone: 'score' },
+  { key: 'rebound', label: '籃板',    field: 'rebounds',  pointsDelta: 0, category: 'primary',   tone: 'positive' },
+  { key: 'assist',  label: '助攻',    field: 'assists',   pointsDelta: 0, category: 'primary',   tone: 'positive' },
+  { key: 'steal',   label: '抄截',    field: 'steals',    pointsDelta: 0, category: 'primary',   tone: 'positive' },
+  { key: 'block',   label: '阻攻',    field: 'blocks',    pointsDelta: 0, category: 'primary',   tone: 'positive' },
+  { key: 'turnover',label: '失誤',    field: 'turnovers', pointsDelta: 0, category: 'secondary', tone: 'negative' },
+  { key: 'foul',    label: '犯規',    field: 'fouls',     pointsDelta: 0, category: 'secondary', tone: 'negative' },
 ];
 
 export function getActionMeta(action: BasketballAction): ActionMeta {

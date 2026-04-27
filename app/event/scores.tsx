@@ -5,12 +5,33 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   BasketballAction,
   BASKETBALL_ACTIONS,
-  getActionMeta,
+  getActionMeta as getBasketballActionMeta,
   recordAction as recordBasketballAction,
   undoAction as undoBasketballAction,
 } from '@/services/basketballStats';
+import {
+  VolleyballAction,
+  VOLLEYBALL_ACTIONS,
+  getVolleyballActionMeta,
+  recordVolleyballAction,
+  undoVolleyballAction,
+} from '@/services/volleyballStats';
+import {
+  BadmintonAction,
+  BADMINTON_ACTIONS,
+  getBadmintonActionMeta,
+  recordBadmintonAction,
+  undoBadmintonAction,
+} from '@/services/badmintonStats';
 import { getEventById, getEventScores, saveEventScores } from '@/services/database';
-import { BasketballStat, getEventBasketballStats } from '@/services/sportStats';
+import {
+  BasketballStat,
+  VolleyballStat,
+  BadmintonStat,
+  getEventBasketballStats,
+  getEventVolleyballStats,
+  getEventBadmintonStats,
+} from '@/services/sportStats';
 import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
 import { Event, EventScore } from '@/types/database';
 import { toast } from '@/store/useToast';
@@ -36,11 +57,71 @@ interface ScoreEntry {
   score: number;
 }
 
+type AnyAction = BasketballAction | VolleyballAction | BadmintonAction;
+type AnyStat = BasketballStat | VolleyballStat | BadmintonStat;
+type ProSportKey = 'basketball' | 'volleyball' | 'badminton';
+
 interface ActionLog {
   id: string;
   stat_id: string;
-  action: BasketballAction;
+  action: AnyAction;
   ts: number;
+}
+
+function isProSport(sport: string | undefined | null): sport is ProSportKey {
+  return sport === 'basketball' || sport === 'volleyball' || sport === 'badminton';
+}
+
+function getPlayerTotalPoints(stat: AnyStat, sport: ProSportKey): number {
+  if (sport === 'basketball') {
+    const s = stat as BasketballStat;
+    return s.points_1pt * 1 + s.points_2pt * 2 + s.points_3pt * 3;
+  }
+  if (sport === 'volleyball') return (stat as VolleyballStat).points_total || 0;
+  return (stat as BadmintonStat).points_won || 0;
+}
+
+interface AdapterMeta {
+  key: AnyAction;
+  label: string;
+  category: 'primary' | 'secondary';
+  tone: 'score' | 'positive' | 'negative';
+}
+
+function getActionsForSport(sport: ProSportKey): AdapterMeta[] {
+  if (sport === 'basketball') return BASKETBALL_ACTIONS as unknown as AdapterMeta[];
+  if (sport === 'volleyball') return VOLLEYBALL_ACTIONS as unknown as AdapterMeta[];
+  return BADMINTON_ACTIONS as unknown as AdapterMeta[];
+}
+
+function getActionLabel(sport: ProSportKey, action: AnyAction): string {
+  if (sport === 'basketball') return getBasketballActionMeta(action as BasketballAction).label;
+  if (sport === 'volleyball') return getVolleyballActionMeta(action as VolleyballAction).label;
+  return getBadmintonActionMeta(action as BadmintonAction).label;
+}
+
+async function dispatchRecordAction(
+  sport: ProSportKey,
+  stat: AnyStat,
+  action: AnyAction,
+): Promise<AnyStat> {
+  if (sport === 'basketball')
+    return recordBasketballAction(stat as BasketballStat, action as BasketballAction);
+  if (sport === 'volleyball')
+    return recordVolleyballAction(stat as VolleyballStat, action as VolleyballAction);
+  return recordBadmintonAction(stat as BadmintonStat, action as BadmintonAction);
+}
+
+async function dispatchUndoAction(
+  sport: ProSportKey,
+  stat: AnyStat,
+  action: AnyAction,
+): Promise<AnyStat> {
+  if (sport === 'basketball')
+    return undoBasketballAction(stat as BasketballStat, action as BasketballAction);
+  if (sport === 'volleyball')
+    return undoVolleyballAction(stat as VolleyballStat, action as VolleyballAction);
+  return undoBadmintonAction(stat as BadmintonStat, action as BadmintonAction);
 }
 
 export default function EventScoresScreen() {
@@ -52,14 +133,14 @@ export default function EventScoresScreen() {
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Basketball Pro mode state
-  const [stats, setStats] = useState<BasketballStat[]>([]);
+  // Pro mode state (basketball / volleyball / badminton)
+  const [stats, setStats] = useState<AnyStat[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [selectedStatId, setSelectedStatId] = useState<string | null>(null);
   const [log, setLog] = useState<ActionLog[]>([]);
   const [showSecondary, setShowSecondary] = useState(false);
 
-  // Simple mode state (non-basketball)
+  // Simple mode state (running / other)
   const [entries, setEntries] = useState<ScoreEntry[]>([
     { label: '主隊', score: 0 },
     { label: '客隊', score: 0 },
@@ -68,7 +149,8 @@ export default function EventScoresScreen() {
   const [saving, setSaving] = useState(false);
 
   const sportConfig = getSportConfig(event?.sport_type);
-  const isBasketball = event?.sport_type === 'basketball';
+  const sportKey = event?.sport_type;
+  const isPro = isProSport(sportKey);
   const buttons = sportConfig.scoreButtons;
   const primaryPoints = buttons.length >= 2 ? 2 : (buttons[0] || 1);
   const secondaryButtons = buttons.filter((b) => b !== primaryPoints);
@@ -76,20 +158,27 @@ export default function EventScoresScreen() {
   const loadData = useCallback(async () => {
     if (!eventId) return;
     try {
-      const [eventData, existingScores, bballStats] = await Promise.all([
-        getEventById(eventId),
+      const eventData = await getEventById(eventId);
+      const sport = eventData?.sport_type;
+      const [existingScores, sportStats] = await Promise.all([
         getEventScores(eventId),
-        getEventBasketballStats(eventId),
+        sport === 'basketball'
+          ? getEventBasketballStats(eventId)
+          : sport === 'volleyball'
+            ? getEventVolleyballStats(eventId)
+            : sport === 'badminton'
+              ? getEventBadmintonStats(eventId)
+              : Promise.resolve([] as AnyStat[]),
       ]);
       setEvent(eventData);
-      setStats(bballStats);
+      setStats(sportStats as AnyStat[]);
 
       if (existingScores.length > 0) {
         setEntries(existingScores.map((s: EventScore) => ({ label: s.label, score: s.score })));
       }
 
       // Load profiles for non-temp players
-      const userIds = bballStats.map((s) => s.user_id).filter(Boolean) as string[];
+      const userIds = (sportStats as AnyStat[]).map((s) => s.user_id).filter(Boolean) as string[];
       if (userIds.length > 0) {
         const ps = await getProfilesByIds(userIds);
         setProfiles(ps);
@@ -103,23 +192,23 @@ export default function EventScoresScreen() {
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
-  // 籃球 Pro 模式：若沒陣容，跳到 lineup 頁
+  // Pro mode：若沒陣容，跳到 lineup 頁
   useEffect(() => {
-    if (!loading && isBasketball && stats.length === 0) {
+    if (!loading && isPro && stats.length === 0) {
       router.replace({ pathname: '/event/lineup', params: { eventId } });
     }
-  }, [loading, isBasketball, stats.length, eventId, router]);
+  }, [loading, isPro, stats.length, eventId, router]);
 
   // 從 stats 推算隊伍總分
   const teamScores = useMemo(() => {
-    if (!isBasketball) return null;
+    if (!isPro || !sportKey || !isProSport(sportKey)) return null;
     const map = new Map<string, number>();
     for (const s of stats) {
-      const total = s.points_1pt * 1 + s.points_2pt * 2 + s.points_3pt * 3;
+      const total = getPlayerTotalPoints(s, sportKey);
       map.set(s.team_label, (map.get(s.team_label) || 0) + total);
     }
     return Array.from(map.entries()).map(([label, score]) => ({ label, score }));
-  }, [stats, isBasketball]);
+  }, [stats, isPro, sportKey]);
 
   const teamLabels = useMemo(() => {
     const labels = new Set<string>();
@@ -135,54 +224,44 @@ export default function EventScoresScreen() {
     setSelectedStatId(selectedStatId === statId ? null : statId);
   };
 
-  const handleAction = async (action: BasketballAction) => {
-    if (!selectedStatId) {
+  const handleAction = async (action: AnyAction) => {
+    if (!selectedStatId || !sportKey || !isProSport(sportKey)) {
       toast.error('請先選球員');
       return;
     }
     const stat = stats.find((s) => s.id === selectedStatId);
     if (!stat) return;
-    const meta = getActionMeta(action);
+    const actions = getActionsForSport(sportKey);
+    const meta = actions.find((a) => a.key === action);
     Haptics.impactAsync(
-      meta.pointsDelta >= 3 ? Haptics.ImpactFeedbackStyle.Heavy
-        : meta.pointsDelta >= 2 ? Haptics.ImpactFeedbackStyle.Medium
+      meta?.tone === 'score' ? Haptics.ImpactFeedbackStyle.Medium
+        : meta?.tone === 'negative' ? Haptics.ImpactFeedbackStyle.Soft
         : Haptics.ImpactFeedbackStyle.Light
     );
 
-    // Optimistic UI update
-    setStats((prev) => prev.map((s) =>
-      s.id === selectedStatId ? { ...s, [meta.field]: (s[meta.field] as number) + 1 } : s
-    ));
     setLog((prev) => [
       { id: `${selectedStatId}-${Date.now()}`, stat_id: selectedStatId, action, ts: Date.now() },
       ...prev,
     ].slice(0, 20));
 
     try {
-      const updated = await recordBasketballAction(stat, action);
+      const updated = await dispatchRecordAction(sportKey, stat, action);
       setStats((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
     } catch (e: any) {
       toast.error(e.message || '記錄失敗');
-      // Rollback
-      setStats((prev) => prev.map((s) =>
-        s.id === selectedStatId ? { ...s, [meta.field]: Math.max(0, (s[meta.field] as number) - 1) } : s
-      ));
+      setLog((prev) => prev.filter((l) => l.stat_id !== selectedStatId || l.ts !== prev[0].ts));
     }
   };
 
   const handleUndo = async (entry: ActionLog) => {
+    if (!sportKey || !isProSport(sportKey)) return;
     const stat = stats.find((s) => s.id === entry.stat_id);
     if (!stat) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
-    const meta = getActionMeta(entry.action);
-
-    setStats((prev) => prev.map((s) =>
-      s.id === entry.stat_id ? { ...s, [meta.field]: Math.max(0, (s[meta.field] as number) - 1) } : s
-    ));
     setLog((prev) => prev.filter((l) => l.id !== entry.id));
 
     try {
-      const updated = await undoBasketballAction(stat, entry.action);
+      const updated = await dispatchUndoAction(sportKey, stat, entry.action);
       setStats((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
     } catch (e: any) {
       toast.error(e.message || '取消失敗');
@@ -218,9 +297,7 @@ export default function EventScoresScreen() {
         style: 'destructive',
         onPress: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          if (isBasketball) {
-            // Pro mode 重置：保留陣容，只把所有 stats 歸零（DB + 本地）
-            // 暫時不實作，避免誤觸；建議刪除陣容重建
+          if (isPro) {
             toast.info('Pro 模式請從陣容頁刪除重建');
           } else {
             setEntries((prev) => prev.map((e) => ({ ...e, score: 0 })));
@@ -233,7 +310,7 @@ export default function EventScoresScreen() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      const finalEntries = isBasketball && teamScores
+      const finalEntries = isPro && teamScores
         ? teamScores.map((t) => ({ label: t.label, score: t.score }))
         : entries.map((e) => ({ label: e.label.trim(), score: e.score }));
       await saveEventScores(eventId, finalEntries);
@@ -258,11 +335,13 @@ export default function EventScoresScreen() {
   }
 
   // ============================================================
-  // Render: Basketball Pro mode
+  // Render: Pro mode (basketball / volleyball / badminton)
   // ============================================================
-  if (isBasketball && stats.length > 0) {
-    const primaryActions = BASKETBALL_ACTIONS.filter((a) => a.category === 'primary');
-    const secondaryActions = BASKETBALL_ACTIONS.filter((a) => a.category === 'secondary');
+  if (isPro && sportKey && isProSport(sportKey) && stats.length > 0) {
+    const allActions = getActionsForSport(sportKey);
+    const scoreActions = allActions.filter((a) => a.tone === 'score');
+    const positiveActions = allActions.filter((a) => a.tone === 'positive');
+    const negativeActions = allActions.filter((a) => a.tone === 'negative');
 
     return (
       <SafeAreaView style={[styles.fullScreen, { backgroundColor: '#000' }]} edges={['top', 'bottom']}>
@@ -314,7 +393,7 @@ export default function EventScoresScreen() {
                     const name = s.user_id
                       ? getDisplayName(profiles[s.user_id], s.user_id, false)
                       : s.display_name || '';
-                    const total = s.points_1pt * 1 + s.points_2pt * 2 + s.points_3pt * 3;
+                    const total = getPlayerTotalPoints(s, sportKey);
                     const selected = selectedStatId === s.id;
                     return (
                       <TouchableOpacity
@@ -349,52 +428,78 @@ export default function EventScoresScreen() {
 
         {/* Action buttons */}
         <View style={styles.actionsArea}>
-          <View style={styles.actionGrid}>
-            {primaryActions.map((a) => (
-              <TouchableOpacity
-                key={a.key}
-                style={[
-                  styles.actionBtn,
-                  !selectedStatId && { opacity: 0.4 },
-                ]}
-                onPress={() => handleAction(a.key)}
-                disabled={!selectedStatId}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.actionBtnText}>{a.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {showSecondary && (
-            <View style={styles.actionGrid}>
-              {secondaryActions.map((a) => (
+          {/* Score row — biggest, most prominent */}
+          {scoreActions.length > 0 && (
+            <View style={styles.scoreRow}>
+              {scoreActions.map((a) => (
                 <TouchableOpacity
                   key={a.key}
                   style={[
-                    styles.actionBtn,
-                    styles.actionBtnSecondary,
-                    !selectedStatId && { opacity: 0.4 },
+                    styles.scoreBtn,
+                    !selectedStatId && { opacity: 0.35 },
                   ]}
                   onPress={() => handleAction(a.key)}
                   disabled={!selectedStatId}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.actionBtnText}>{a.label}</Text>
+                  <Text style={styles.scoreBtnText} numberOfLines={1}>{a.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           )}
 
-          <TouchableOpacity
-            style={styles.toggleSecondary}
-            onPress={() => setShowSecondary((v) => !v)}
-            activeOpacity={0.7}
-          >
-            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
-              {showSecondary ? '收起' : '更多動作'}
-            </Text>
-          </TouchableOpacity>
+          {/* Positive actions — chip flow */}
+          {positiveActions.length > 0 && (
+            <View style={styles.chipFlow}>
+              {positiveActions.map((a) => (
+                <TouchableOpacity
+                  key={a.key}
+                  style={[
+                    styles.chipBtn,
+                    !selectedStatId && { opacity: 0.35 },
+                  ]}
+                  onPress={() => handleAction(a.key)}
+                  disabled={!selectedStatId}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.chipBtnText}>{a.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Negative actions — separated, dimmer */}
+          {showSecondary && negativeActions.length > 0 && (
+            <View style={styles.chipFlow}>
+              {negativeActions.map((a) => (
+                <TouchableOpacity
+                  key={a.key}
+                  style={[
+                    styles.chipBtn,
+                    styles.chipBtnNegative,
+                    !selectedStatId && { opacity: 0.35 },
+                  ]}
+                  onPress={() => handleAction(a.key)}
+                  disabled={!selectedStatId}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.chipBtnText, { color: 'rgba(255,255,255,0.7)' }]}>{a.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {negativeActions.length > 0 && (
+            <TouchableOpacity
+              style={styles.toggleSecondary}
+              onPress={() => setShowSecondary((v) => !v)}
+              activeOpacity={0.7}
+            >
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                {showSecondary ? '收起失誤/犯規' : '記錄失誤/犯規'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Recent log */}
@@ -410,7 +515,7 @@ export default function EventScoresScreen() {
                 const name = stat.user_id
                   ? getDisplayName(profiles[stat.user_id], stat.user_id, false)
                   : stat.display_name || '';
-                const meta = getActionMeta(entry.action);
+                const label = getActionLabel(sportKey, entry.action);
                 return (
                   <TouchableOpacity
                     key={entry.id}
@@ -419,7 +524,7 @@ export default function EventScoresScreen() {
                     activeOpacity={0.7}
                   >
                     <Text style={styles.logChipText} numberOfLines={1}>
-                      {name} · {meta.label}
+                      {name} · {label}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -566,21 +671,38 @@ const styles = StyleSheet.create({
   playerChipScore: { fontSize: 16, fontWeight: '800' },
 
   // Actions
-  actionsArea: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
-  actionGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, justifyContent: 'space-between',
+  actionsArea: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, gap: Spacing.sm },
+  scoreRow: {
+    flexDirection: 'row', gap: Spacing.sm,
   },
-  actionBtn: {
-    flexBasis: '32%',
-    paddingVertical: Spacing.lg,
+  scoreBtn: {
+    flex: 1,
+    paddingVertical: 22,
     borderRadius: Radius.md,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scoreBtnText: { color: '#FFF', fontSize: 17, fontWeight: '800', letterSpacing: -0.3 },
+  chipFlow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+  },
+  chipBtn: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+    backgroundColor: 'rgba(255,255,255,0.13)',
+    minWidth: 80,
     alignItems: 'center',
   },
-  actionBtnSecondary: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+  chipBtnNegative: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
-  actionBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  chipBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
   toggleSecondary: { paddingVertical: Spacing.sm, alignItems: 'center' },
 
   // Log

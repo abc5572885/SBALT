@@ -5,6 +5,8 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createLineup, LineupPlayer } from '@/services/basketballStats';
+import { createVolleyballLineup, VolleyballLineupPlayer } from '@/services/volleyballStats';
+import { createBadmintonLineup, BadmintonLineupPlayer } from '@/services/badmintonStats';
 import { getEventById, getRegistrations } from '@/services/database';
 import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
 import { Event, Registration } from '@/types/database';
@@ -128,7 +130,7 @@ export default function LineupScreen() {
 
     try {
       setSaving(true);
-      const players: LineupPlayer[] = rows
+      const players = rows
         .filter((r) => r.team !== null)
         .map((r) => ({
           user_id: r.user_id ?? null,
@@ -136,7 +138,14 @@ export default function LineupScreen() {
           jersey_number: r.jersey_number ?? null,
           team_label: r.team === 'A' ? teamAName : teamBName,
         }));
-      await createLineup(eventId, players);
+      const sport = event?.sport_type;
+      if (sport === 'volleyball') {
+        await createVolleyballLineup(eventId, players as VolleyballLineupPlayer[]);
+      } else if (sport === 'badminton') {
+        await createBadmintonLineup(eventId, players as BadmintonLineupPlayer[]);
+      } else {
+        await createLineup(eventId, players as LineupPlayer[]);
+      }
       toast.success('陣容已建立');
       router.replace({ pathname: '/event/scores', params: { eventId } });
     } catch (error: any) {
@@ -167,7 +176,12 @@ export default function LineupScreen() {
 
       {event && (
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          {event.title} · {event.sport_type === 'basketball' ? '籃球' : event.sport_type}
+          {event.title} · {
+            event.sport_type === 'basketball' ? '籃球'
+              : event.sport_type === 'volleyball' ? '排球'
+              : event.sport_type === 'badminton' ? '羽球'
+              : event.sport_type
+          }
         </Text>
       )}
 
