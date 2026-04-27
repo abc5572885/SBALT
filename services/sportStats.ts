@@ -130,6 +130,12 @@ export interface BadmintonStat {
   drop_errors: number;
   net_kills: number;
   net_kill_errors: number;
+  clears: number;
+  clear_errors: number;
+  drives: number;
+  drive_errors: number;
+  lifts: number;
+  lift_errors: number;
   errors: number; // generic uncategorized errors (net touch, foot fault, etc.)
   points_won: number;
   points_lost: number;

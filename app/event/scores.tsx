@@ -42,6 +42,7 @@ import {
 import {
   ActionRow,
   getEventActions,
+  logAction,
   recordSubstitution,
 } from '@/services/eventActions';
 import {
@@ -185,6 +186,9 @@ export default function EventScoresScreen() {
   const [subOutStatId, setSubOutStatId] = useState<string | null>(null);
   const [subInStatId, setSubInStatId] = useState<string | null>(null);
 
+  // Phase 3: basketball quarter tracking (1, 2, 3, 4, 5+ for OT)
+  const [currentQuarter, setCurrentQuarter] = useState(1);
+
   const sportConfig = getSportConfig(event?.sport_type);
   const sportKey = event?.sport_type;
   const isPro = isProSport(sportKey);
@@ -231,6 +235,10 @@ export default function EventScoresScreen() {
         if (a.action_type === 'sub_out') active.delete(a.stat_id);
       }
       setActiveStatIds(active);
+
+      // Phase 3: derive current quarter from quarter_end events
+      const quarterEnds = actionRows.filter((a) => a.action_type === 'quarter_end').length;
+      setCurrentQuarter(quarterEnds + 1);
 
       if (existingScores.length > 0) {
         setEntries(existingScores.map((s: EventScore) => ({ label: s.label, score: s.score })));
@@ -321,6 +329,23 @@ export default function EventScoresScreen() {
       const updated = await dispatchRecordAction(sportKey, stat, action);
       setStats((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
 
+      // Phase 3: log basketball actions to event_actions for +/- and quarter scoring derivation
+      if (sportKey === 'basketball' && meta) {
+        const pointsDelta =
+          action === 'point_1' ? 1 : action === 'point_2' ? 2 : action === 'point_3' ? 3 : 0;
+        const logged = await logAction({
+          eventId,
+          sport: 'basketball',
+          statId: stat.id,
+          userId: stat.user_id,
+          teamLabel: stat.team_label,
+          actionType: action as string,
+          pointsDelta,
+          quarter: currentQuarter,
+        });
+        setActions((prev) => [...prev, logged]);
+      }
+
       // Phase 1: per-set scoring for volleyball/badminton
       if (meta?.tone === 'score' && (sportKey === 'volleyball' || sportKey === 'badminton')) {
         const homeLabel = teamLabels[0];
@@ -405,6 +430,41 @@ export default function EventScoresScreen() {
     } catch (e: any) {
       toast.error(e.message || '換人失敗');
     }
+  };
+
+  // 結束本節 (basketball)
+  const handleEndQuarter = () => {
+    if (sportKey !== 'basketball') return;
+    Alert.alert(
+      `結束第 ${currentQuarter} 節`,
+      `${currentQuarter >= 4 ? '進入延長賽' : `進入第 ${currentQuarter + 1} 節`}`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '結束本節',
+          onPress: async () => {
+            try {
+              const homeLabel = teamLabels[0] || '';
+              const logged = await logAction({
+                eventId,
+                sport: 'basketball',
+                statId: null,
+                userId: null,
+                teamLabel: homeLabel,
+                actionType: 'quarter_end',
+                pointsDelta: 0,
+                quarter: currentQuarter,
+              });
+              setActions((prev) => [...prev, logged]);
+              setCurrentQuarter((q) => q + 1);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch (e: any) {
+              toast.error(e.message || '無法結束本節');
+            }
+          },
+        },
+      ],
+    );
   };
 
   // 結束本局/開新局 (volleyball / badminton)
@@ -612,13 +672,18 @@ export default function EventScoresScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Match meta row: timer + current set / game */}
+        {/* Match meta row: timer + current set / game / quarter */}
         <View style={styles.matchMetaRow}>
           <Text style={styles.matchMetaText}>
             {matchStartedAt
               ? `比賽中 · ${formatMatchDuration(matchStartedAt, matchEndedAt)}`
               : '尚未開始 · 點任一動作即開始'}
           </Text>
+          {sportKey === 'basketball' && (
+            <Text style={styles.matchMetaText}>
+              {currentQuarter <= 4 ? `第 ${currentQuarter} 節` : `延長賽 OT${currentQuarter - 4}`}
+            </Text>
+          )}
           {sportKey === 'volleyball' && vballSets.length > 0 && (
             <Text style={styles.matchMetaText}>
               第 {vballSets.find((s) => !s.ended_at)?.set_number || vballSets.length} 局 · 局數 {vballSets.filter((s) => s.ended_at && s.home_score > s.away_score).length}-{vballSets.filter((s) => s.ended_at && s.away_score > s.home_score).length}
@@ -632,6 +697,11 @@ export default function EventScoresScreen() {
           {(sportKey === 'volleyball' || sportKey === 'badminton') && matchStartedAt && (
             <TouchableOpacity onPress={handleEndCurrentSet} style={styles.endSetBtn} activeOpacity={0.7}>
               <Text style={styles.endSetBtnText}>結束本局</Text>
+            </TouchableOpacity>
+          )}
+          {sportKey === 'basketball' && matchStartedAt && (
+            <TouchableOpacity onPress={handleEndQuarter} style={styles.endSetBtn} activeOpacity={0.7}>
+              <Text style={styles.endSetBtnText}>結束本節</Text>
             </TouchableOpacity>
           )}
           {/* Suppress unused-var warning for tick — drives the timer re-render */}

@@ -190,3 +190,45 @@ export function intervalsTotalSeconds(intervals: OnCourtInterval[]): number {
   }
   return total;
 }
+
+/**
+ * Plus-minus for a player: net team-points scored during their on-court intervals.
+ * Counts +points_delta for own team's scoring actions, −points_delta for opponent's,
+ * but only for scoring events whose timestamp falls within an interval.
+ */
+export function computePlusMinus(
+  teamLabel: string,
+  intervals: OnCourtInterval[],
+  scoringActions: ActionRow[],
+): number {
+  let net = 0;
+  for (const iv of intervals) {
+    const start = new Date(iv.start).getTime();
+    const end = new Date(iv.end).getTime();
+    for (const a of scoringActions) {
+      if (!a.points_delta) continue;
+      const ts = new Date(a.ts).getTime();
+      if (ts < start || ts > end) continue;
+      if (a.team_label === teamLabel) net += a.points_delta;
+      else net -= a.points_delta;
+    }
+  }
+  return net;
+}
+
+/** Per-quarter / per-set team scores derived from scoring action log. */
+export function aggregateQuarterScores(
+  actions: ActionRow[],
+): Map<number, Map<string, number>> {
+  const result = new Map<number, Map<string, number>>();
+  for (const a of actions) {
+    if (!a.points_delta || !a.quarter) continue;
+    let q = result.get(a.quarter);
+    if (!q) {
+      q = new Map();
+      result.set(a.quarter, q);
+    }
+    q.set(a.team_label, (q.get(a.team_label) || 0) + a.points_delta);
+  }
+  return result;
+}

@@ -29,7 +29,9 @@ import {
 } from '@/services/matchTime';
 import {
   ActionRow,
+  aggregateQuarterScores,
   computePlayerIntervals,
+  computePlusMinus,
   getEventActions,
   intervalsTotalSeconds,
 } from '@/services/eventActions';
@@ -85,12 +87,28 @@ function basketballMinutesSec(s: BasketballStat, ctx: BasketballCtx): number {
   return intervalsTotalSeconds(intervals);
 }
 
+function basketballPlusMinus(s: BasketballStat, ctx: BasketballCtx): number {
+  if (!ctx.matchStart) return 0;
+  const end = ctx.matchEnd || new Date().toISOString();
+  const intervals = computePlayerIntervals(s.id, s.is_starter, ctx.matchStart, end, ctx.actions);
+  const scoring = ctx.actions.filter((a) => a.points_delta > 0);
+  return computePlusMinus(s.team_label, intervals, scoring);
+}
+
+const formatPlusMinus = (n: number): string => (n > 0 ? `+${n}` : String(n));
+
 const buildBasketballCols = (ctx: BasketballCtx): Column<BasketballStat>[] => [
   {
     label: 'MIN',
     width: 50,
     render: (s) => formatMinutes(basketballMinutesSec(s, ctx)),
     total: (ss) => formatMinutes(sumBy(ss, (s) => basketballMinutesSec(s, ctx))),
+  },
+  {
+    label: '+/-',
+    width: 44,
+    render: (s) => formatPlusMinus(basketballPlusMinus(s, ctx)),
+    total: () => '—',
   },
   {
     label: '分',
@@ -278,6 +296,27 @@ const BADMINTON_COLS: Column<BadmintonStat>[] = [
     total: (ss) =>
       formatPct(sumBy(ss, (s) => s.net_kills), sumBy(ss, (s) => s.net_kills + s.net_kill_errors)),
   },
+  {
+    label: '高遠',
+    width: 48,
+    render: (s) => formatMA(s.clears, s.clears + s.clear_errors),
+    total: (ss) =>
+      formatMA(sumBy(ss, (s) => s.clears), sumBy(ss, (s) => s.clears + s.clear_errors)),
+  },
+  {
+    label: '平抽',
+    width: 48,
+    render: (s) => formatMA(s.drives, s.drives + s.drive_errors),
+    total: (ss) =>
+      formatMA(sumBy(ss, (s) => s.drives), sumBy(ss, (s) => s.drives + s.drive_errors)),
+  },
+  {
+    label: '挑',
+    width: 48,
+    render: (s) => formatMA(s.lifts, s.lifts + s.lift_errors),
+    total: (ss) =>
+      formatMA(sumBy(ss, (s) => s.lifts), sumBy(ss, (s) => s.lifts + s.lift_errors)),
+  },
   { label: '失', width: 36, render: (s) => String(s.errors), total: (ss) => String(sumBy(ss, (s) => s.errors)) },
   { label: '輸分', width: 44, render: (s) => String(s.points_lost), total: (ss) => String(sumBy(ss, (s) => s.points_lost)) },
 ];
@@ -449,6 +488,51 @@ export default function BoxScoreScreen() {
           })}
         </View>
       )}
+
+      {sport === 'basketball' && (() => {
+        const qScores = aggregateQuarterScores(actions);
+        const quarters = Array.from(qScores.keys()).sort((a, b) => a - b);
+        if (quarters.length === 0) return null;
+        return (
+          <View style={styles.setCard}>
+            <Text style={[styles.setCardTitle, { color: colors.textSecondary }]}>逐節比分</Text>
+            <View style={[styles.setHeaderRow, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.setLabelCell, { color: colors.textSecondary }]}>節數</Text>
+              {quarters.map((q) => (
+                <Text key={q} style={[styles.setNumCell, { color: colors.textSecondary }]}>
+                  {q <= 4 ? `Q${q}` : `OT${q - 4}`}
+                </Text>
+              ))}
+              <Text style={[styles.setNumCell, { color: colors.text, fontWeight: '700' }]}>總</Text>
+            </View>
+            {teamLabels.map((label, idx) => (
+              <View key={label} style={[styles.setDataRow, { borderBottomColor: colors.border }]}>
+                <View style={styles.setLabelCell}>
+                  <View style={[styles.setLabelDot, { backgroundColor: TEAM_COLORS[idx] }]} />
+                  <Text style={[styles.setLabelText, { color: colors.text }]}>{label}</Text>
+                </View>
+                {quarters.map((q) => {
+                  const score = qScores.get(q)?.get(label) || 0;
+                  return (
+                    <Text
+                      key={q}
+                      style={[
+                        styles.setNumCell,
+                        { color: colors.text, fontWeight: '600' },
+                      ]}
+                    >
+                      {score}
+                    </Text>
+                  );
+                })}
+                <Text style={[styles.setNumCell, { color: colors.text, fontWeight: '800' }]}>
+                  {quarters.reduce((sum, q) => sum + (qScores.get(q)?.get(label) || 0), 0)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        );
+      })()}
 
       {sport === 'badminton' && bminGames.length > 0 && (
         <View style={styles.setCard}>

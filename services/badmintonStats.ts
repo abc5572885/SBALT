@@ -8,6 +8,12 @@ export type BadmintonAction =
   | 'drop_error'
   | 'net_kill'
   | 'net_kill_error'
+  | 'clear'
+  | 'clear_error'
+  | 'drive'
+  | 'drive_error'
+  | 'lift'
+  | 'lift_error'
   | 'error';
 
 export interface BadmintonActionMeta {
@@ -18,6 +24,9 @@ export interface BadmintonActionMeta {
     | 'smashes' | 'smash_errors'
     | 'drops' | 'drop_errors'
     | 'net_kills' | 'net_kill_errors'
+    | 'clears' | 'clear_errors'
+    | 'drives' | 'drive_errors'
+    | 'lifts' | 'lift_errors'
     | 'errors'
   >;
   /** Whether this action gives the player's team a point (winning shot). */
@@ -27,12 +36,23 @@ export interface BadmintonActionMeta {
 }
 
 export const BADMINTON_ACTIONS: BadmintonActionMeta[] = [
+  // Scoring shots
   { key: 'smash',          label: '殺球得分', field: 'smashes',         scores: true,  category: 'primary',   tone: 'score' },
   { key: 'drop',           label: '放短得分', field: 'drops',           scores: true,  category: 'primary',   tone: 'score' },
   { key: 'net_kill',       label: '撲球得分', field: 'net_kills',       scores: true,  category: 'primary',   tone: 'score' },
+  // Errors that hand point to opponent
   { key: 'smash_error',    label: '殺球失誤', field: 'smash_errors',    scores: false, category: 'primary',   tone: 'miss' },
   { key: 'drop_error',     label: '放短失誤', field: 'drop_errors',     scores: false, category: 'primary',   tone: 'miss' },
   { key: 'net_kill_error', label: '撲球失誤', field: 'net_kill_errors', scores: false, category: 'primary',   tone: 'miss' },
+  // Neutral strokes that progress rally (not direct points)
+  { key: 'clear',          label: '高遠球',   field: 'clears',          scores: false, category: 'secondary', tone: 'positive' },
+  { key: 'drive',          label: '平抽',     field: 'drives',          scores: false, category: 'secondary', tone: 'positive' },
+  { key: 'lift',           label: '挑球',     field: 'lifts',           scores: false, category: 'secondary', tone: 'positive' },
+  // Neutral-stroke errors
+  { key: 'clear_error',    label: '高遠球失誤', field: 'clear_errors',  scores: false, category: 'secondary', tone: 'negative' },
+  { key: 'drive_error',    label: '平抽失誤', field: 'drive_errors',    scores: false, category: 'secondary', tone: 'negative' },
+  { key: 'lift_error',     label: '挑球失誤', field: 'lift_errors',     scores: false, category: 'secondary', tone: 'negative' },
+  // Generic catch-all
   { key: 'error',          label: '一般失誤', field: 'errors',          scores: false, category: 'secondary', tone: 'negative' },
 ];
 
