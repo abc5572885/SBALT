@@ -13,7 +13,12 @@ export interface BasketballStat {
   points_1pt: number;
   points_2pt: number;
   points_3pt: number;
-  rebounds: number;
+  misses_1pt: number;
+  misses_2pt: number;
+  misses_3pt: number;
+  rebounds: number; // legacy, no longer written; use offensive + defensive
+  offensive_rebounds: number;
+  defensive_rebounds: number;
   assists: number;
   steals: number;
   blocks: number;
@@ -26,6 +31,16 @@ export interface BasketballStat {
 
 export function basketballTotalPoints(s: Pick<BasketballStat, 'points_1pt' | 'points_2pt' | 'points_3pt'>): number {
   return s.points_1pt * 1 + s.points_2pt * 2 + s.points_3pt * 3;
+}
+
+/** Total rebounds (offensive + defensive). Falls back to legacy `rebounds` for old records. */
+export function basketballTotalRebounds(
+  s: Partial<Pick<BasketballStat, 'offensive_rebounds' | 'defensive_rebounds' | 'rebounds'>>,
+): number {
+  const off = s.offensive_rebounds || 0;
+  const def = s.defensive_rebounds || 0;
+  if (off === 0 && def === 0) return s.rebounds || 0;
+  return off + def;
 }
 
 export async function getEventBasketballStats(eventId: string): Promise<BasketballStat[]> {
@@ -58,11 +73,16 @@ export interface VolleyballStat {
   jersey_number: string | null;
   position: string | null;
   spikes: number;
+  spike_errors: number;
   blocks: number;
+  block_errors: number;
   serve_aces: number;
+  serve_errors: number;
+  reception_successes: number;
+  reception_errors: number;
   set_assists: number;
   digs: number;
-  errors: number;
+  errors: number; // generic uncategorized errors
   points_total: number;
   recorded_by: string | null;
   created_at: string;
@@ -102,9 +122,12 @@ export interface BadmintonStat {
   sets_won: number;
   sets_lost: number;
   smashes: number;
+  smash_errors: number;
   drops: number;
+  drop_errors: number;
   net_kills: number;
-  errors: number;
+  net_kill_errors: number;
+  errors: number; // generic uncategorized errors (net touch, foot fault, etc.)
   points_won: number;
   points_lost: number;
   recorded_by: string | null;
@@ -250,7 +273,7 @@ export async function getBasketballCareerStats(userId: string): Promise<Basketba
   }
 
   const totalPoints = list.reduce((sum, s) => sum + basketballTotalPoints(s), 0);
-  const totalRebounds = list.reduce((sum, s) => sum + s.rebounds, 0);
+  const totalRebounds = list.reduce((sum, s) => sum + basketballTotalRebounds(s), 0);
   const totalAssists = list.reduce((sum, s) => sum + s.assists, 0);
   const totalSteals = list.reduce((sum, s) => sum + s.steals, 0);
   const totalBlocks = list.reduce((sum, s) => sum + s.blocks, 0);

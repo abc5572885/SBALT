@@ -21,7 +21,7 @@ import {
   hasUserRegistered,
 } from '@/services/database';
 import { Comment, Event, EventScore } from '@/types/database';
-import { BasketballStat, basketballTotalPoints, getEventBasketballStats } from '@/services/sportStats';
+import { BasketballStat, basketballTotalPoints, basketballTotalRebounds, getEventBasketballStats } from '@/services/sportStats';
 import { getProfilesByIds, Profile, getDisplayName } from '@/services/profile';
 import { addToDeviceCalendar } from '@/services/calendar';
 import { pickAndUploadEventImage } from '@/services/eventImage';
@@ -472,7 +472,7 @@ export default function EventDetailScreen() {
                           </Text>
                         </View>
                         <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                          {total} 分 · {s.rebounds} 板 · {s.assists} 助
+                          {total} 分 · {basketballTotalRebounds(s)} 板 · {s.assists} 助
                           {s.steals > 0 && ` · ${s.steals} 抄`}
                           {s.blocks > 0 && ` · ${s.blocks} 阻`}
                         </Text>

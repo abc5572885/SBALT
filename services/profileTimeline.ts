@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import {
   basketballTotalPoints,
+  basketballTotalRebounds,
   getUserBadmintonStats,
   getUserBasketballStats,
   getUserVolleyballStats,
@@ -61,13 +62,14 @@ export async function getProfileTimeline(userId: string, limit = 10): Promise<Ti
     const evt = events[s.event_id];
     if (!evt) continue;
     const pts = basketballTotalPoints(s);
+    const reb = basketballTotalRebounds(s);
     items.push({
       id: `event:${s.event_id}:basketball`,
       kind: 'event',
       date: evt.scheduled_at,
       sport: 'basketball',
       title: evt.title,
-      summary: `${pts} 分 · ${s.rebounds} 板 · ${s.assists} 助`,
+      summary: `${pts} 分 · ${reb} 板 · ${s.assists} 助`,
       routeId: s.event_id,
     });
   }

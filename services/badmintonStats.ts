@@ -1,23 +1,39 @@
 import { supabase } from '@/lib/supabase';
 import { BadmintonStat } from './sportStats';
 
-export type BadmintonAction = 'smash' | 'drop' | 'net_kill' | 'error';
+export type BadmintonAction =
+  | 'smash'
+  | 'smash_error'
+  | 'drop'
+  | 'drop_error'
+  | 'net_kill'
+  | 'net_kill_error'
+  | 'error';
 
 export interface BadmintonActionMeta {
   key: BadmintonAction;
   label: string;
-  field: keyof Pick<BadmintonStat, 'smashes' | 'drops' | 'net_kills' | 'errors'>;
-  /** Whether this action gives the player's team a point (smash/drop/net_kill = winning shot). */
+  field: keyof Pick<
+    BadmintonStat,
+    | 'smashes' | 'smash_errors'
+    | 'drops' | 'drop_errors'
+    | 'net_kills' | 'net_kill_errors'
+    | 'errors'
+  >;
+  /** Whether this action gives the player's team a point (winning shot). */
   scores: boolean;
   category: 'primary' | 'secondary';
-  tone: 'score' | 'positive' | 'negative';
+  tone: 'score' | 'miss' | 'positive' | 'negative';
 }
 
 export const BADMINTON_ACTIONS: BadmintonActionMeta[] = [
-  { key: 'smash',    label: '殺球得分', field: 'smashes',   scores: true,  category: 'primary',   tone: 'score' },
-  { key: 'drop',     label: '放短得分', field: 'drops',     scores: true,  category: 'primary',   tone: 'score' },
-  { key: 'net_kill', label: '撲球得分', field: 'net_kills', scores: true,  category: 'primary',   tone: 'score' },
-  { key: 'error',    label: '失誤',     field: 'errors',    scores: false, category: 'secondary', tone: 'negative' },
+  { key: 'smash',          label: '殺球得分', field: 'smashes',         scores: true,  category: 'primary',   tone: 'score' },
+  { key: 'drop',           label: '放短得分', field: 'drops',           scores: true,  category: 'primary',   tone: 'score' },
+  { key: 'net_kill',       label: '撲球得分', field: 'net_kills',       scores: true,  category: 'primary',   tone: 'score' },
+  { key: 'smash_error',    label: '殺球失誤', field: 'smash_errors',    scores: false, category: 'primary',   tone: 'miss' },
+  { key: 'drop_error',     label: '放短失誤', field: 'drop_errors',     scores: false, category: 'primary',   tone: 'miss' },
+  { key: 'net_kill_error', label: '撲球失誤', field: 'net_kill_errors', scores: false, category: 'primary',   tone: 'miss' },
+  { key: 'error',          label: '一般失誤', field: 'errors',          scores: false, category: 'secondary', tone: 'negative' },
 ];
 
 export function getBadmintonActionMeta(action: BadmintonAction): BadmintonActionMeta {

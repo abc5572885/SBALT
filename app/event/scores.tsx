@@ -85,7 +85,7 @@ interface AdapterMeta {
   key: AnyAction;
   label: string;
   category: 'primary' | 'secondary';
-  tone: 'score' | 'positive' | 'negative';
+  tone: 'score' | 'miss' | 'positive' | 'negative';
 }
 
 function getActionsForSport(sport: ProSportKey): AdapterMeta[] {
@@ -344,6 +344,7 @@ export default function EventScoresScreen() {
   if (isPro && sportKey && isProSport(sportKey) && stats.length > 0) {
     const allActions = getActionsForSport(sportKey);
     const scoreActions = allActions.filter((a) => a.tone === 'score');
+    const missActions = allActions.filter((a) => a.tone === 'miss');
     const positiveActions = allActions.filter((a) => a.tone === 'positive');
     const negativeActions = allActions.filter((a) => a.tone === 'negative');
 
@@ -447,6 +448,26 @@ export default function EventScoresScreen() {
                   activeOpacity={0.7}
                 >
                   <Text style={styles.scoreBtnText} numberOfLines={1}>{a.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Miss actions — same layout as score row but dimmer (paired with score) */}
+          {missActions.length > 0 && (
+            <View style={styles.scoreRow}>
+              {missActions.map((a) => (
+                <TouchableOpacity
+                  key={a.key}
+                  style={[
+                    styles.missBtn,
+                    !selectedStatId && { opacity: 0.35 },
+                  ]}
+                  onPress={() => handleAction(a.key)}
+                  disabled={!selectedStatId}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.missBtnText} numberOfLines={1}>{a.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -689,6 +710,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scoreBtnText: { color: '#FFF', fontSize: 17, fontWeight: '800', letterSpacing: -0.3 },
+  missBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: Radius.md,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  missBtnText: { color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: '600' },
   chipFlow: {
     flexDirection: 'row',
     flexWrap: 'wrap',

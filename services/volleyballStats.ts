@@ -3,29 +3,44 @@ import { VolleyballStat } from './sportStats';
 
 export type VolleyballAction =
   | 'spike'
+  | 'spike_error'
   | 'block'
+  | 'block_error'
   | 'serve_ace'
+  | 'serve_error'
   | 'set_assist'
   | 'dig'
-  | 'error';
+  | 'reception'
+  | 'reception_error';
 
 export interface VolleyballActionMeta {
   key: VolleyballAction;
   label: string;
-  field: keyof Pick<VolleyballStat, 'spikes' | 'blocks' | 'serve_aces' | 'set_assists' | 'digs' | 'errors'>;
-  /** Whether this action also bumps the team total points (spike / block / serve_ace are scoring plays). */
+  field: keyof Pick<
+    VolleyballStat,
+    | 'spikes' | 'spike_errors'
+    | 'blocks' | 'block_errors'
+    | 'serve_aces' | 'serve_errors'
+    | 'reception_successes' | 'reception_errors'
+    | 'set_assists' | 'digs'
+  >;
+  /** Whether this action also bumps the team total points. */
   scores: boolean;
   category: 'primary' | 'secondary';
-  tone: 'score' | 'positive' | 'negative';
+  tone: 'score' | 'miss' | 'positive' | 'negative';
 }
 
 export const VOLLEYBALL_ACTIONS: VolleyballActionMeta[] = [
-  { key: 'spike',       label: '扣球得分', field: 'spikes',      scores: true,  category: 'primary',   tone: 'score' },
-  { key: 'block',       label: '攔網得分', field: 'blocks',      scores: true,  category: 'primary',   tone: 'score' },
-  { key: 'serve_ace',   label: '發球得分', field: 'serve_aces',  scores: true,  category: 'primary',   tone: 'score' },
-  { key: 'set_assist',  label: '舉球助攻', field: 'set_assists', scores: false, category: 'primary',   tone: 'positive' },
-  { key: 'dig',         label: '救球',     field: 'digs',        scores: false, category: 'primary',   tone: 'positive' },
-  { key: 'error',       label: '失誤',     field: 'errors',      scores: false, category: 'secondary', tone: 'negative' },
+  { key: 'spike',           label: '扣球得分',   field: 'spikes',              scores: true,  category: 'primary',   tone: 'score' },
+  { key: 'block',           label: '攔網得分',   field: 'blocks',              scores: true,  category: 'primary',   tone: 'score' },
+  { key: 'serve_ace',       label: '發球得分',   field: 'serve_aces',          scores: true,  category: 'primary',   tone: 'score' },
+  { key: 'spike_error',     label: '扣球失誤',   field: 'spike_errors',        scores: false, category: 'primary',   tone: 'miss' },
+  { key: 'block_error',     label: '攔網失誤',   field: 'block_errors',        scores: false, category: 'primary',   tone: 'miss' },
+  { key: 'serve_error',     label: '發球失誤',   field: 'serve_errors',        scores: false, category: 'primary',   tone: 'miss' },
+  { key: 'set_assist',      label: '舉球助攻',   field: 'set_assists',         scores: false, category: 'primary',   tone: 'positive' },
+  { key: 'dig',             label: '救球',       field: 'digs',                scores: false, category: 'primary',   tone: 'positive' },
+  { key: 'reception',       label: '接發球',     field: 'reception_successes', scores: false, category: 'primary',   tone: 'positive' },
+  { key: 'reception_error', label: '接發球失誤', field: 'reception_errors',    scores: false, category: 'secondary', tone: 'negative' },
 ];
 
 export function getVolleyballActionMeta(action: VolleyballAction): VolleyballActionMeta {

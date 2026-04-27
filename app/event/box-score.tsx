@@ -1,12 +1,8 @@
 /**
  * Box Score — 比賽結束後的數據總覽。
  *
- * 從 scores.tsx 結束按鈕進入。依運動別顯示對應數據欄位：
- *   - 籃球：分 / 板 / 助 / 抄 / 阻 / 失 / 犯
- *   - 排球：扣 / 攔 / 發 / 舉 / 救 / 失 / 總分
- *   - 羽球：殺 / 放 / 撲 / 失 / 贏分 / 輸分
- *
- * 每隊獨立 table，球員 row + 全隊小計。
+ * 從 scores.tsx 結束按鈕進入。依運動別顯示對應數據欄位，
+ * 命中率 (M-A %) 對齊國際標準（NBA / FIVB / BWF box score）。
  */
 
 import { PageHeader } from '@/components/PageHeader';
@@ -18,10 +14,11 @@ import {
   BadmintonStat,
   BasketballStat,
   VolleyballStat,
+  basketballTotalPoints,
+  basketballTotalRebounds,
   getEventBadmintonStats,
   getEventBasketballStats,
   getEventVolleyballStats,
-  basketballTotalPoints,
 } from '@/services/sportStats';
 import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
 import { Event } from '@/types/database';
@@ -38,42 +35,213 @@ import {
 
 const TEAM_COLORS = ['#2563EB', '#DC2626'];
 
+const formatMA = (made: number, attempted: number): string =>
+  attempted === 0 ? '—' : `${made}-${attempted}`;
+
+const formatPct = (made: number, attempted: number): string =>
+  attempted === 0 ? '—' : `${Math.round((made / attempted) * 100)}%`;
+
+const sumBy = <T,>(arr: T[], fn: (x: T) => number): number =>
+  arr.reduce((sum, x) => sum + fn(x), 0);
+
 interface Column<T> {
-  key: keyof T | string;
   label: string;
-  /** Optional: derive value when key isn't a direct field. */
-  getValue?: (stat: T) => number;
-  /** Highlight the column (typically the points column). */
+  width?: number;
+  render: (s: T) => string;
+  total: (ss: T[]) => string;
   primary?: boolean;
 }
 
+// ─── Basketball ─────────────────────────────────────────────────
 const BASKETBALL_COLS: Column<BasketballStat>[] = [
-  { key: 'points', label: '分', getValue: (s) => basketballTotalPoints(s), primary: true },
-  { key: 'rebounds', label: '板' },
-  { key: 'assists', label: '助' },
-  { key: 'steals', label: '抄' },
-  { key: 'blocks', label: '阻' },
-  { key: 'turnovers', label: '失' },
-  { key: 'fouls', label: '犯' },
+  {
+    label: '分',
+    width: 36,
+    primary: true,
+    render: (s) => String(basketballTotalPoints(s)),
+    total: (ss) => String(sumBy(ss, basketballTotalPoints)),
+  },
+  {
+    label: 'FT',
+    width: 48,
+    render: (s) => formatMA(s.points_1pt, s.points_1pt + s.misses_1pt),
+    total: (ss) =>
+      formatMA(sumBy(ss, (s) => s.points_1pt), sumBy(ss, (s) => s.points_1pt + s.misses_1pt)),
+  },
+  {
+    label: 'FT%',
+    width: 44,
+    render: (s) => formatPct(s.points_1pt, s.points_1pt + s.misses_1pt),
+    total: (ss) =>
+      formatPct(sumBy(ss, (s) => s.points_1pt), sumBy(ss, (s) => s.points_1pt + s.misses_1pt)),
+  },
+  {
+    label: '2P',
+    width: 48,
+    render: (s) => formatMA(s.points_2pt, s.points_2pt + s.misses_2pt),
+    total: (ss) =>
+      formatMA(sumBy(ss, (s) => s.points_2pt), sumBy(ss, (s) => s.points_2pt + s.misses_2pt)),
+  },
+  {
+    label: '2P%',
+    width: 44,
+    render: (s) => formatPct(s.points_2pt, s.points_2pt + s.misses_2pt),
+    total: (ss) =>
+      formatPct(sumBy(ss, (s) => s.points_2pt), sumBy(ss, (s) => s.points_2pt + s.misses_2pt)),
+  },
+  {
+    label: '3P',
+    width: 48,
+    render: (s) => formatMA(s.points_3pt, s.points_3pt + s.misses_3pt),
+    total: (ss) =>
+      formatMA(sumBy(ss, (s) => s.points_3pt), sumBy(ss, (s) => s.points_3pt + s.misses_3pt)),
+  },
+  {
+    label: '3P%',
+    width: 44,
+    render: (s) => formatPct(s.points_3pt, s.points_3pt + s.misses_3pt),
+    total: (ss) =>
+      formatPct(sumBy(ss, (s) => s.points_3pt), sumBy(ss, (s) => s.points_3pt + s.misses_3pt)),
+  },
+  {
+    label: 'OFF',
+    width: 36,
+    render: (s) => String(s.offensive_rebounds),
+    total: (ss) => String(sumBy(ss, (s) => s.offensive_rebounds)),
+  },
+  {
+    label: 'DEF',
+    width: 36,
+    render: (s) => String(s.defensive_rebounds),
+    total: (ss) => String(sumBy(ss, (s) => s.defensive_rebounds)),
+  },
+  {
+    label: '板',
+    width: 36,
+    render: (s) => String(basketballTotalRebounds(s)),
+    total: (ss) => String(sumBy(ss, basketballTotalRebounds)),
+  },
+  { label: '助', width: 36, render: (s) => String(s.assists), total: (ss) => String(sumBy(ss, (s) => s.assists)) },
+  { label: '抄', width: 36, render: (s) => String(s.steals), total: (ss) => String(sumBy(ss, (s) => s.steals)) },
+  { label: '阻', width: 36, render: (s) => String(s.blocks), total: (ss) => String(sumBy(ss, (s) => s.blocks)) },
+  { label: '失', width: 36, render: (s) => String(s.turnovers), total: (ss) => String(sumBy(ss, (s) => s.turnovers)) },
+  { label: '犯', width: 36, render: (s) => String(s.fouls), total: (ss) => String(sumBy(ss, (s) => s.fouls)) },
 ];
 
+// ─── Volleyball ────────────────────────────────────────────────
 const VOLLEYBALL_COLS: Column<VolleyballStat>[] = [
-  { key: 'points_total', label: '分', primary: true },
-  { key: 'spikes', label: '扣' },
-  { key: 'blocks', label: '攔' },
-  { key: 'serve_aces', label: '發' },
-  { key: 'set_assists', label: '舉' },
-  { key: 'digs', label: '救' },
-  { key: 'errors', label: '失' },
+  {
+    label: '分',
+    width: 36,
+    primary: true,
+    render: (s) => String(s.points_total),
+    total: (ss) => String(sumBy(ss, (s) => s.points_total)),
+  },
+  {
+    label: '扣',
+    width: 48,
+    render: (s) => formatMA(s.spikes, s.spikes + s.spike_errors),
+    total: (ss) =>
+      formatMA(sumBy(ss, (s) => s.spikes), sumBy(ss, (s) => s.spikes + s.spike_errors)),
+  },
+  {
+    label: '扣%',
+    width: 44,
+    render: (s) => formatPct(s.spikes, s.spikes + s.spike_errors),
+    total: (ss) =>
+      formatPct(sumBy(ss, (s) => s.spikes), sumBy(ss, (s) => s.spikes + s.spike_errors)),
+  },
+  {
+    label: '攔',
+    width: 48,
+    render: (s) => formatMA(s.blocks, s.blocks + s.block_errors),
+    total: (ss) =>
+      formatMA(sumBy(ss, (s) => s.blocks), sumBy(ss, (s) => s.blocks + s.block_errors)),
+  },
+  {
+    label: '發ACE',
+    width: 50,
+    render: (s) => formatMA(s.serve_aces, s.serve_aces + s.serve_errors),
+    total: (ss) =>
+      formatMA(sumBy(ss, (s) => s.serve_aces), sumBy(ss, (s) => s.serve_aces + s.serve_errors)),
+  },
+  {
+    label: '接',
+    width: 48,
+    render: (s) => formatMA(s.reception_successes, s.reception_successes + s.reception_errors),
+    total: (ss) =>
+      formatMA(
+        sumBy(ss, (s) => s.reception_successes),
+        sumBy(ss, (s) => s.reception_successes + s.reception_errors),
+      ),
+  },
+  {
+    label: '接%',
+    width: 44,
+    render: (s) => formatPct(s.reception_successes, s.reception_successes + s.reception_errors),
+    total: (ss) =>
+      formatPct(
+        sumBy(ss, (s) => s.reception_successes),
+        sumBy(ss, (s) => s.reception_successes + s.reception_errors),
+      ),
+  },
+  { label: '助', width: 36, render: (s) => String(s.set_assists), total: (ss) => String(sumBy(ss, (s) => s.set_assists)) },
+  { label: '救', width: 36, render: (s) => String(s.digs), total: (ss) => String(sumBy(ss, (s) => s.digs)) },
 ];
 
+// ─── Badminton ────────────────────────────────────────────────
 const BADMINTON_COLS: Column<BadmintonStat>[] = [
-  { key: 'points_won', label: '贏分', primary: true },
-  { key: 'smashes', label: '殺' },
-  { key: 'drops', label: '放' },
-  { key: 'net_kills', label: '撲' },
-  { key: 'errors', label: '失' },
-  { key: 'points_lost', label: '輸分' },
+  {
+    label: '贏分',
+    width: 44,
+    primary: true,
+    render: (s) => String(s.points_won),
+    total: (ss) => String(sumBy(ss, (s) => s.points_won)),
+  },
+  {
+    label: '殺',
+    width: 48,
+    render: (s) => formatMA(s.smashes, s.smashes + s.smash_errors),
+    total: (ss) =>
+      formatMA(sumBy(ss, (s) => s.smashes), sumBy(ss, (s) => s.smashes + s.smash_errors)),
+  },
+  {
+    label: '殺%',
+    width: 44,
+    render: (s) => formatPct(s.smashes, s.smashes + s.smash_errors),
+    total: (ss) =>
+      formatPct(sumBy(ss, (s) => s.smashes), sumBy(ss, (s) => s.smashes + s.smash_errors)),
+  },
+  {
+    label: '放',
+    width: 48,
+    render: (s) => formatMA(s.drops, s.drops + s.drop_errors),
+    total: (ss) =>
+      formatMA(sumBy(ss, (s) => s.drops), sumBy(ss, (s) => s.drops + s.drop_errors)),
+  },
+  {
+    label: '放%',
+    width: 44,
+    render: (s) => formatPct(s.drops, s.drops + s.drop_errors),
+    total: (ss) =>
+      formatPct(sumBy(ss, (s) => s.drops), sumBy(ss, (s) => s.drops + s.drop_errors)),
+  },
+  {
+    label: '撲',
+    width: 48,
+    render: (s) => formatMA(s.net_kills, s.net_kills + s.net_kill_errors),
+    total: (ss) =>
+      formatMA(sumBy(ss, (s) => s.net_kills), sumBy(ss, (s) => s.net_kills + s.net_kill_errors)),
+  },
+  {
+    label: '撲%',
+    width: 44,
+    render: (s) => formatPct(s.net_kills, s.net_kills + s.net_kill_errors),
+    total: (ss) =>
+      formatPct(sumBy(ss, (s) => s.net_kills), sumBy(ss, (s) => s.net_kills + s.net_kill_errors)),
+  },
+  { label: '失', width: 36, render: (s) => String(s.errors), total: (ss) => String(sumBy(ss, (s) => s.errors)) },
+  { label: '輸分', width: 44, render: (s) => String(s.points_lost), total: (ss) => String(sumBy(ss, (s) => s.points_lost)) },
 ];
 
 type AnyStat = BasketballStat | VolleyballStat | BadmintonStat;
@@ -149,13 +317,12 @@ export default function BoxScoreScreen() {
     if (!teamLabels.includes(s.team_label)) teamLabels.push(s.team_label);
   }
 
-  // Compute team totals using the primary column (sum across players)
+  // Team final score = sum of primary column for that team
   const primaryCol = cols.find((c) => c.primary);
   const teamTotal = (label: string): number => {
     if (!primaryCol) return 0;
-    return stats
-      .filter((s) => s.team_label === label)
-      .reduce((sum, s) => sum + (primaryCol.getValue ? primaryCol.getValue(s) : Number((s as any)[primaryCol.key]) || 0), 0);
+    const teamStats = stats.filter((s) => s.team_label === label);
+    return Number(primaryCol.total(teamStats)) || 0;
   };
 
   const winnerLabel =
@@ -200,12 +367,13 @@ export default function BoxScoreScreen() {
               <View>
                 {/* Header row */}
                 <View style={[styles.tableHeaderRow, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.cellPlayer, { color: colors.textSecondary }]}>球員</Text>
+                  <Text style={[styles.cellPlayerHeader, { color: colors.textSecondary }]}>球員</Text>
                   {cols.map((c) => (
                     <Text
-                      key={String(c.key)}
+                      key={c.label}
                       style={[
                         styles.cellNum,
+                        { width: c.width || 38 },
                         { color: c.primary ? colors.text : colors.textSecondary, fontWeight: c.primary ? '700' : '500' },
                       ]}
                     >
@@ -233,50 +401,40 @@ export default function BoxScoreScreen() {
                           {name}
                         </Text>
                       </View>
-                      {cols.map((c) => {
-                        const val = c.getValue ? c.getValue(s) : Number((s as any)[c.key]) || 0;
-                        return (
-                          <Text
-                            key={String(c.key)}
-                            style={[
-                              styles.cellNum,
-                              {
-                                color: c.primary ? colors.text : colors.textSecondary,
-                                fontWeight: c.primary ? '800' : '500',
-                              },
-                            ]}
-                          >
-                            {val}
-                          </Text>
-                        );
-                      })}
+                      {cols.map((c) => (
+                        <Text
+                          key={c.label}
+                          style={[
+                            styles.cellNum,
+                            { width: c.width || 38 },
+                            {
+                              color: c.primary ? colors.text : colors.textSecondary,
+                              fontWeight: c.primary ? '800' : '500',
+                            },
+                          ]}
+                        >
+                          {c.render(s)}
+                        </Text>
+                      ))}
                     </View>
                   );
                 })}
 
                 {/* Team total row */}
                 <View style={[styles.tableRow, styles.tableTotalRow, { borderTopColor: colors.border }]}>
-                  <Text style={[styles.cellPlayer, { color: colors.text, fontWeight: '700' }]}>小計</Text>
-                  {cols.map((c) => {
-                    const total = teamStats.reduce(
-                      (sum, s) => sum + (c.getValue ? c.getValue(s) : Number((s as any)[c.key]) || 0),
-                      0,
-                    );
-                    return (
-                      <Text
-                        key={String(c.key)}
-                        style={[
-                          styles.cellNum,
-                          {
-                            color: colors.text,
-                            fontWeight: '800',
-                          },
-                        ]}
-                      >
-                        {total}
-                      </Text>
-                    );
-                  })}
+                  <Text style={[styles.cellPlayerHeader, { color: colors.text, fontWeight: '700' }]}>小計</Text>
+                  {cols.map((c) => (
+                    <Text
+                      key={c.label}
+                      style={[
+                        styles.cellNum,
+                        { width: c.width || 38 },
+                        { color: colors.text, fontWeight: '800' },
+                      ]}
+                    >
+                      {c.total(teamStats)}
+                    </Text>
+                  ))}
                 </View>
               </View>
             </ScrollView>
@@ -337,6 +495,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
   },
   tableRow: {
     flexDirection: 'row',
@@ -356,14 +515,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  cellPlayerHeader: {
+    width: 130,
     fontSize: 13,
-  } as any,
+  },
   jersey: { fontSize: 12, fontWeight: '800' },
   playerName: { fontSize: 13, fontWeight: '600', flex: 1 },
   cellNum: {
-    width: 38,
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: 13,
     fontVariant: ['tabular-nums'],
   },
   continueBtn: {
