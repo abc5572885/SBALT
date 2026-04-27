@@ -315,8 +315,12 @@ export default function EventScoresScreen() {
         : entries.map((e) => ({ label: e.label.trim(), score: e.score }));
       await saveEventScores(eventId, finalEntries);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      toast.success('比分已記錄');
-      router.back();
+      if (isPro) {
+        router.replace({ pathname: '/event/box-score', params: { eventId } });
+      } else {
+        toast.success('比分已記錄');
+        router.back();
+      }
     } catch (error: any) {
       toast.error(error.message || '儲存失敗');
     } finally {
@@ -502,14 +506,14 @@ export default function EventScoresScreen() {
           )}
         </View>
 
-        {/* Recent log */}
+        {/* Recent log — vertical list, newest on top */}
         <View style={styles.logSection}>
           <Text style={styles.logTitle}>最近紀錄（點擊取消）</Text>
           {log.length === 0 ? (
             <Text style={styles.logEmpty}>尚無紀錄</Text>
           ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.logRow}>
-              {log.map((entry) => {
+            <ScrollView style={styles.logList} showsVerticalScrollIndicator={false}>
+              {log.map((entry, i) => {
                 const stat = stats.find((s) => s.id === entry.stat_id);
                 if (!stat) return null;
                 const name = stat.user_id
@@ -519,11 +523,12 @@ export default function EventScoresScreen() {
                 return (
                   <TouchableOpacity
                     key={entry.id}
-                    style={styles.logChip}
+                    style={[styles.logRowItem, i === 0 && styles.logRowLatest]}
                     onPress={() => handleUndo(entry)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.logChipText} numberOfLines={1}>
+                    <IconSymbol name="arrow.uturn.backward" size={14} color="rgba(255,255,255,0.6)" />
+                    <Text style={styles.logRowText} numberOfLines={1}>
                       {name} · {label}
                     </Text>
                   </TouchableOpacity>
@@ -705,18 +710,30 @@ const styles = StyleSheet.create({
   chipBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
   toggleSecondary: { paddingVertical: Spacing.sm, alignItems: 'center' },
 
-  // Log
-  logSection: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, gap: 4 },
+  // Log (vertical, newest on top)
+  logSection: {
+    flex: 1,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: 4,
+  },
   logTitle: { color: 'rgba(255,255,255,0.4)', fontSize: 11 },
   logEmpty: { color: 'rgba(255,255,255,0.3)', fontSize: 12, paddingVertical: Spacing.xs },
-  logRow: { gap: Spacing.xs, paddingVertical: 4 },
-  logChip: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+  logList: { flex: 1 },
+  logRowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    paddingVertical: 10,
     borderRadius: Radius.sm,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 4,
   },
-  logChipText: { color: '#FFF', fontSize: 12, fontWeight: '500' },
+  logRowLatest: {
+    backgroundColor: 'rgba(255,255,255,0.13)',
+  },
+  logRowText: { color: '#FFF', fontSize: 13, fontWeight: '500', flex: 1 },
 
   // Simple mode
   scoreboard: { flex: 1, flexDirection: 'row', gap: 4, paddingHorizontal: 4, marginBottom: 4 },

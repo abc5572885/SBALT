@@ -20,6 +20,7 @@ const MAPPING = {
   'pencil': 'edit-2',
   'trash': 'trash-2',
   'arrow.clockwise': 'refresh-cw',
+  'arrow.uturn.backward': 'rotate-ccw',
   'magnifyingglass': 'search',
   'square.and.arrow.up': 'share',
   'xmark': 'x',
