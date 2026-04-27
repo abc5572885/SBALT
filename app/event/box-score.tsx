@@ -20,6 +20,13 @@ import {
   getEventBasketballStats,
   getEventVolleyballStats,
 } from '@/services/sportStats';
+import {
+  BadmintonGame,
+  VolleyballSet,
+  formatMatchDuration,
+  getBadmintonGames,
+  getVolleyballSets,
+} from '@/services/matchTime';
 import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
 import { Event } from '@/types/database';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -255,6 +262,8 @@ export default function BoxScoreScreen() {
   const [event, setEvent] = useState<Event | null>(null);
   const [stats, setStats] = useState<AnyStat[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+  const [vballSets, setVballSets] = useState<VolleyballSet[]>([]);
+  const [bminGames, setBminGames] = useState<BadmintonGame[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -270,6 +279,8 @@ export default function BoxScoreScreen() {
               : sport === 'badminton' ? await getEventBadmintonStats(eventId)
                 : [];
         setStats(data);
+        if (sport === 'volleyball') setVballSets(await getVolleyballSets(eventId));
+        if (sport === 'badminton') setBminGames(await getBadmintonGames(eventId));
         const userIds = data.map((s) => s.user_id).filter(Boolean) as string[];
         if (userIds.length > 0) {
           setProfiles(await getProfilesByIds(userIds));
@@ -348,6 +359,100 @@ export default function BoxScoreScreen() {
           </View>
         ))}
       </View>
+
+      {/* Match duration */}
+      {(event as any)?.match_started_at && (
+        <View style={styles.metaRow}>
+          <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+            比賽時長 {formatMatchDuration((event as any).match_started_at, (event as any).match_ended_at)}
+          </Text>
+        </View>
+      )}
+
+      {/* Per-set / per-game scores */}
+      {sport === 'volleyball' && vballSets.length > 0 && (
+        <View style={styles.setCard}>
+          <Text style={[styles.setCardTitle, { color: colors.textSecondary }]}>逐局比分</Text>
+          <View style={[styles.setHeaderRow, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.setLabelCell, { color: colors.textSecondary }]}>局數</Text>
+            {vballSets.map((s) => (
+              <Text key={s.id} style={[styles.setNumCell, { color: colors.textSecondary }]}>
+                第 {s.set_number}
+              </Text>
+            ))}
+            <Text style={[styles.setNumCell, { color: colors.text, fontWeight: '700' }]}>總</Text>
+          </View>
+          {teamLabels.map((label, idx) => {
+            const isHome = idx === 0;
+            return (
+              <View key={label} style={[styles.setDataRow, { borderBottomColor: colors.border }]}>
+                <View style={styles.setLabelCell}>
+                  <View style={[styles.setLabelDot, { backgroundColor: TEAM_COLORS[idx] }]} />
+                  <Text style={[styles.setLabelText, { color: colors.text }]}>{label}</Text>
+                </View>
+                {vballSets.map((s) => {
+                  const score = isHome ? s.home_score : s.away_score;
+                  const won = isHome ? s.home_score > s.away_score : s.away_score > s.home_score;
+                  return (
+                    <Text
+                      key={s.id}
+                      style={[
+                        styles.setNumCell,
+                        { color: won ? colors.text : colors.textSecondary, fontWeight: won ? '800' : '500' },
+                      ]}
+                    >
+                      {score}
+                    </Text>
+                  );
+                })}
+                <Text style={[styles.setNumCell, { color: colors.text, fontWeight: '800' }]}>
+                  {vballSets.reduce((sum, s) => sum + (isHome ? s.home_score : s.away_score), 0)}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {sport === 'badminton' && bminGames.length > 0 && (
+        <View style={styles.setCard}>
+          <Text style={[styles.setCardTitle, { color: colors.textSecondary }]}>逐局比分</Text>
+          <View style={[styles.setHeaderRow, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.setLabelCell, { color: colors.textSecondary }]}>局數</Text>
+            {bminGames.map((g) => (
+              <Text key={g.id} style={[styles.setNumCell, { color: colors.textSecondary }]}>
+                第 {g.game_number}
+              </Text>
+            ))}
+          </View>
+          {teamLabels.map((label, idx) => {
+            const isHome = idx === 0;
+            return (
+              <View key={label} style={[styles.setDataRow, { borderBottomColor: colors.border }]}>
+                <View style={styles.setLabelCell}>
+                  <View style={[styles.setLabelDot, { backgroundColor: TEAM_COLORS[idx] }]} />
+                  <Text style={[styles.setLabelText, { color: colors.text }]}>{label}</Text>
+                </View>
+                {bminGames.map((g) => {
+                  const score = isHome ? g.home_score : g.away_score;
+                  const won = isHome ? g.home_score > g.away_score : g.away_score > g.home_score;
+                  return (
+                    <Text
+                      key={g.id}
+                      style={[
+                        styles.setNumCell,
+                        { color: won ? colors.text : colors.textSecondary, fontWeight: won ? '800' : '500' },
+                      ]}
+                    >
+                      {score}
+                    </Text>
+                  );
+                })}
+              </View>
+            );
+          })}
+        </View>
+      )}
 
       {/* Per-team box score */}
       {teamLabels.map((label, teamIdx) => {
@@ -544,4 +649,49 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   doneBtnText: { fontSize: 14, fontWeight: '600' },
+
+  // Match meta + per-set scores card
+  metaRow: { alignItems: 'center', marginBottom: Spacing.md },
+  metaText: { fontSize: 12, fontVariant: ['tabular-nums'] },
+  setCard: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  setCardTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
+  setHeaderRow: {
+    flexDirection: 'row',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+  },
+  setDataRow: {
+    flexDirection: 'row',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+  },
+  setLabelCell: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    fontSize: 12,
+  },
+  setLabelDot: { width: 8, height: 8, borderRadius: 4 },
+  setLabelText: { fontSize: 14, fontWeight: '600' },
+  setNumCell: {
+    width: 50,
+    textAlign: 'center',
+    fontSize: 16,
+    fontVariant: ['tabular-nums'],
+  },
 });

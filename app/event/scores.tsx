@@ -25,6 +25,21 @@ import {
 } from '@/services/badmintonStats';
 import { getEventById, getEventScores, saveEventScores } from '@/services/database';
 import {
+  BadmintonGame,
+  VolleyballSet,
+  closeBadmintonGame,
+  closeVolleyballSet,
+  formatMatchDuration,
+  getBadmintonGames,
+  getVolleyballSets,
+  markMatchEnded,
+  markMatchStarted,
+  openBadmintonGame,
+  openVolleyballSet,
+  updateBadmintonGameScore,
+  updateVolleyballSetScore,
+} from '@/services/matchTime';
+import {
   BasketballStat,
   VolleyballStat,
   BadmintonStat,
@@ -148,6 +163,13 @@ export default function EventScoresScreen() {
   const [editingLabel, setEditingLabel] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Phase 1: per-set scoring + match timer
+  const [matchStartedAt, setMatchStartedAt] = useState<string | null>(null);
+  const [matchEndedAt, setMatchEndedAt] = useState<string | null>(null);
+  const [vballSets, setVballSets] = useState<VolleyballSet[]>([]);
+  const [bminGames, setBminGames] = useState<BadmintonGame[]>([]);
+  const [tick, setTick] = useState(0); // forces timer re-render
+
   const sportConfig = getSportConfig(event?.sport_type);
   const sportKey = event?.sport_type;
   const isPro = isProSport(sportKey);
@@ -172,6 +194,14 @@ export default function EventScoresScreen() {
       ]);
       setEvent(eventData);
       setStats(sportStats as AnyStat[]);
+      setMatchStartedAt((eventData as any)?.match_started_at || null);
+      setMatchEndedAt((eventData as any)?.match_ended_at || null);
+
+      if (sport === 'volleyball') {
+        setVballSets(await getVolleyballSets(eventId));
+      } else if (sport === 'badminton') {
+        setBminGames(await getBadmintonGames(eventId));
+      }
 
       if (existingScores.length > 0) {
         setEntries(existingScores.map((s: EventScore) => ({ label: s.label, score: s.score })));
@@ -191,6 +221,13 @@ export default function EventScoresScreen() {
   }, [eventId]);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
+
+  // Live timer tick — re-render every second while match is running
+  useEffect(() => {
+    if (!matchStartedAt || matchEndedAt) return;
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [matchStartedAt, matchEndedAt]);
 
   // Pro mode：若沒陣容，跳到 lineup 頁
   useEffect(() => {
@@ -244,12 +281,107 @@ export default function EventScoresScreen() {
       ...prev,
     ].slice(0, 20));
 
+    // First action of the match: stamp start time
+    if (!matchStartedAt) {
+      const nowIso = new Date().toISOString();
+      setMatchStartedAt(nowIso);
+      markMatchStarted(eventId).catch(() => {});
+    }
+
     try {
       const updated = await dispatchRecordAction(sportKey, stat, action);
       setStats((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+
+      // Phase 1: per-set scoring for volleyball/badminton
+      if (meta?.tone === 'score' && (sportKey === 'volleyball' || sportKey === 'badminton')) {
+        const homeLabel = teamLabels[0];
+        const awayLabel = teamLabels[1];
+        const isHomeScore = stat.team_label === homeLabel;
+        if (sportKey === 'volleyball') {
+          let openSet = vballSets.find((s) => !s.ended_at);
+          if (!openSet && homeLabel && awayLabel) {
+            openSet = await openVolleyballSet(eventId, homeLabel, awayLabel);
+            setVballSets((prev) => [...prev, openSet!]);
+          }
+          if (openSet) {
+            const next = isHomeScore
+              ? { home_score: openSet.home_score + 1 }
+              : { away_score: openSet.away_score + 1 };
+            await updateVolleyballSetScore(openSet.id, next);
+            setVballSets((prev) =>
+              prev.map((s) => (s.id === openSet!.id ? { ...s, ...next } : s)),
+            );
+          }
+        } else {
+          let openGame = bminGames.find((g) => !g.ended_at);
+          if (!openGame && homeLabel && awayLabel) {
+            openGame = await openBadmintonGame(eventId, homeLabel, awayLabel);
+            setBminGames((prev) => [...prev, openGame!]);
+          }
+          if (openGame) {
+            const next = isHomeScore
+              ? { home_score: openGame.home_score + 1 }
+              : { away_score: openGame.away_score + 1 };
+            await updateBadmintonGameScore(openGame.id, next);
+            setBminGames((prev) =>
+              prev.map((g) => (g.id === openGame!.id ? { ...g, ...next } : g)),
+            );
+          }
+        }
+      }
     } catch (e: any) {
       toast.error(e.message || '記錄失敗');
       setLog((prev) => prev.filter((l) => l.stat_id !== selectedStatId || l.ts !== prev[0].ts));
+    }
+  };
+
+  // 結束本局/開新局 (volleyball / badminton)
+  const handleEndCurrentSet = async () => {
+    if (sportKey !== 'volleyball' && sportKey !== 'badminton') return;
+    const homeLabel = teamLabels[0];
+    const awayLabel = teamLabels[1];
+    if (!homeLabel || !awayLabel) return;
+
+    if (sportKey === 'volleyball') {
+      const open = vballSets.find((s) => !s.ended_at);
+      if (!open) return;
+      Alert.alert(
+        `結束第 ${open.set_number} 局`,
+        `${homeLabel} ${open.home_score} - ${open.away_score} ${awayLabel}`,
+        [
+          { text: '取消', style: 'cancel' },
+          {
+            text: '結束本局',
+            onPress: async () => {
+              await closeVolleyballSet(open.id);
+              setVballSets((prev) =>
+                prev.map((s) => (s.id === open.id ? { ...s, ended_at: new Date().toISOString() } : s)),
+              );
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            },
+          },
+        ],
+      );
+    } else {
+      const open = bminGames.find((g) => !g.ended_at);
+      if (!open) return;
+      Alert.alert(
+        `結束第 ${open.game_number} 局`,
+        `${homeLabel} ${open.home_score} - ${open.away_score} ${awayLabel}`,
+        [
+          { text: '取消', style: 'cancel' },
+          {
+            text: '結束本局',
+            onPress: async () => {
+              await closeBadmintonGame(open.id);
+              setBminGames((prev) =>
+                prev.map((g) => (g.id === open.id ? { ...g, ended_at: new Date().toISOString() } : g)),
+              );
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            },
+          },
+        ],
+      );
     }
   };
 
@@ -314,6 +446,20 @@ export default function EventScoresScreen() {
         ? teamScores.map((t) => ({ label: t.label, score: t.score }))
         : entries.map((e) => ({ label: e.label.trim(), score: e.score }));
       await saveEventScores(eventId, finalEntries);
+
+      // Close any open set + stamp match end
+      if (sportKey === 'volleyball') {
+        const open = vballSets.find((s) => !s.ended_at);
+        if (open) await closeVolleyballSet(open.id);
+      } else if (sportKey === 'badminton') {
+        const open = bminGames.find((g) => !g.ended_at);
+        if (open) await closeBadmintonGame(open.id);
+      }
+      if (matchStartedAt && !matchEndedAt) {
+        await markMatchEnded(eventId);
+        setMatchEndedAt(new Date().toISOString());
+      }
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (isPro) {
         router.replace({ pathname: '/event/box-score', params: { eventId } });
@@ -361,11 +507,23 @@ export default function EventScoresScreen() {
           </TouchableOpacity>
           <View style={styles.proScoreRow}>
             {teamLabels.map((label, i) => {
-              const team = teamScores?.find((t) => t.label === label);
+              // For volleyball/badminton, the live "team total" shown in pro top bar is the
+              // current open set's score, not the cumulative match-long total. That matches
+              // FIVB/BWF convention where the on-court display is the running set score.
+              let liveScore = 0;
+              if (sportKey === 'volleyball') {
+                const open = vballSets.find((s) => !s.ended_at);
+                liveScore = open ? (i === 0 ? open.home_score : open.away_score) : 0;
+              } else if (sportKey === 'badminton') {
+                const open = bminGames.find((g) => !g.ended_at);
+                liveScore = open ? (i === 0 ? open.home_score : open.away_score) : 0;
+              } else {
+                liveScore = teamScores?.find((t) => t.label === label)?.score || 0;
+              }
               return (
                 <View key={label} style={styles.proScoreItem}>
                   <Text style={[styles.proTeamLabel, { color: TEAM_COLORS[i] }]}>{label}</Text>
-                  <Text style={styles.proScoreNum}>{team?.score || 0}</Text>
+                  <Text style={styles.proScoreNum}>{liveScore}</Text>
                 </View>
               );
             })}
@@ -380,6 +538,34 @@ export default function EventScoresScreen() {
               {saving ? '...' : '結束'}
             </Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Match meta row: timer + current set / game */}
+        <View style={styles.matchMetaRow}>
+          <Text style={styles.matchMetaText}>
+            {matchStartedAt
+              ? `比賽中 · ${formatMatchDuration(matchStartedAt, matchEndedAt)}`
+              : '尚未開始 · 點任一動作即開始'}
+          </Text>
+          {sportKey === 'volleyball' && vballSets.length > 0 && (
+            <Text style={styles.matchMetaText}>
+              第 {vballSets.find((s) => !s.ended_at)?.set_number || vballSets.length} 局 · 局數 {vballSets.filter((s) => s.ended_at && s.home_score > s.away_score).length}-{vballSets.filter((s) => s.ended_at && s.away_score > s.home_score).length}
+            </Text>
+          )}
+          {sportKey === 'badminton' && bminGames.length > 0 && (
+            <Text style={styles.matchMetaText}>
+              第 {bminGames.find((g) => !g.ended_at)?.game_number || bminGames.length} 局 · 局數 {bminGames.filter((g) => g.ended_at && g.home_score > g.away_score).length}-{bminGames.filter((g) => g.ended_at && g.away_score > g.home_score).length}
+            </Text>
+          )}
+          {(sportKey === 'volleyball' || sportKey === 'badminton') && matchStartedAt && (
+            <TouchableOpacity onPress={handleEndCurrentSet} style={styles.endSetBtn} activeOpacity={0.7}>
+              <Text style={styles.endSetBtnText}>結束本局</Text>
+            </TouchableOpacity>
+          )}
+          {/* Suppress unused-var warning for tick — drives the timer re-render */}
+          <View style={{ height: 0, width: 0, opacity: 0 }} pointerEvents="none">
+            <Text>{tick}</Text>
+          </View>
         </View>
 
         {/* Player rosters per team */}
@@ -676,6 +862,25 @@ const styles = StyleSheet.create({
   proScoreItem: { alignItems: 'center' },
   proTeamLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
   proScoreNum: { color: '#FFF', fontSize: 36, fontWeight: '800', letterSpacing: -1 },
+
+  // Match meta (timer + set indicator + end-set button)
+  matchMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+    flexWrap: 'wrap',
+  },
+  matchMetaText: { color: 'rgba(255,255,255,0.55)', fontSize: 12, fontVariant: ['tabular-nums'] },
+  endSetBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: Radius.sm,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  endSetBtnText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
 
   // Roster
   rosterSection: { paddingVertical: Spacing.sm },
