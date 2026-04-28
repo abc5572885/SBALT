@@ -42,6 +42,7 @@ import {
 } from '@/services/matchTime';
 import {
   ActionRow,
+  deleteAction,
   getEventActions,
   logAction,
   recordSubstitution,
@@ -92,6 +93,8 @@ interface ActionLog {
   stat_id: string;
   action: AnyAction;
   ts: number;
+  /** Server-side event_actions row id, set after the log call resolves. */
+  eventActionId?: string;
 }
 
 function isProSport(sport: string | undefined | null): sport is ProSportKey {
@@ -364,8 +367,9 @@ export default function EventScoresScreen() {
         : Haptics.ImpactFeedbackStyle.Light
     );
 
+    const localLogId = `${selectedStatId}-${Date.now()}`;
     setLog((prev) => [
-      { id: `${selectedStatId}-${Date.now()}`, stat_id: selectedStatId, action, ts: Date.now() },
+      { id: localLogId, stat_id: selectedStatId, action, ts: Date.now() },
       ...prev,
     ].slice(0, 20));
 
@@ -395,6 +399,10 @@ export default function EventScoresScreen() {
           quarter: currentQuarter,
         });
         setActions((prev) => [...prev, logged]);
+        // Patch local log entry with server uuid so undo can delete it
+        setLog((prev) =>
+          prev.map((e) => (e.id === localLogId ? { ...e, eventActionId: logged.id } : e)),
+        );
       }
 
       // Phase 1: per-set scoring for volleyball/badminton
@@ -686,6 +694,11 @@ export default function EventScoresScreen() {
     try {
       const updated = await dispatchUndoAction(sportKey, stat, entry.action);
       setStats((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      // Also delete the event_actions row so quarter scoring & +/- stay in sync
+      if (entry.eventActionId) {
+        await deleteAction(entry.eventActionId).catch(() => {});
+        setActions((prev) => prev.filter((a) => a.id !== entry.eventActionId));
+      }
     } catch (e: any) {
       toast.error(e.message || '取消失敗');
     }

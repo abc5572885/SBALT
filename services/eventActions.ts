@@ -192,13 +192,16 @@ export function computePlayerIntervals(
   return intervals;
 }
 
-/** Sum interval durations in seconds. */
+/** Sum interval durations in seconds, with a sanity cap. */
 export function intervalsTotalSeconds(intervals: OnCourtInterval[]): number {
   let total = 0;
   for (const iv of intervals) {
     total += Math.max(0, (new Date(iv.end).getTime() - new Date(iv.start).getTime()) / 1000);
   }
-  return total;
+  // Cap at 4 hours to silently absorb stale match_started_at from cross-session testing.
+  // A regulation NBA game is 48 min playing time; FIBA is 40; even with breaks the wall
+  // clock should never exceed this.
+  return Math.min(total, 4 * 60 * 60);
 }
 
 /**

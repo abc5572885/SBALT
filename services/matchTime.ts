@@ -260,7 +260,10 @@ export function formatMatchDuration(startISO: string | null, endISO: string | nu
   if (!startISO) return '—';
   const start = new Date(startISO).getTime();
   const end = endISO ? new Date(endISO).getTime() : Date.now();
-  const seconds = Math.max(0, Math.floor((end - start) / 1000));
+  let seconds = Math.max(0, Math.floor((end - start) / 1000));
+  // Sanity cap — see intervalsTotalSeconds. Beyond 4 hours the timestamp is almost
+  // certainly stale (recorder didn't tap 結束 cleanly between sessions).
+  if (seconds > 4 * 60 * 60) return '—';
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
