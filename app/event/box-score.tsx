@@ -32,6 +32,7 @@ import {
   aggregateQuarterScores,
   computePlayerIntervals,
   computePlusMinus,
+  countPeriodsPlayed,
   getMatchActions,
   intervalsTotalSeconds,
 } from '@/services/eventActions';
@@ -197,7 +198,39 @@ const buildBasketballCols = (ctx: BasketballCtx): Column<BasketballStat>[] => [
 ];
 
 // ─── Volleyball ────────────────────────────────────────────────
-const VOLLEYBALL_COLS: Column<VolleyballStat>[] = [
+interface VolleyballCtx {
+  matchStart: string | null;
+  matchEnd: string | null;
+  actions: ActionRow[];
+  sets: VolleyballSet[];
+}
+
+function volleyballSetsPlayed(s: VolleyballStat, ctx: VolleyballCtx): number {
+  if (!ctx.matchStart || ctx.sets.length === 0) return 0;
+  const end = ctx.matchEnd || new Date().toISOString();
+  const intervals = computePlayerIntervals(s.id, s.is_starter, ctx.matchStart, end, ctx.actions);
+  const periods = ctx.sets.map((set) => ({
+    startIso: set.started_at,
+    endIso: set.ended_at || end,
+  }));
+  return countPeriodsPlayed(intervals, periods);
+}
+
+const buildVolleyballCols = (ctx: VolleyballCtx): Column<VolleyballStat>[] => [
+  {
+    label: '局',
+    width: 36,
+    render: (s) => {
+      const n = volleyballSetsPlayed(s, ctx);
+      return n === 0 ? '—' : String(n);
+    },
+    total: (ss) => {
+      // Team-level "sets played" = max across players (whole team plays every set
+      // they have anyone on court for); fall back to total set count.
+      const max = ss.reduce((m, s) => Math.max(m, volleyballSetsPlayed(s, ctx)), 0);
+      return max === 0 ? '—' : String(max);
+    },
+  },
   {
     label: '分',
     width: 36,
@@ -410,7 +443,8 @@ export default function BoxScoreScreen() {
   const cols: Column<any>[] =
     sport === 'basketball'
       ? buildBasketballCols({ matchStart, matchEnd, actions })
-      : sport === 'volleyball' ? VOLLEYBALL_COLS
+      : sport === 'volleyball'
+        ? buildVolleyballCols({ matchStart, matchEnd, actions, sets: vballSets })
         : sport === 'badminton' ? BADMINTON_COLS
           : [];
 

@@ -260,6 +260,33 @@ export function computePlusMinus(
   return net;
 }
 
+/**
+ * Count how many of the given periods (e.g., volleyball sets) a player appeared in.
+ * A player "appeared" if any of their on-court intervals overlaps with the period.
+ */
+export interface Period {
+  startIso: string;
+  endIso: string;
+}
+
+export function countPeriodsPlayed(
+  intervals: OnCourtInterval[],
+  periods: Period[],
+): number {
+  let count = 0;
+  for (const p of periods) {
+    const pStart = new Date(p.startIso).getTime();
+    const pEnd = new Date(p.endIso).getTime();
+    const overlaps = intervals.some((iv) => {
+      const s = new Date(iv.start).getTime();
+      const e = new Date(iv.end).getTime();
+      return s < pEnd && e > pStart;
+    });
+    if (overlaps) count++;
+  }
+  return count;
+}
+
 /** Per-quarter / per-set team scores derived from scoring action log. */
 export function aggregateQuarterScores(
   actions: ActionRow[],
