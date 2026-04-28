@@ -785,64 +785,61 @@ export default function EventScoresScreen() {
     const positiveActions = allActions.filter((a) => a.tone === 'positive');
     const negativeActions = allActions.filter((a) => a.tone === 'negative');
 
+    const liveScoreFor = (i: number, label: string): number => {
+      if (sportKey === 'volleyball') {
+        const open = vballSets.find((s) => !s.ended_at);
+        return open ? (i === 0 ? open.home_score : open.away_score) : 0;
+      }
+      if (sportKey === 'badminton') {
+        const open = bminGames.find((g) => !g.ended_at);
+        return open ? (i === 0 ? open.home_score : open.away_score) : 0;
+      }
+      return teamScores?.find((t) => t.label === label)?.score || 0;
+    };
+
+    const selectedStat = selectedStatId ? stats.find((s) => s.id === selectedStatId) : null;
+    const selectedTeamIdx = selectedStat ? teamLabels.indexOf(selectedStat.team_label) : -1;
+    const selectedName = selectedStat
+      ? selectedStat.user_id
+        ? getDisplayName(profiles[selectedStat.user_id], selectedStat.user_id, false)
+        : selectedStat.display_name || ''
+      : '';
+
     return (
       <SafeAreaView style={[styles.fullScreen, { backgroundColor: '#000' }]} edges={['top', 'bottom']}>
-        {/* Top bar with team scores */}
-        <View style={styles.proTopBar}>
+        {/* ═══ HEADER (compact: nav + scores + utility) ═══ */}
+        <View style={styles.headerV2}>
           <TouchableOpacity
             onPress={() => router.back()}
-            style={styles.topBtn}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={styles.headerIconBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <IconSymbol name="chevron.left" size={22} color="#FFF" />
           </TouchableOpacity>
-          <View style={styles.proScoreRow}>
-            {teamLabels.map((label, i) => {
-              // For volleyball/badminton, the live "team total" shown in pro top bar is the
-              // current open set's score, not the cumulative match-long total. That matches
-              // FIVB/BWF convention where the on-court display is the running set score.
-              let liveScore = 0;
-              if (sportKey === 'volleyball') {
-                const open = vballSets.find((s) => !s.ended_at);
-                liveScore = open ? (i === 0 ? open.home_score : open.away_score) : 0;
-              } else if (sportKey === 'badminton') {
-                const open = bminGames.find((g) => !g.ended_at);
-                liveScore = open ? (i === 0 ? open.home_score : open.away_score) : 0;
-              } else {
-                liveScore = teamScores?.find((t) => t.label === label)?.score || 0;
-              }
-              return (
-                <View key={label} style={styles.proScoreItem}>
-                  <Text style={[styles.proTeamLabel, { color: TEAM_COLORS[i] }]}>{label}</Text>
-                  <Text style={styles.proScoreNum}>{liveScore}</Text>
+          <View style={styles.headerScoreRow}>
+            {teamLabels.map((label, i) => (
+              <React.Fragment key={label}>
+                <View style={styles.headerScoreCol}>
+                  <Text style={[styles.headerTeamLabel, { color: TEAM_COLORS[i] }]} numberOfLines={1}>
+                    {label}
+                  </Text>
+                  <Text style={styles.headerScoreNum}>{liveScoreFor(i, label)}</Text>
                 </View>
-              );
-            })}
+                {i === 0 && <Text style={styles.headerScoreSep}>—</Text>}
+              </React.Fragment>
+            ))}
           </View>
-          <View style={{ flexDirection: 'row' }}>
-            <TouchableOpacity
-              onPress={handleResetAll}
-              style={[styles.topBtn, { width: 36 }]}
-              hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-            >
-              <IconSymbol name="ellipsis" size={18} color="rgba(255,255,255,0.7)" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleSave}
-              style={styles.topBtn}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              disabled={saving}
-            >
-              <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '600' }}>
-                {saving ? '...' : '結束'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={handleResetAll} style={styles.headerIconBtn} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+            <IconSymbol name="ellipsis" size={18} color="rgba(255,255,255,0.7)" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleSave} style={styles.headerEndBtn} hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }} disabled={saving}>
+            <Text style={styles.headerEndText}>{saving ? '...' : '結束'}</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Match meta row: sport-specific clocks + controls */}
+        {/* ═══ CLOCK / META ROW (sport-specific) ═══ */}
         {sportKey === 'basketball' ? (
-          <View style={styles.clockRow}>
+          <View style={styles.clockBar}>
             <View style={styles.quarterPill}>
               <Text style={styles.quarterText}>
                 {currentQuarter <= 4 ? `Q${currentQuarter}` : `OT${currentQuarter - 4}`}
@@ -851,12 +848,10 @@ export default function EventScoresScreen() {
             <Pressable
               onPress={toggleGameClock}
               onLongPress={editGameClock}
-              style={[styles.gameClock, gameClockRunning && styles.gameClockActive]}
+              style={[styles.gameClockCompact, gameClockRunning && styles.gameClockActive]}
             >
-              <Text style={styles.gameClockText}>{formatClock(gameClockSec)}</Text>
-              <Text style={styles.gameClockHint}>
-                {gameClockSec <= 0 ? '本節結束' : gameClockRunning ? '進行中 · 點擊暫停' : '點擊開始'}
-              </Text>
+              <Text style={styles.gameClockCompactText}>{formatClock(gameClockSec)}</Text>
+              <View style={[styles.gameClockDot, gameClockRunning && { backgroundColor: '#22C55E' }]} />
             </Pressable>
             {shotClockEnabled && (
               <Pressable
@@ -881,20 +876,20 @@ export default function EventScoresScreen() {
             )}
           </View>
         ) : (
-          <View style={styles.matchMetaRow}>
-            <Text style={styles.matchMetaText}>
+          <View style={styles.clockBar}>
+            <Text style={styles.clockBarHint}>
               {matchStartedAt
-                ? `比賽中 · ${formatMatchDuration(matchStartedAt, matchEndedAt)}`
-                : '尚未開始 · 點任一動作即開始'}
+                ? formatMatchDuration(matchStartedAt, matchEndedAt)
+                : '點任一動作即開始'}
             </Text>
             {sportKey === 'volleyball' && vballSets.length > 0 && (
-              <Text style={styles.matchMetaText}>
-                第 {vballSets.find((s) => !s.ended_at)?.set_number || vballSets.length} 局 · 局數 {vballSets.filter((s) => s.ended_at && s.home_score > s.away_score).length}-{vballSets.filter((s) => s.ended_at && s.away_score > s.home_score).length}
+              <Text style={styles.clockBarMeta}>
+                第 {vballSets.find((s) => !s.ended_at)?.set_number || vballSets.length} 局 · {vballSets.filter((s) => s.ended_at && s.home_score > s.away_score).length}-{vballSets.filter((s) => s.ended_at && s.away_score > s.home_score).length}
               </Text>
             )}
             {sportKey === 'badminton' && bminGames.length > 0 && (
-              <Text style={styles.matchMetaText}>
-                第 {bminGames.find((g) => !g.ended_at)?.game_number || bminGames.length} 局 · 局數 {bminGames.filter((g) => g.ended_at && g.home_score > g.away_score).length}-{bminGames.filter((g) => g.ended_at && g.away_score > g.home_score).length}
+              <Text style={styles.clockBarMeta}>
+                第 {bminGames.find((g) => !g.ended_at)?.game_number || bminGames.length} 局 · {bminGames.filter((g) => g.ended_at && g.home_score > g.away_score).length}-{bminGames.filter((g) => g.ended_at && g.away_score > g.home_score).length}
               </Text>
             )}
             {sportKey === 'volleyball' && matchStartedAt && (
@@ -935,126 +930,146 @@ export default function EventScoresScreen() {
           </View>
         )}
 
-        {/* Player rosters per team */}
-        <ScrollView style={{ flexGrow: 0 }}>
+        {/* ═══ ROSTER PANE (two columns, vertical lists) ═══ */}
+        <View style={styles.rosterPane}>
           {teamLabels.map((label, i) => {
             const teamStats = stats.filter((s) => s.team_label === label);
-            // Order: active players first, then bench (still on roster)
-            const sorted = [...teamStats].sort((a, b) => {
-              const aActive = activeStatIds.has(a.id) ? 0 : 1;
-              const bActive = activeStatIds.has(b.id) ? 0 : 1;
-              return aActive - bActive;
-            });
+            const active = teamStats.filter((s) => activeStatIds.has(s.id));
+            const bench = teamStats.filter((s) => !activeStatIds.has(s.id));
             return (
-              <View key={label} style={styles.rosterSection}>
-                <View style={styles.rosterTeamHeader}>
-                  <View style={[styles.rosterDot, { backgroundColor: TEAM_COLORS[i] }]} />
-                  <Text style={[styles.rosterTeamLabel, { color: TEAM_COLORS[i] }]}>{label}</Text>
+              <View
+                key={label}
+                style={[
+                  styles.rosterColumn,
+                  i === 0 && { borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: 'rgba(255,255,255,0.1)' },
+                ]}
+              >
+                <View style={styles.rosterColHeader}>
+                  <View style={[styles.rosterColDot, { backgroundColor: TEAM_COLORS[i] }]} />
+                  <Text style={[styles.rosterColLabel, { color: TEAM_COLORS[i] }]} numberOfLines={1}>
+                    {label}
+                  </Text>
                   <TouchableOpacity
                     onPress={() => openSubModal(label)}
-                    style={styles.subBtn}
+                    style={styles.rosterSubBtn}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.subBtnText}>換人</Text>
+                    <Text style={styles.rosterSubBtnText}>換人</Text>
                   </TouchableOpacity>
                 </View>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.rosterRow}
-                >
-                  {sorted.map((s) => {
+                <ScrollView style={styles.rosterScroll} showsVerticalScrollIndicator={false}>
+                  {active.map((s) => {
                     const name = s.user_id
                       ? getDisplayName(profiles[s.user_id], s.user_id, false)
                       : s.display_name || '';
                     const total = getPlayerTotalPoints(s, sportKey);
                     const selected = selectedStatId === s.id;
-                    const isActive = activeStatIds.has(s.id);
                     return (
                       <TouchableOpacity
                         key={s.id}
                         style={[
-                          styles.playerChip,
-                          { borderColor: TEAM_COLORS[i] },
-                          selected && { backgroundColor: TEAM_COLORS[i] },
-                          !isActive && { opacity: 0.4, borderStyle: 'dashed' },
+                          styles.rosterPlayerRow,
+                          selected && {
+                            backgroundColor: TEAM_COLORS[i] + '22',
+                            borderLeftColor: TEAM_COLORS[i],
+                          },
                         ]}
-                        onPress={() => isActive && handlePlayerSelect(s.id)}
-                        disabled={!isActive}
-                        activeOpacity={0.7}
+                        onPress={() => handlePlayerSelect(s.id)}
+                        activeOpacity={0.6}
                       >
-                        {s.jersey_number && (
-                          <Text style={[styles.jerseyNum, { color: selected ? '#FFF' : TEAM_COLORS[i] }]}>
-                            #{s.jersey_number}
-                          </Text>
-                        )}
-                        <Text style={[styles.playerChipName, { color: selected ? '#FFF' : '#FFF' }]} numberOfLines={1}>
-                          {name}
+                        <Text
+                          style={[
+                            styles.rosterJersey,
+                            { color: TEAM_COLORS[i] },
+                          ]}
+                        >
+                          {s.jersey_number ? `#${s.jersey_number}` : '·'}
                         </Text>
-                        <Text style={[styles.playerChipScore, { color: selected ? '#FFF' : 'rgba(255,255,255,0.5)' }]}>
-                          {isActive ? total : '板凳'}
-                        </Text>
+                        <Text style={styles.rosterName} numberOfLines={1}>{name}</Text>
+                        <Text style={styles.rosterScoreNum}>{total}</Text>
                       </TouchableOpacity>
                     );
                   })}
+                  {bench.length > 0 && (
+                    <TouchableOpacity
+                      style={styles.benchBar}
+                      onPress={() => openSubModal(label)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.benchBarText}>板凳 {bench.length} 人 →</Text>
+                    </TouchableOpacity>
+                  )}
                 </ScrollView>
               </View>
             );
           })}
-        </ScrollView>
+        </View>
 
-        {/* Action buttons */}
-        <View style={styles.actionsArea}>
-          {/* Score row — biggest, most prominent */}
+        {/* ═══ SELECTED PLAYER bar (always visible above actions) ═══ */}
+        <View style={styles.selectedBar}>
+          {selectedStat ? (
+            <>
+              <View style={[styles.selectedDot, { backgroundColor: TEAM_COLORS[selectedTeamIdx] }]} />
+              <Text style={styles.selectedJersey}>
+                {selectedStat.jersey_number ? `#${selectedStat.jersey_number}` : ''}
+              </Text>
+              <Text style={styles.selectedName} numberOfLines={1}>{selectedName}</Text>
+              <Text style={styles.selectedTeamHint}>· {selectedStat.team_label}</Text>
+              <TouchableOpacity
+                onPress={() => setSelectedStatId(null)}
+                style={styles.selectedClose}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <IconSymbol name="xmark" size={14} color="rgba(255,255,255,0.5)" />
+              </TouchableOpacity>
+            </>
+          ) : (
+            <Text style={styles.selectedHint}>↑ 選一位球員開始記錄</Text>
+          )}
+        </View>
+
+        {/* ═══ ACTIONS (paired score/miss columns + stat chips) ═══ */}
+        <ScrollView style={styles.actionsAreaV2} contentContainerStyle={{ paddingBottom: Spacing.md }}>
+          {/* Paired scoring section */}
           {scoreActions.length > 0 && (
-            <View style={styles.scoreRow}>
-              {scoreActions.map((a) => (
-                <TouchableOpacity
-                  key={a.key}
-                  style={[
-                    styles.scoreBtn,
-                    !selectedStatId && { opacity: 0.35 },
-                  ]}
-                  onPress={() => handleAction(a.key)}
-                  disabled={!selectedStatId}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.scoreBtnText} numberOfLines={1}>{a.label}</Text>
-                </TouchableOpacity>
-              ))}
+            <View style={styles.pairedRow}>
+              {scoreActions.map((scoreAct, idx) => {
+                const missAct = missActions[idx];
+                const title = scoreAct.label.replace(/進$/, '').replace(/得分$/, '').trim();
+                return (
+                  <View key={scoreAct.key} style={styles.pairedColumn}>
+                    <Text style={styles.pairedColumnTitle}>{title}</Text>
+                    <TouchableOpacity
+                      style={[styles.scoreCell, !selectedStatId && { opacity: 0.35 }]}
+                      onPress={() => handleAction(scoreAct.key)}
+                      disabled={!selectedStatId}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.scoreCellText}>進</Text>
+                    </TouchableOpacity>
+                    {missAct && (
+                      <TouchableOpacity
+                        style={[styles.missCell, !selectedStatId && { opacity: 0.35 }]}
+                        onPress={() => handleAction(missAct.key)}
+                        disabled={!selectedStatId}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.missCellText}>未進</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })}
             </View>
           )}
 
-          {/* Miss actions — same layout as score row but dimmer (paired with score) */}
-          {missActions.length > 0 && (
-            <View style={styles.scoreRow}>
-              {missActions.map((a) => (
-                <TouchableOpacity
-                  key={a.key}
-                  style={[
-                    styles.missBtn,
-                    !selectedStatId && { opacity: 0.35 },
-                  ]}
-                  onPress={() => handleAction(a.key)}
-                  disabled={!selectedStatId}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.missBtnText} numberOfLines={1}>{a.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          {/* Positive actions — chip flow */}
+          {/* Stats chips (positive non-scoring) */}
           {positiveActions.length > 0 && (
             <View style={styles.chipFlow}>
               {positiveActions.map((a) => (
                 <TouchableOpacity
                   key={a.key}
-                  style={[
-                    styles.chipBtn,
-                    !selectedStatId && { opacity: 0.35 },
-                  ]}
+                  style={[styles.chipBtn, !selectedStatId && { opacity: 0.35 }]}
                   onPress={() => handleAction(a.key)}
                   disabled={!selectedStatId}
                   activeOpacity={0.7}
@@ -1065,39 +1080,36 @@ export default function EventScoresScreen() {
             </View>
           )}
 
-          {/* Negative actions — separated, dimmer */}
-          {showSecondary && negativeActions.length > 0 && (
-            <View style={styles.chipFlow}>
-              {negativeActions.map((a) => (
-                <TouchableOpacity
-                  key={a.key}
-                  style={[
-                    styles.chipBtn,
-                    styles.chipBtnNegative,
-                    !selectedStatId && { opacity: 0.35 },
-                  ]}
-                  onPress={() => handleAction(a.key)}
-                  disabled={!selectedStatId}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.chipBtnText, { color: 'rgba(255,255,255,0.7)' }]}>{a.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
+          {/* Negative section (collapsed) */}
           {negativeActions.length > 0 && (
-            <TouchableOpacity
-              style={styles.toggleSecondary}
-              onPress={() => setShowSecondary((v) => !v)}
-              activeOpacity={0.7}
-            >
-              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-                {showSecondary ? '收起失誤/犯規' : '記錄失誤/犯規'}
-              </Text>
-            </TouchableOpacity>
+            <>
+              {showSecondary && (
+                <View style={styles.chipFlow}>
+                  {negativeActions.map((a) => (
+                    <TouchableOpacity
+                      key={a.key}
+                      style={[styles.chipBtn, styles.chipBtnNegative, !selectedStatId && { opacity: 0.35 }]}
+                      onPress={() => handleAction(a.key)}
+                      disabled={!selectedStatId}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.chipBtnText, { color: 'rgba(255,255,255,0.7)' }]}>{a.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              <TouchableOpacity
+                style={styles.toggleSecondary}
+                onPress={() => setShowSecondary((v) => !v)}
+                activeOpacity={0.7}
+              >
+                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                  {showSecondary ? '收起失誤/犯規' : '記錄失誤/犯規'}
+                </Text>
+              </TouchableOpacity>
+            </>
           )}
-        </View>
+        </ScrollView>
 
         {/* Recent log — vertical list, newest on top */}
         <View style={styles.logSection}>
@@ -1565,6 +1577,219 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
   },
   endSetBtnText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
+
+  // ─── V2 Layout (Plan B rework) ──────────────────────────
+  headerV2: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  headerIconBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  headerScoreRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.md,
+  },
+  headerScoreCol: { alignItems: 'center', minWidth: 80 },
+  headerTeamLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginBottom: 1,
+  },
+  headerScoreNum: {
+    color: '#FFF',
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: -1,
+    fontVariant: ['tabular-nums'],
+    lineHeight: 36,
+  },
+  headerScoreSep: { color: 'rgba(255,255,255,0.3)', fontSize: 22, fontWeight: '300' },
+  headerEndBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderRadius: Radius.sm,
+    backgroundColor: 'rgba(255,255,255,0.13)',
+  },
+  headerEndText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+
+  clockBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    flexWrap: 'wrap',
+  },
+  clockBarHint: { color: 'rgba(255,255,255,0.45)', fontSize: 12, fontVariant: ['tabular-nums'] },
+  clockBarMeta: { color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: '600' },
+  gameClockCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.sm,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  gameClockCompactText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    fontVariant: ['tabular-nums'],
+  },
+  gameClockDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+
+  // Two-column roster pane
+  rosterPane: {
+    flexDirection: 'row',
+    height: 200,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  rosterColumn: { flex: 1, paddingVertical: Spacing.sm },
+  rosterColHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.xs,
+  },
+  rosterColDot: { width: 7, height: 7, borderRadius: 3.5 },
+  rosterColLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    flex: 1,
+  },
+  rosterSubBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.sm,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  rosterSubBtnText: { color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: '700' },
+  rosterScroll: { flex: 1 },
+  rosterPlayerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: Spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: 'transparent',
+    gap: 8,
+  },
+  rosterJersey: {
+    fontSize: 12,
+    fontWeight: '800',
+    minWidth: 24,
+    fontVariant: ['tabular-nums'],
+  },
+  rosterName: { color: '#FFF', fontSize: 13, fontWeight: '600', flex: 1 },
+  rosterScoreNum: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+    minWidth: 24,
+    textAlign: 'right',
+  },
+  benchBar: {
+    paddingVertical: 8,
+    paddingHorizontal: Spacing.md,
+    marginTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  benchBarText: { color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600' },
+
+  // Selected player bar
+  selectedBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+    minHeight: 44,
+  },
+  selectedDot: { width: 8, height: 8, borderRadius: 4 },
+  selectedJersey: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 12,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  selectedName: { color: '#FFF', fontSize: 15, fontWeight: '700', flex: 0 },
+  selectedTeamHint: { color: 'rgba(255,255,255,0.4)', fontSize: 12, flex: 1 },
+  selectedClose: { padding: 4 },
+  selectedHint: { color: 'rgba(255,255,255,0.3)', fontSize: 13, fontStyle: 'italic' },
+
+  // Action area V2
+  actionsAreaV2: {
+    flex: 1,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+  },
+  pairedRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  pairedColumn: {
+    flex: 1,
+    gap: 6,
+  },
+  pairedColumnTitle: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textAlign: 'center',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+  },
+  scoreCell: {
+    paddingVertical: 18,
+    borderRadius: Radius.md,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scoreCellText: {
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  missCell: {
+    paddingVertical: 12,
+    borderRadius: Radius.md,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  missCellText: { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600' },
 
   // Roster
   rosterSection: { paddingVertical: Spacing.sm },
