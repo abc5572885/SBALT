@@ -46,11 +46,11 @@ import {
   recordSubstitution,
 } from '@/services/eventActions';
 import {
-  EventMatch,
+  Match,
   finishMatch,
   getMatchById,
   markMatchStarted as markEventMatchStarted,
-} from '@/services/eventMatches';
+} from '@/services/matches';
 import { TimeoutOverlay } from '@/components/TimeoutOverlay';
 import {
   BasketballStat,
@@ -164,7 +164,7 @@ export default function EventScoresScreen() {
   const colors = Colors[colorScheme ?? 'light'];
 
   const [event, setEvent] = useState<Event | null>(null);
-  const [match, setMatch] = useState<EventMatch | null>(null);
+  const [match, setMatch] = useState<Match | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Pro mode state (basketball / volleyball / badminton)

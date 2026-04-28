@@ -36,7 +36,7 @@ import {
   getMatchActions,
   intervalsTotalSeconds,
 } from '@/services/eventActions';
-import { EventMatch, getMatchById } from '@/services/eventMatches';
+import { Match, getMatchById } from '@/services/matches';
 import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
 import { Event } from '@/types/database';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -375,7 +375,7 @@ export default function BoxScoreScreen() {
   const colors = Colors[colorScheme ?? 'light'];
 
   const [event, setEvent] = useState<Event | null>(null);
-  const [match, setMatch] = useState<EventMatch | null>(null);
+  const [match, setMatch] = useState<Match | null>(null);
   const [stats, setStats] = useState<AnyStat[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [vballSets, setVballSets] = useState<VolleyballSet[]>([]);

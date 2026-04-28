@@ -14,7 +14,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getEventById } from '@/services/database';
-import { createMatch, deleteMatch, EventMatch, getEventMatches } from '@/services/eventMatches';
+import { createMatch, deleteMatch, Match, getEventMatches } from '@/services/matches';
 import {
   getMatchBadmintonStats,
   getMatchBasketballStats,
@@ -47,7 +47,7 @@ export default function MatchesScreen() {
   const colors = Colors[colorScheme ?? 'light'];
 
   const [event, setEvent] = useState<Event | null>(null);
-  const [matches, setMatches] = useState<EventMatch[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
   const [scoresByMatch, setScoresByMatch] = useState<Record<string, { home: number; away: number }>>({});
   const [loading, setLoading] = useState(true);
 
@@ -144,14 +144,14 @@ export default function MatchesScreen() {
     }
   };
 
-  const openMatch = (m: EventMatch) => {
+  const openMatch = (m: Match) => {
     router.push({
       pathname: m.status === 'finished' ? '/event/box-score' : '/event/scores',
       params: { eventId: eventId!, matchId: m.id },
     });
   };
 
-  const confirmDelete = (m: EventMatch) => {
+  const confirmDelete = (m: Match) => {
     Alert.alert(
       `刪除「${m.home_label} vs ${m.away_label}」？`,
       '所有計分、換人、單局比分都會被清除，無法復原。',

@@ -1,5 +1,22 @@
 import { supabase } from '@/lib/supabase';
 
+export async function searchUsersByUsername(
+  query: string,
+  excludeIds: string[] = [],
+): Promise<{ id: string; display_name: string | null; username: string | null; avatar_url: string | null }[]> {
+  const escaped = query.replace(/[%_]/g, (c) => `\\${c}`);
+  let q = supabase
+    .from('profiles')
+    .select('id, display_name, username, avatar_url')
+    .or(`username.ilike.%${escaped}%,display_name.ilike.%${escaped}%`)
+    .limit(10);
+  if (excludeIds.length > 0) {
+    q = q.not('id', 'in', `(${excludeIds.join(',')})`);
+  }
+  const { data } = await q;
+  return (data || []) as any;
+}
+
 export type AccountType = 'regular' | 'verified' | 'official';
 export type VerificationStatus = 'unverified' | 'phone_verified' | 'id_verified';
 export type OfficialKind = 'competition' | 'venue' | 'brand';

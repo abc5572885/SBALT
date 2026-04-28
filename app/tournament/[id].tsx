@@ -1,39 +1,63 @@
+/**
+ * Tournament Detail — 賽事詳情頁。
+ *
+ * 三個區塊（依 organizer / team admin / viewer 顯示不同 CTA）：
+ *   - 賽事資訊
+ *   - 分組（divisions） — organizer 可建/改
+ *   - 比賽日（matchdays） — organizer 可建/改，每個 matchday 點進去看 matches
+ *   - 報名隊伍（registrations） — 群組 admin 可幫自己群組報名
+ */
+
 import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { SPORT_OPTIONS } from '@/constants/sports';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { getFormatLabel, getStatusLabel } from '@/constants/tournaments';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { getGroupById } from '@/services/groups';
-import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
+import { getMyGroups, getGroupById } from '@/services/groups';
 import { toast } from '@/store/useToast';
 import {
-  cancelTournamentRegistration,
   getTournamentById,
-  getTournamentRegistrations,
-  registerForTournament,
   Tournament,
-  TournamentRegistration,
 } from '@/services/tournaments';
 import {
-  getTeamMembers,
-  getTeamsForTournament,
-  TournamentTeam,
-  TournamentTeamMember,
-} from '@/services/tournamentTeams';
+  createDivision,
+  deleteDivision,
+  getDivisions,
+  TournamentDivision,
+} from '@/services/tournamentDivisions';
+import {
+  createMatchday,
+  deleteMatchday,
+  getMatchdays,
+  TournamentMatchday,
+} from '@/services/tournamentMatchdays';
+import {
+  getRegistrations,
+  registerGroup,
+  TournamentRegistration,
+  updateRegistration,
+  withdrawRegistration,
+} from '@/services/tournamentRegistrations';
+import {
+  getTournamentStandings,
+  TeamStanding,
+} from '@/services/tournamentStandings';
 import { Group } from '@/types/database';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
+  Pressable,
   Share,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -46,13 +70,18 @@ export default function TournamentDetailScreen() {
   const colors = Colors[colorScheme ?? 'light'];
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
-  const [group, setGroup] = useState<Group | null>(null);
+  const [organizerGroup, setOrganizerGroup] = useState<Group | null>(null);
+  const [divisions, setDivisions] = useState<TournamentDivision[]>([]);
+  const [matchdays, setMatchdays] = useState<TournamentMatchday[]>([]);
   const [registrations, setRegistrations] = useState<TournamentRegistration[]>([]);
-  const [teams, setTeams] = useState<TournamentTeam[]>([]);
-  const [teamMembersMap, setTeamMembersMap] = useState<Record<string, TournamentTeamMember[]>>({});
-  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+  const [registrationGroups, setRegistrationGroups] = useState<Record<string, Group>>({});
+  const [standings, setStandings] = useState<TeamStanding[]>([]);
+  const [myGroups, setMyGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
+
+  const [createDivOpen, setCreateDivOpen] = useState(false);
+  const [createMdOpen, setCreateMdOpen] = useState(false);
+  const [registerOpen, setRegisterOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -63,105 +92,60 @@ export default function TournamentDetailScreen() {
         return;
       }
       setTournament(t);
-      const [g, regs, teamsData] = await Promise.all([
+      const [og, divs, mds, regs] = await Promise.all([
         getGroupById(t.organizer_group_id),
-        getTournamentRegistrations(t.id),
-        getTeamsForTournament(t.id),
+        getDivisions(t.id),
+        getMatchdays(t.id),
+        getRegistrations(t.id),
       ]);
-      setGroup(g);
-      const active = regs.filter((r) => r.status !== 'cancelled');
+      setOrganizerGroup(og);
+      setDivisions(divs);
+      setMatchdays(mds);
+      const active = regs.filter((r) => r.status !== 'withdrawn');
       setRegistrations(active);
-      setTeams(teamsData);
 
-      // Load team members for each team
-      if (teamsData.length > 0) {
-        const membersByTeam: Record<string, TournamentTeamMember[]> = {};
-        const memberUserIds: string[] = [];
-        for (const team of teamsData) {
-          const members = await getTeamMembers(team.id);
-          membersByTeam[team.id] = members;
-          members.forEach((m) => memberUserIds.push(m.user_id));
-        }
-        setTeamMembersMap(membersByTeam);
-        const allUserIds = [...new Set([...active.map((r) => r.user_id), ...memberUserIds])];
-        if (allUserIds.length > 0) {
-          const profs = await getProfilesByIds(allUserIds);
-          setProfiles(profs);
-        }
-      } else if (active.length > 0) {
-        const profs = await getProfilesByIds(active.map((r) => r.user_id));
-        setProfiles(profs);
+      // Load groups behind registrations
+      if (active.length > 0) {
+        const groupIds = [...new Set(active.map((r) => r.group_id))];
+        const groupResults = await Promise.all(groupIds.map((gid) => getGroupById(gid).catch(() => null)));
+        const map: Record<string, Group> = {};
+        groupResults.forEach((g) => {
+          if (g) map[g.id] = g;
+        });
+        setRegistrationGroups(map);
       }
+
+      // My groups (for "register team" picker)
+      if (user?.id) {
+        const mine = await getMyGroups(user.id);
+        setMyGroups(mine.filter((g) => g.creator_id === user.id));
+      }
+
+      // Standings (computed across all finished tournament matches)
+      setStandings(await getTournamentStandings(t.id));
     } catch (e) {
-      console.error(e);
+      console.error('[tournament] load failed', e);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, user?.id]);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
-  const myRegistration = registrations.find((r) => r.user_id === user?.id);
-  const isOrganizer = group?.creator_id === user?.id;
-  const spotsLeft = tournament?.max_participants
-    ? tournament.max_participants - registrations.length
-    : null;
-  const isFull = spotsLeft !== null && spotsLeft <= 0;
+  const isOrganizer = organizerGroup?.creator_id === user?.id;
+  const myRegistrations = registrations.filter((r) =>
+    myGroups.some((g) => g.id === r.group_id),
+  );
+
   const registrationClosed = tournament?.registration_deadline
     ? new Date(tournament.registration_deadline) < new Date()
     : false;
 
-  const handleRegister = async () => {
-    if (!user || !tournament) return;
-    try {
-      setProcessing(true);
-      await registerForTournament(tournament.id, user.id);
-      await loadData();
-      toast.success(`已報名「${tournament.title}」`);
-    } catch (error: any) {
-      if (error?.code === '23505') {
-        toast.info('您已報名過此賽事');
-      } else {
-        toast.error(error.message || '報名失敗');
-      }
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleCancel = () => {
-    if (!user || !tournament) return;
-    Alert.alert('取消報名', '確定要取消報名嗎？', [
-      { text: '返回', style: 'cancel' },
-      {
-        text: '取消報名',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            setProcessing(true);
-            await cancelTournamentRegistration(tournament.id, user.id);
-            await loadData();
-          } catch (e: any) {
-            Alert.alert('失敗', e.message || '請稍後再試');
-          } finally {
-            setProcessing(false);
-          }
-        },
-      },
-    ]);
-  };
-
   const handleShare = async () => {
     if (!tournament) return;
-    const dateStr = new Date(tournament.start_date).toLocaleDateString('zh-TW');
-    const lines = [
-      tournament.title,
-      `${dateStr} · ${tournament.location}${tournament.venue ? ` · ${tournament.venue}` : ''}`,
-      tournament.entry_fee > 0 ? `報名費 NT$ ${tournament.entry_fee}` : '免費報名',
-    ];
-    if (tournament.prize_pool) lines.push(`獎金：${tournament.prize_pool}`);
-    lines.push('', `SBALT 報名連結：sbalt://open?tournament=${tournament.id}`);
-    await Share.share({ message: lines.join('\n') });
+    await Share.share({
+      message: `${tournament.title}\n\n${tournament.description || ''}\n地點：${tournament.location}\n${tournament.start_date}`,
+    });
   };
 
   if (loading) {
@@ -187,438 +171,841 @@ export default function TournamentDetailScreen() {
   }
 
   const sportLabel = SPORT_OPTIONS.find((s) => s.key === tournament.sport_type)?.label || '';
-  const dateOpts: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'numeric', day: 'numeric' };
-  const startStr = new Date(tournament.start_date).toLocaleDateString('zh-TW', dateOpts);
-  const endStr = tournament.end_date ? new Date(tournament.end_date).toLocaleDateString('zh-TW', dateOpts) : null;
-  const deadlineStr = tournament.registration_deadline
-    ? new Date(tournament.registration_deadline).toLocaleDateString('zh-TW', dateOpts)
-    : null;
 
   return (
     <ScreenLayout scrollable>
       <PageHeader
         title="賽事詳情"
         rightContent={
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.lg }}>
-            {isOrganizer && (
-              <TouchableOpacity
-                onPress={() => router.push(`/tournament/edit/${tournament.id}`)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                activeOpacity={0.6}
-              >
-                <IconSymbol name="pencil" size={20} color={colors.text} />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              onPress={handleShare}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              activeOpacity={0.6}
-            >
-              <IconSymbol name="paperplane.fill" size={20} color={colors.text} />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={handleShare} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <IconSymbol name="square.and.arrow.up" size={20} color={colors.text} />
+          </TouchableOpacity>
         }
       />
 
-      {/* Status + Title */}
-      <View style={styles.titleSection}>
-        <View style={styles.badgeRow}>
-          <View style={[styles.statusBadge, { backgroundColor: colors.statusSuccess + '15' }]}>
-            <ThemedText type="label" style={{ color: colors.statusSuccess }}>
-              {getStatusLabel(tournament.status)}
-            </ThemedText>
+      {/* Header */}
+      <View style={styles.section}>
+        <Text style={[styles.title, { color: colors.text }]}>{tournament.title}</Text>
+        <View style={styles.tagsRow}>
+          <View style={[styles.tag, { backgroundColor: colors.secondary }]}>
+            <Text style={[styles.tagText, { color: colors.text }]}>{sportLabel}</Text>
           </View>
-          {sportLabel && (
-            <View style={[styles.sportBadge, { borderColor: colors.border }]}>
-              <ThemedText type="label" style={{ color: colors.textSecondary }}>{sportLabel}</ThemedText>
-            </View>
-          )}
-          <View style={[styles.sportBadge, { borderColor: colors.border }]}>
-            <ThemedText type="label" style={{ color: colors.textSecondary }}>
-              {getFormatLabel(tournament.format)}
-            </ThemedText>
+          <View style={[styles.tag, { backgroundColor: colors.secondary }]}>
+            <Text style={[styles.tagText, { color: colors.text }]}>{getFormatLabel(tournament.format)}</Text>
+          </View>
+          <View style={[styles.tag, { backgroundColor: colors.primary + '22' }]}>
+            <Text style={[styles.tagText, { color: colors.primary }]}>
+              {getStatusLabel(tournament.status)}
+            </Text>
           </View>
         </View>
-        <Text style={[styles.title, { color: colors.text }]}>{tournament.title}</Text>
+        {tournament.description && (
+          <Text style={[styles.description, { color: colors.textSecondary }]}>
+            {tournament.description}
+          </Text>
+        )}
       </View>
 
-      {/* Organizer */}
-      {group && (
-        <TouchableOpacity
-          style={[styles.organizerRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={() => router.push({ pathname: '/group/[id]', params: { id: group.id } })}
-          activeOpacity={0.7}
-        >
-          <View style={styles.organizerInfo}>
-            <ThemedText type="caption" style={{ color: colors.textSecondary }}>主辦單位</ThemedText>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
-              <Text style={[styles.organizerName, { color: colors.text }]}>{group.name}</Text>
-            </View>
-          </View>
-          <IconSymbol name="chevron.right" size={16} color={colors.disabled} />
-        </TouchableOpacity>
-      )}
-
-      {/* Info card */}
-      <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }, Shadows.sm]}>
-        <InfoRow icon="calendar" label="開始" value={startStr} colors={colors} />
-        {endStr && <InfoRow icon="calendar" label="結束" value={endStr} colors={colors} />}
-        {deadlineStr && (
-          <InfoRow
-            icon="calendar"
-            label="報名截止"
-            value={deadlineStr}
-            colors={colors}
-            valueColor={registrationClosed ? colors.error : colors.text}
-          />
+      {/* Info */}
+      <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <InfoRow label="期間" value={`${tournament.start_date}${tournament.end_date ? ` ~ ${tournament.end_date}` : ''}`} colors={colors} />
+        {tournament.registration_deadline && (
+          <InfoRow label="報名截止" value={tournament.registration_deadline} colors={colors} />
         )}
-        <InfoRow
-          icon="location.fill"
-          label="地點"
-          value={tournament.venue ? `${tournament.location} · ${tournament.venue}` : tournament.location}
-          colors={colors}
-        />
-        <InfoRow
-          icon="person.fill"
-          label="報名人數"
-          value={
-            tournament.max_participants
-              ? `${registrations.length} / ${tournament.max_participants}`
-              : `${registrations.length} 人`
-          }
-          colors={colors}
-        />
-        <InfoRow
-          icon="star.fill"
-          label="報名費"
-          value={tournament.entry_fee > 0 ? `NT$ ${tournament.entry_fee}` : '免費'}
-          colors={colors}
-        />
-        {tournament.payment_info && tournament.entry_fee > 0 && (
-          <InfoRow icon="star.fill" label="付款方式" value={tournament.payment_info} colors={colors} />
+        <InfoRow label="地點" value={tournament.location} colors={colors} />
+        {tournament.entry_fee > 0 && (
+          <InfoRow label="報名費" value={`NT$ ${tournament.entry_fee}`} colors={colors} />
         )}
         {tournament.prize_pool && (
-          <InfoRow icon="star.fill" label="獎金" value={tournament.prize_pool} colors={colors} />
+          <InfoRow label="獎品" value={tournament.prize_pool} colors={colors} />
+        )}
+        {organizerGroup && (
+          <InfoRow label="主辦" value={organizerGroup.name} colors={colors} />
         )}
       </View>
 
-      {/* Description */}
-      {tournament.description && (
-        <View style={styles.section}>
-          <ThemedText type="label" style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-            賽事介紹
-          </ThemedText>
-          <Text style={[styles.body, { color: colors.text }]}>{tournament.description}</Text>
+      {/* Register CTA (group admin) */}
+      {!isOrganizer && myGroups.length > 0 && !registrationClosed && (
+        <TouchableOpacity
+          style={[
+            styles.primaryBtn,
+            { backgroundColor: colors.text },
+            Shadows.sm,
+            myRegistrations.length > 0 && { opacity: 0.4 },
+          ]}
+          onPress={() => setRegisterOpen(true)}
+          disabled={myRegistrations.length > 0}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.primaryBtnText, { color: colors.background }]}>
+            {myRegistrations.length > 0 ? '已報名' : '報名我的隊伍'}
+          </Text>
+        </TouchableOpacity>
+      )}
+      {registrationClosed && (
+        <View style={[styles.statusBanner, { backgroundColor: colors.surface }]}>
+          <Text style={{ color: colors.textSecondary, fontSize: 13 }}>報名已截止</Text>
         </View>
       )}
 
-      {/* Rules */}
-      {tournament.rules && (
-        <View style={styles.section}>
-          <ThemedText type="label" style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-            賽事規則
-          </ThemedText>
-          <Text style={[styles.body, { color: colors.text }]}>{tournament.rules}</Text>
-        </View>
-      )}
-
-      {/* Participants / Teams */}
-      {tournament.registration_type === 'team' ? (
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <ThemedText type="label" style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-              參賽隊伍 ({teams.length}){tournament.team_size ? ` · 每隊 ${tournament.team_size} 人` : ''}
-            </ThemedText>
-          </View>
-          {teams.length === 0 ? (
-            <View style={[styles.emptyCard, { borderColor: colors.border }]}>
-              <ThemedText type="caption" style={{ color: colors.textSecondary }}>尚無隊伍建立</ThemedText>
-            </View>
-          ) : (
-            <View style={styles.participants}>
-              {teams.map((team, idx) => {
-                const members = teamMembersMap[team.id] || [];
-                const accepted = members.filter((m) => m.status === 'accepted');
-                const pending = members.filter((m) => m.status === 'pending');
-                const memberNames = accepted.map((m) =>
-                  getDisplayName(profiles[m.user_id], m.user_id, m.user_id === user?.id)
-                ).join('、');
-                return (
-                  <TouchableOpacity
-                    key={team.id}
-                    style={[styles.teamCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                    onPress={() => router.push({ pathname: '/tournament/team/[id]', params: { id: team.id } })}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.teamHeader}>
-                      <View style={[styles.participantIdx, { backgroundColor: colors.primary }]}>
-                        <Text style={styles.participantIdxText}>{idx + 1}</Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.participantName, { color: colors.text, fontSize: 16 }]}>{team.name}</Text>
-                        <ThemedText type="caption" style={{ color: colors.textSecondary }}>
-                          {accepted.length}{tournament.team_size ? ` / ${tournament.team_size}` : ''} 人
-                          {pending.length > 0 && ` · ${pending.length} 人待回應`}
-                        </ThemedText>
-                      </View>
-                      <IconSymbol name="chevron.right" size={14} color={colors.disabled} />
-                    </View>
-                    {memberNames && (
-                      <ThemedText type="caption" style={{ color: colors.textSecondary, marginTop: Spacing.sm }} numberOfLines={2}>
-                        {memberNames}
-                      </ThemedText>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </View>
+      {/* Divisions */}
+      <SectionHeader
+        title="分組"
+        count={divisions.length}
+        onAction={isOrganizer ? () => setCreateDivOpen(true) : undefined}
+        actionLabel="+ 新增分組"
+        colors={colors}
+      />
+      {divisions.length === 0 ? (
+        <EmptyHint text={isOrganizer ? '尚未設定分組，點上方建立第一組' : '主辦尚未設定分組'} colors={colors} />
       ) : (
-        <View style={styles.section}>
-          <ThemedText type="label" style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-            參賽者 ({registrations.length})
-          </ThemedText>
-          {registrations.length === 0 ? (
-            <View style={[styles.emptyCard, { borderColor: colors.border }]}>
-              <ThemedText type="caption" style={{ color: colors.textSecondary }}>尚無人報名</ThemedText>
-            </View>
-          ) : (
-            <View style={styles.participants}>
-              {registrations.map((r, idx) => {
-                const name = getDisplayName(profiles[r.user_id], r.user_id, r.user_id === user?.id);
-                return (
+        <View style={styles.cardList}>
+          {divisions.map((d) => {
+            const teamsInDivision = registrations.filter((r) => r.division_id === d.id);
+            return (
+              <View
+                key={d.id}
+                style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.rowTitle, { color: colors.text }]}>{d.name}</Text>
+                  <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
+                    {teamsInDivision.length} 隊
+                  </Text>
+                </View>
+                {isOrganizer && (
                   <TouchableOpacity
-                    key={r.id}
-                    style={[styles.participantCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                    onPress={() => r.user_id !== user?.id && router.push(`/user/${r.user_id}`)}
-                    activeOpacity={r.user_id === user?.id ? 1 : 0.7}
-                    disabled={r.user_id === user?.id}
+                    onPress={() => {
+                      Alert.alert('刪除分組', `確定要刪除「${d.name}」？`, [
+                        { text: '取消', style: 'cancel' },
+                        {
+                          text: '刪除',
+                          style: 'destructive',
+                          onPress: async () => {
+                            await deleteDivision(d.id);
+                            loadData();
+                          },
+                        },
+                      ]);
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <View style={[styles.participantIdx, { backgroundColor: colors.primary }]}>
-                      <Text style={styles.participantIdxText}>{idx + 1}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
-                        <Text style={[styles.participantName, { color: colors.text }]}>{name}</Text>
-                        {profiles[r.user_id]?.account_type && profiles[r.user_id]?.account_type !== 'regular' && (
-                          <VerifiedBadge accountType={profiles[r.user_id].account_type} size="small" />
-                        )}
-                      </View>
-                    </View>
-                    {tournament.entry_fee > 0 && (
-                      <View style={[
-                        styles.payBadge,
-                        { backgroundColor: r.payment_status === 'paid' ? colors.statusSuccess + '15' : colors.secondary },
-                      ]}>
-                        <ThemedText type="label" style={{
-                          color: r.payment_status === 'paid' ? colors.statusSuccess : colors.textSecondary,
-                        }}>
-                          {r.payment_status === 'paid' ? '已付款' : '未付款'}
-                        </ThemedText>
-                      </View>
-                    )}
+                    <IconSymbol name="trash" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
-                );
-              })}
-            </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Matchdays */}
+      <SectionHeader
+        title="比賽日"
+        count={matchdays.length}
+        onAction={isOrganizer ? () => setCreateMdOpen(true) : undefined}
+        actionLabel="+ 新增比賽日"
+        colors={colors}
+      />
+      {matchdays.length === 0 ? (
+        <EmptyHint text={isOrganizer ? '尚未排比賽日，點上方新增第一日' : '尚未公佈比賽日'} colors={colors} />
+      ) : (
+        <View style={styles.cardList}>
+          {matchdays.map((md) => (
+            <TouchableOpacity
+              key={md.id}
+              style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              activeOpacity={0.7}
+              onPress={() =>
+                router.push({
+                  pathname: '/tournament/matchday/[id]',
+                  params: { id: md.id, tournamentId: tournament.id },
+                })
+              }
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowTitle, { color: colors.text }]}>
+                  第 {md.matchday_number} 比賽日
+                </Text>
+                <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
+                  {md.scheduled_date || '日期待定'}
+                  {md.location ? ` · ${md.location}` : ''}
+                </Text>
+              </View>
+              <IconSymbol name="chevron.right" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Standings (only show if any matches finished) */}
+      {standings.some((s) => s.played > 0) && (
+        <>
+          <SectionHeader title="排名" count={0} colors={colors} />
+          {divisions.length > 0 ? (
+            divisions.map((d) => {
+              const inDiv = standings.filter((s) => s.division_id === d.id && s.played > 0);
+              if (inDiv.length === 0) return null;
+              return (
+                <View key={d.id} style={{ marginBottom: Spacing.md }}>
+                  <Text style={[styles.standingDivLabel, { color: colors.textSecondary }]}>
+                    {d.name}
+                  </Text>
+                  <StandingsTable standings={inDiv} colors={colors} />
+                </View>
+              );
+            })
+          ) : (
+            <StandingsTable standings={standings.filter((s) => s.played > 0)} colors={colors} />
           )}
+        </>
+      )}
+
+      {/* Registered teams */}
+      <SectionHeader
+        title="報名隊伍"
+        count={registrations.length}
+        colors={colors}
+      />
+      {registrations.length === 0 ? (
+        <EmptyHint text="還沒有隊伍報名" colors={colors} />
+      ) : (
+        <View style={styles.cardList}>
+          {registrations.map((r) => {
+            const g = registrationGroups[r.group_id];
+            const div = divisions.find((d) => d.id === r.division_id);
+            const isMine = myGroups.some((mg) => mg.id === r.group_id);
+            return (
+              <View
+                key={r.id}
+                style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.rowTitle, { color: colors.text }]}>{r.team_label}</Text>
+                  <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
+                    {div?.name || '未分組'} · {regStatusLabel(r.status, r.paid)}
+                    {g && g.name !== r.team_label ? ` · ${g.name}` : ''}
+                  </Text>
+                </View>
+                {isOrganizer && (
+                  <TouchableOpacity
+                    onPress={() => openOrganizerActions(r, divisions, loadData)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <IconSymbol name="ellipsis" size={16} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+                {!isOrganizer && isMine && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      Alert.alert('取消報名', `確定取消「${r.team_label}」的報名？`, [
+                        { text: '保留', style: 'cancel' },
+                        {
+                          text: '取消報名',
+                          style: 'destructive',
+                          onPress: async () => {
+                            await withdrawRegistration(r.id);
+                            loadData();
+                          },
+                        },
+                      ]);
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={{ color: colors.error, fontSize: 12, fontWeight: '600' }}>取消</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })}
         </View>
       )}
 
       <View style={{ height: Spacing.xxl }} />
 
-      {/* Bottom action */}
-      {!isOrganizer && tournament.registration_type === 'team' ? (
-        <View style={styles.bottomAction}>
-          {(() => {
-            // Find if user is already in a team
-            const myTeam = teams.find((t) =>
-              (teamMembersMap[t.id] || []).some((m) => m.user_id === user?.id && m.status !== 'declined')
-            );
-            if (myTeam) {
-              return (
-                <TouchableOpacity
-                  style={[styles.btn, { backgroundColor: colors.primary }, Shadows.sm]}
-                  onPress={() => router.push({ pathname: '/tournament/team/[id]', params: { id: myTeam.id } })}
-                  activeOpacity={0.7}
-                >
-                  <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>
-                    管理我的隊伍「{myTeam.name}」
-                  </Text>
-                </TouchableOpacity>
-              );
-            }
-            return (
-              <TouchableOpacity
-                style={[
-                  styles.btn,
-                  { backgroundColor: colors.primary },
-                  Shadows.sm,
-                  (processing || registrationClosed) && { opacity: 0.4 },
-                ]}
-                onPress={() => router.push({ pathname: '/tournament/team/new', params: { tournamentId: tournament.id } })}
-                disabled={processing || registrationClosed}
-                activeOpacity={0.7}
-              >
-                <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>
-                  {registrationClosed ? '報名已截止' : '建立隊伍 / 報名'}
-                </Text>
-              </TouchableOpacity>
-            );
-          })()}
-        </View>
-      ) : !isOrganizer ? (
-        <View style={styles.bottomAction}>
-          {myRegistration ? (
-            <TouchableOpacity
-              style={[styles.btn, { backgroundColor: colors.surface, borderColor: colors.error, borderWidth: 1 }]}
-              onPress={handleCancel}
-              disabled={processing}
-              activeOpacity={0.7}
-            >
-              <Text style={{ color: colors.error, fontSize: 16, fontWeight: '700' }}>
-                {processing ? '處理中...' : '取消報名'}
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[
-                styles.btn,
-                { backgroundColor: colors.primary },
-                Shadows.sm,
-                (processing || isFull || registrationClosed) && { opacity: 0.4 },
-              ]}
-              onPress={handleRegister}
-              disabled={processing || isFull || registrationClosed}
-              activeOpacity={0.7}
-            >
-              <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>
-                {processing ? '報名中...'
-                  : registrationClosed ? '報名已截止'
-                  : isFull ? '已額滿'
-                  : tournament.entry_fee > 0 ? `報名 · NT$ ${tournament.entry_fee}` : '立即報名'}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      ) : null}
-
-      {isOrganizer && (
-        <View style={styles.bottomAction}>
-          <TouchableOpacity
-            style={[styles.btn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}
-            activeOpacity={0.7}
-          >
-            <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600' }}>
-              您是主辦方 · {registrations.length} 人報名
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      {/* Modals */}
+      <CreateDivisionModal
+        visible={createDivOpen}
+        onClose={() => setCreateDivOpen(false)}
+        tournamentId={tournament.id}
+        existingCount={divisions.length}
+        onCreated={loadData}
+        colors={colors}
+      />
+      <CreateMatchdayModal
+        visible={createMdOpen}
+        onClose={() => setCreateMdOpen(false)}
+        tournamentId={tournament.id}
+        onCreated={loadData}
+        colors={colors}
+      />
+      <RegisterModal
+        visible={registerOpen}
+        onClose={() => setRegisterOpen(false)}
+        tournamentId={tournament.id}
+        userId={user?.id || ''}
+        myGroups={myGroups.filter((g) => !registrations.some((r) => r.group_id === g.id))}
+        divisions={divisions}
+        onCreated={loadData}
+        colors={colors}
+      />
     </ScreenLayout>
   );
 }
 
-function InfoRow({ label, value, colors, valueColor }: {
-  icon?: any;
-  label: string;
-  value: string;
-  colors: any;
-  valueColor?: string;
-}) {
+// ── Helpers ────────────────────────────────────────────────────────
+
+function regStatusLabel(status: string, paid: boolean): string {
+  if (status === 'withdrawn') return '已取消';
+  if (paid) return '已繳費';
+  if (status === 'confirmed') return '已確認';
+  return '待確認';
+}
+
+function openOrganizerActions(
+  r: TournamentRegistration,
+  divisions: TournamentDivision[],
+  reload: () => void,
+) {
+  const buttons: { text: string; style?: 'destructive' | 'cancel'; onPress?: () => void }[] = [];
+  // Toggle paid
+  buttons.push({
+    text: r.paid ? '標記未繳費' : '標記已繳費',
+    onPress: async () => {
+      await updateRegistration(r.id, { paid: !r.paid, status: !r.paid ? 'paid' : 'pending' });
+      reload();
+    },
+  });
+  buttons.push({
+    text: '指派分組',
+    onPress: () => {
+      Alert.alert('指派分組', '選擇要分到哪個層級', [
+        ...divisions.map((d) => ({
+          text: d.name,
+          onPress: async () => {
+            await updateRegistration(r.id, { division_id: d.id });
+            reload();
+          },
+        })),
+        { text: '取消分組', onPress: async () => {
+          await updateRegistration(r.id, { division_id: null });
+          reload();
+        }},
+        { text: '取消', style: 'cancel' as const },
+      ]);
+    },
+  });
+  buttons.push({
+    text: '移除報名',
+    style: 'destructive',
+    onPress: async () => {
+      await withdrawRegistration(r.id);
+      reload();
+    },
+  });
+  buttons.push({ text: '取消', style: 'cancel' });
+  Alert.alert(`${r.team_label}`, '主辦操作', buttons);
+}
+
+// ── Subcomponents ──────────────────────────────────────────────────
+
+function InfoRow({ label, value, colors }: { label: string; value: string; colors: any }) {
   return (
     <View style={styles.infoRow}>
       <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <Text style={[styles.infoValue, { color: valueColor || colors.text }]}>
-        {value}
-      </Text>
+      <Text style={[styles.infoValue, { color: colors.text }]}>{value}</Text>
     </View>
   );
 }
 
+function SectionHeader({
+  title,
+  count,
+  onAction,
+  actionLabel,
+  colors,
+}: {
+  title: string;
+  count: number;
+  onAction?: () => void;
+  actionLabel?: string;
+  colors: any;
+}) {
+  return (
+    <View style={styles.sectionHeader}>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>
+        {title}
+        {count > 0 && (
+          <Text style={[styles.sectionCount, { color: colors.textSecondary }]}> · {count}</Text>
+        )}
+      </Text>
+      {onAction && (
+        <TouchableOpacity onPress={onAction} activeOpacity={0.7}>
+          <Text style={[styles.sectionAction, { color: colors.primary }]}>{actionLabel}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+function StandingsTable({ standings, colors }: { standings: TeamStanding[]; colors: any }) {
+  return (
+    <View style={[styles.standingsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.standingHeaderRow, { borderBottomColor: colors.border }]}>
+        <Text style={[styles.standingRank, { color: colors.textSecondary }]}>#</Text>
+        <Text style={[styles.standingTeam, { color: colors.textSecondary }]}>隊伍</Text>
+        <Text style={[styles.standingCell, { color: colors.textSecondary }]}>賽</Text>
+        <Text style={[styles.standingCell, { color: colors.textSecondary }]}>勝</Text>
+        <Text style={[styles.standingCell, { color: colors.textSecondary }]}>負</Text>
+        <Text style={[styles.standingCellWide, { color: colors.textSecondary }]}>得分</Text>
+        <Text style={[styles.standingCellWide, { color: colors.textSecondary }]}>失分</Text>
+        <Text style={[styles.standingCellWide, { color: colors.textSecondary }]}>淨</Text>
+      </View>
+      {standings.map((s, idx) => (
+        <View
+          key={s.group_id}
+          style={[styles.standingDataRow, idx === standings.length - 1 ? null : { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth }]}
+        >
+          <Text style={[styles.standingRank, { color: colors.text, fontWeight: '700' }]}>{idx + 1}</Text>
+          <Text
+            style={[styles.standingTeam, { color: colors.text, fontWeight: idx === 0 ? '800' : '600' }]}
+            numberOfLines={1}
+          >
+            {s.team_label}
+          </Text>
+          <Text style={[styles.standingCell, { color: colors.textSecondary }]}>{s.played}</Text>
+          <Text style={[styles.standingCell, { color: colors.text, fontWeight: '700' }]}>{s.wins}</Text>
+          <Text style={[styles.standingCell, { color: colors.textSecondary }]}>{s.losses}</Text>
+          <Text style={[styles.standingCellWide, { color: colors.textSecondary }]}>{s.points_for}</Text>
+          <Text style={[styles.standingCellWide, { color: colors.textSecondary }]}>{s.points_against}</Text>
+          <Text
+            style={[
+              styles.standingCellWide,
+              {
+                color: s.point_diff > 0 ? colors.statusSuccess : s.point_diff < 0 ? colors.error : colors.textSecondary,
+                fontWeight: '700',
+              },
+            ]}
+          >
+            {s.point_diff > 0 ? `+${s.point_diff}` : String(s.point_diff)}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function EmptyHint({ text, colors }: { text: string; colors: any }) {
+  return (
+    <View style={[styles.emptyHint, { borderColor: colors.border }]}>
+      <Text style={{ color: colors.textSecondary, fontSize: 13, textAlign: 'center' }}>{text}</Text>
+    </View>
+  );
+}
+
+// ── Modals ─────────────────────────────────────────────────────────
+
+function CreateDivisionModal({
+  visible, onClose, tournamentId, existingCount, onCreated, colors,
+}: {
+  visible: boolean; onClose: () => void; tournamentId: string; existingCount: number; onCreated: () => void; colors: any;
+}) {
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+  React.useEffect(() => {
+    if (visible) setName(`${String.fromCharCode(65 + existingCount)} 級`);
+  }, [visible, existingCount]);
+  const handleCreate = async () => {
+    if (!name.trim()) return;
+    try {
+      setSaving(true);
+      await createDivision({ tournamentId, name: name.trim(), levelOrder: existingCount });
+      onClose();
+      setName('');
+      onCreated();
+    } catch (e: any) {
+      toast.error(e?.message || '建立失敗');
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.modalOverlay} onPress={onClose}>
+        <Pressable style={[styles.modalCard, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>新增分組</Text>
+          <TextInput
+            style={[styles.modalInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+            value={name}
+            onChangeText={setName}
+            placeholder="例：A 級 / 公開組"
+            placeholderTextColor={colors.placeholder}
+          />
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={[styles.modalCancel, { borderColor: colors.border }]} onPress={onClose}>
+              <Text style={{ color: colors.textSecondary, fontSize: 14, fontWeight: '600' }}>取消</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalConfirm, { backgroundColor: colors.text }, saving && { opacity: 0.5 }]}
+              onPress={handleCreate}
+              disabled={saving}
+            >
+              <Text style={{ color: colors.background, fontSize: 14, fontWeight: '700' }}>
+                {saving ? '建立中...' : '建立'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function CreateMatchdayModal({
+  visible, onClose, tournamentId, onCreated, colors,
+}: {
+  visible: boolean; onClose: () => void; tournamentId: string; onCreated: () => void; colors: any;
+}) {
+  const [date, setDate] = useState('');
+  const [location, setLocation] = useState('');
+  const [saving, setSaving] = useState(false);
+  const handleCreate = async () => {
+    try {
+      setSaving(true);
+      await createMatchday({
+        tournamentId,
+        scheduledDate: date || null,
+        location: location || null,
+      });
+      onClose();
+      setDate('');
+      setLocation('');
+      onCreated();
+    } catch (e: any) {
+      toast.error(e?.message || '建立失敗');
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.modalOverlay} onPress={onClose}>
+        <Pressable style={[styles.modalCard, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>新增比賽日</Text>
+          <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>日期 (YYYY-MM-DD)</Text>
+          <TextInput
+            style={[styles.modalInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+            value={date}
+            onChangeText={setDate}
+            placeholder="2026-05-04"
+            placeholderTextColor={colors.placeholder}
+          />
+          <Text style={[styles.modalLabel, { color: colors.textSecondary, marginTop: Spacing.md }]}>
+            地點（選填）
+          </Text>
+          <TextInput
+            style={[styles.modalInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+            value={location}
+            onChangeText={setLocation}
+            placeholder="例：竹科體育館"
+            placeholderTextColor={colors.placeholder}
+          />
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={[styles.modalCancel, { borderColor: colors.border }]} onPress={onClose}>
+              <Text style={{ color: colors.textSecondary, fontSize: 14, fontWeight: '600' }}>取消</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalConfirm, { backgroundColor: colors.text }, saving && { opacity: 0.5 }]}
+              onPress={handleCreate}
+              disabled={saving}
+            >
+              <Text style={{ color: colors.background, fontSize: 14, fontWeight: '700' }}>
+                {saving ? '建立中...' : '建立'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function RegisterModal({
+  visible, onClose, tournamentId, userId, myGroups, divisions, onCreated, colors,
+}: {
+  visible: boolean; onClose: () => void; tournamentId: string; userId: string;
+  myGroups: Group[]; divisions: TournamentDivision[]; onCreated: () => void; colors: any;
+}) {
+  const [pickedGroup, setPickedGroup] = useState<Group | null>(null);
+  const [pickedDivision, setPickedDivision] = useState<TournamentDivision | null>(null);
+  const [saving, setSaving] = useState(false);
+  React.useEffect(() => {
+    if (!visible) {
+      setPickedGroup(null);
+      setPickedDivision(null);
+    }
+  }, [visible]);
+  const handleSubmit = async () => {
+    if (!pickedGroup) return;
+    try {
+      setSaving(true);
+      await registerGroup({
+        tournamentId,
+        groupId: pickedGroup.id,
+        teamLabel: pickedGroup.name,
+        registeredBy: userId,
+        divisionId: pickedDivision?.id,
+      });
+      onClose();
+      onCreated();
+      toast.success('已送出報名，等待主辦確認');
+    } catch (e: any) {
+      if (e?.code === '23505') toast.error('該隊伍已報名過');
+      else toast.error(e?.message || '報名失敗');
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.modalOverlay} onPress={onClose}>
+        <Pressable style={[styles.modalCard, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>報名隊伍</Text>
+          {myGroups.length === 0 ? (
+            <Text style={{ color: colors.textSecondary, fontSize: 13, paddingVertical: Spacing.lg }}>
+              你還沒有可報名的群組（要是該群組的 creator）
+            </Text>
+          ) : (
+            <>
+              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>選一個你的隊伍 / 群組</Text>
+              <View style={{ gap: 8 }}>
+                {myGroups.map((g) => {
+                  const picked = pickedGroup?.id === g.id;
+                  return (
+                    <TouchableOpacity
+                      key={g.id}
+                      style={[
+                        styles.pickerRow,
+                        { borderColor: picked ? colors.text : colors.border, backgroundColor: picked ? colors.text + '11' : colors.background },
+                      ]}
+                      onPress={() => setPickedGroup(g)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600' }}>{g.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {divisions.length > 0 && (
+                <>
+                  <Text style={[styles.modalLabel, { color: colors.textSecondary, marginTop: Spacing.md }]}>
+                    希望分組（選填，主辦可調整）
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {divisions.map((d) => {
+                      const picked = pickedDivision?.id === d.id;
+                      return (
+                        <TouchableOpacity
+                          key={d.id}
+                          style={[
+                            styles.pickerChip,
+                            { borderColor: picked ? colors.text : colors.border, backgroundColor: picked ? colors.text : colors.background },
+                          ]}
+                          onPress={() => setPickedDivision(picked ? null : d)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={{ color: picked ? colors.background : colors.text, fontSize: 13, fontWeight: '600' }}>
+                            {d.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={[styles.modalCancel, { borderColor: colors.border }]} onPress={onClose}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 14, fontWeight: '600' }}>取消</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalConfirm,
+                    { backgroundColor: colors.text },
+                    (!pickedGroup || saving) && { opacity: 0.4 },
+                  ]}
+                  onPress={handleSubmit}
+                  disabled={!pickedGroup || saving}
+                >
+                  <Text style={{ color: colors.background, fontSize: 14, fontWeight: '700' }}>
+                    {saving ? '送出中...' : '送出報名'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.xxl },
-  titleSection: { marginBottom: Spacing.lg, gap: Spacing.md },
-  badgeRow: { flexDirection: 'row', gap: Spacing.xs, flexWrap: 'wrap' },
-  statusBadge: { paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.sm },
-  sportBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: Radius.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  title: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
-  organizerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.md,
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xxl },
+  section: { marginBottom: Spacing.lg, gap: Spacing.sm },
+  title: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  tag: { paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.sm },
+  tagText: { fontSize: 11, fontWeight: '700' },
+  description: { fontSize: 14, lineHeight: 21 },
+  infoCard: {
+    padding: Spacing.lg,
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: Spacing.lg,
+    gap: Spacing.sm,
   },
-  organizerInfo: { flex: 1, gap: 2 },
-  organizerName: { fontSize: 15, fontWeight: '600' },
-  infoCard: {
-    padding: Spacing.md,
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: Spacing.xl,
-    gap: Spacing.md,
-  },
-  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, paddingVertical: 2 },
-  infoLabel: { fontSize: 12, width: 76, fontWeight: '600', letterSpacing: -0.1, paddingTop: 1 },
-  infoValue: { flex: 1, fontSize: 14, fontWeight: '500', lineHeight: 19 },
-  section: { marginBottom: Spacing.xl },
-  sectionLabel: { marginBottom: Spacing.sm, textTransform: 'uppercase', letterSpacing: 1 },
-  body: { fontSize: 15, lineHeight: 22 },
-  emptyCard: {
-    padding: Spacing.xl,
-    alignItems: 'center',
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  participants: { gap: Spacing.sm },
-  participantCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.md,
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    gap: Spacing.md,
-  },
-  participantIdx: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  participantIdxText: { fontSize: 13, fontWeight: '700', color: '#FFF' },
-  participantName: { fontSize: 14, fontWeight: '500' },
-  payBadge: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: Radius.sm },
-  bottomAction: {
-    padding: Spacing.lg,
-    paddingBottom: Spacing.xxl,
-  },
-  btn: {
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  infoLabel: { fontSize: 13 },
+  infoValue: { fontSize: 13, fontWeight: '600', flex: 1, textAlign: 'right', marginLeft: Spacing.lg },
+  primaryBtn: {
     paddingVertical: Spacing.lg,
     borderRadius: Radius.md,
     alignItems: 'center',
+    marginBottom: Spacing.lg,
   },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  primaryBtnText: { fontSize: 15, fontWeight: '700' },
+  statusBanner: {
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
     alignItems: 'center',
+    marginBottom: Spacing.lg,
   },
-  teamCard: {
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.lg,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
+  sectionCount: { fontSize: 13, fontWeight: '500' },
+  sectionAction: { fontSize: 13, fontWeight: '700' },
+  emptyHint: {
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderStyle: 'dashed',
+  },
+  cardList: { gap: Spacing.sm },
+
+  // Standings table
+  standingDivLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 6,
+    paddingHorizontal: Spacing.sm,
+  },
+  standingsCard: {
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  standingHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  standingDataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+  },
+  standingRank: {
+    width: 24,
+    fontSize: 12,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  standingTeam: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  standingCell: {
+    width: 28,
+    textAlign: 'center',
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+  },
+  standingCellWide: {
+    width: 36,
+    textAlign: 'center',
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+  },
+
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: Spacing.md,
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.sm,
   },
-  teamHeader: {
-    flexDirection: 'row',
+  rowTitle: { fontSize: 14, fontWeight: '700' },
+  rowMeta: { fontSize: 12, marginTop: 2 },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: Spacing.xl,
+  },
+  modalCard: { borderRadius: Radius.lg, padding: Spacing.xl, gap: Spacing.sm },
+  modalTitle: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3, marginBottom: Spacing.sm },
+  modalLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  modalInput: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    fontSize: 15,
+  },
+  modalActions: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.lg },
+  modalCancel: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
-    gap: Spacing.md,
+  },
+  modalConfirm: {
+    flex: 2,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+  },
+  pickerRow: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  pickerChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });

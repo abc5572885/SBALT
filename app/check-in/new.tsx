@@ -13,7 +13,7 @@ import {
   createCheckIn,
   getUserTaggingPrivacy,
 } from '@/services/checkIns';
-import { searchUsersByUsername } from '@/services/tournamentTeams';
+import { searchUsersByUsername } from '@/services/profile';
 import { toast } from '@/store/useToast';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';

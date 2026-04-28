@@ -93,7 +93,7 @@ export default function ProfileScreen() {
 
   const menuItems: { icon: any; label: string; onPress: () => void; badge?: number }[] = [
     { icon: 'checkmark.circle' as const, label: '打卡紀錄', onPress: () => router.push('/check-in') },
-    { icon: 'person.2.fill' as const, label: '我的隊伍', onPress: () => router.push('/my-teams') },
+    { icon: 'person.2.fill' as const, label: '我的群組', onPress: () => router.push('/group') },
     { icon: 'calendar' as const, label: '我的預約', onPress: () => router.push('/my-bookings') },
     { icon: 'pencil' as const, label: '編輯個人資料', onPress: () => router.push('/edit-profile') },
     { icon: 'medal.fill' as const, label: '成就', onPress: () => router.push('/event/achievements') },
