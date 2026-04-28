@@ -258,7 +258,17 @@ export default function EventScoresScreen() {
       const starterIds = new Set(
         (sportStats as AnyStat[]).filter((s) => (s as any).is_starter).map((s) => s.id),
       );
-      const active = new Set(starterIds);
+      const hasSubEvents = actionRows.some(
+        (a) => a.action_type === 'sub_in' || a.action_type === 'sub_out',
+      );
+      // Fallback: if the lineup was saved without any starters and no sub events
+      // have happened yet, treat everyone as on court so the recorder can start
+      // recording without needing to bring people on via the sub modal.
+      const baseSet =
+        starterIds.size === 0 && !hasSubEvents
+          ? new Set((sportStats as AnyStat[]).map((s) => s.id))
+          : starterIds;
+      const active = new Set(baseSet);
       for (const a of actionRows.sort((x, y) => x.ts.localeCompare(y.ts))) {
         if (!a.stat_id) continue;
         if (a.action_type === 'sub_in') active.add(a.stat_id);

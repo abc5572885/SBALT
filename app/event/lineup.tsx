@@ -137,15 +137,27 @@ export default function LineupScreen() {
 
     try {
       setSaving(true);
+      // If a team has no explicit starter, default ALL of that team's players
+      // to starter. Avoids MIN drift caused by bringing everyone on through
+      // the sub modal (sub_in timestamps differ per team).
+      const teamHasStarter = (team: 'A' | 'B') =>
+        rows.some((r) => r.team === team && r.is_starter);
+      const aHasStarter = teamHasStarter('A');
+      const bHasStarter = teamHasStarter('B');
+
       const players = rows
         .filter((r) => r.team !== null)
-        .map((r) => ({
-          user_id: r.user_id ?? null,
-          display_name: r.display_name ?? null,
-          jersey_number: r.jersey_number ?? null,
-          team_label: r.team === 'A' ? teamAName : teamBName,
-          is_starter: r.is_starter,
-        }));
+        .map((r) => {
+          const teamHas = r.team === 'A' ? aHasStarter : bHasStarter;
+          return {
+            user_id: r.user_id ?? null,
+            display_name: r.display_name ?? null,
+            jersey_number: r.jersey_number ?? null,
+            team_label: r.team === 'A' ? teamAName : teamBName,
+            // If team has no explicit starter, treat everyone as starter.
+            is_starter: teamHas ? r.is_starter : true,
+          };
+        });
       const sport = event?.sport_type;
       if (sport === 'volleyball') {
         await createVolleyballLineup(eventId, players as VolleyballLineupPlayer[], matchId);
