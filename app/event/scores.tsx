@@ -189,8 +189,8 @@ export default function EventScoresScreen() {
   const [activeStatIds, setActiveStatIds] = useState<Set<string>>(new Set());
   const [subModalOpen, setSubModalOpen] = useState(false);
   const [subTeam, setSubTeam] = useState<string | null>(null);
-  const [subOutStatId, setSubOutStatId] = useState<string | null>(null);
-  const [subInStatId, setSubInStatId] = useState<string | null>(null);
+  const [subOutIds, setSubOutIds] = useState<Set<string>>(new Set());
+  const [subInIds, setSubInIds] = useState<Set<string>>(new Set());
   const [subsThisSession, setSubsThisSession] = useState(0);
 
   // Phase 3: basketball quarter tracking (1, 2, 3, 4, 5+ for OT)
@@ -450,44 +450,70 @@ export default function EventScoresScreen() {
 
   const openSubModal = (teamLabel: string) => {
     setSubTeam(teamLabel);
-    setSubOutStatId(null);
-    setSubInStatId(null);
+    setSubOutIds(new Set());
+    setSubInIds(new Set());
     setSubsThisSession(0);
     setSubModalOpen(true);
   };
 
+  const toggleSubOut = (statId: string) => {
+    setSubOutIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(statId)) next.delete(statId);
+      else next.add(statId);
+      return next;
+    });
+  };
+
+  const toggleSubIn = (statId: string) => {
+    setSubInIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(statId)) next.delete(statId);
+      else next.add(statId);
+      return next;
+    });
+  };
+
   const handleSubmitSub = async () => {
     if (!sportKey || !isProSport(sportKey)) return;
-    if (!subTeam || (!subOutStatId && !subInStatId)) {
+    if (!subTeam || (subOutIds.size === 0 && subInIds.size === 0)) {
       toast.error('至少選一位球員');
       return;
     }
-    const outStat = subOutStatId ? stats.find((s) => s.id === subOutStatId) : null;
-    const inStat = subInStatId ? stats.find((s) => s.id === subInStatId) : null;
+    const outs = Array.from(subOutIds)
+      .map((id) => {
+        const s = stats.find((x) => x.id === id);
+        return s ? { statId: id, userId: s.user_id } : null;
+      })
+      .filter(Boolean) as { statId: string; userId: string | null }[];
+    const ins = Array.from(subInIds)
+      .map((id) => {
+        const s = stats.find((x) => x.id === id);
+        return s ? { statId: id, userId: s.user_id } : null;
+      })
+      .filter(Boolean) as { statId: string; userId: string | null }[];
     try {
       await recordSubstitution({
         eventId,
         sport: sportKey,
-        outStatId: subOutStatId,
-        outUserId: outStat?.user_id || null,
-        inStatId: subInStatId,
-        inUserId: inStat?.user_id || null,
         teamLabel: subTeam,
+        outs,
+        ins,
       });
-      const outId = subOutStatId;
-      const inId = subInStatId;
+      const outIds = Array.from(subOutIds);
+      const inIds = Array.from(subInIds);
       setActiveStatIds((prev) => {
         const next = new Set(prev);
-        if (outId) next.delete(outId);
-        if (inId) next.add(inId);
+        outIds.forEach((id) => next.delete(id));
+        inIds.forEach((id) => next.add(id));
         return next;
       });
       const updated = await getEventActions(eventId);
       setActions(updated);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // Multi-sub: keep modal open, clear selection so user can sub again
-      setSubOutStatId(null);
-      setSubInStatId(null);
+      // Multi-sub session: clear selection, keep modal open
+      setSubOutIds(new Set());
+      setSubInIds(new Set());
       setSubsThisSession((n) => n + 1);
     } catch (e: any) {
       toast.error(e.message || '換人失敗');
@@ -1168,15 +1194,17 @@ export default function EventScoresScreen() {
               <View style={styles.modalTitleRow}>
                 <Text style={styles.modalTitle}>換人 · {subTeam || ''}</Text>
                 {subsThisSession > 0 && (
-                  <Text style={styles.modalCount}>已換 {subsThisSession} 次</Text>
+                  <Text style={styles.modalCount}>已執行 {subsThisSession} 批</Text>
                 )}
               </View>
-              <Text style={styles.modalHint}>選下場、上場 → 確認 → 可繼續換</Text>
+              <Text style={styles.modalHint}>多選 · 點選任意人數 → 確認</Text>
 
               <View style={styles.subColumnsRow}>
                 {/* On-court column */}
                 <View style={styles.subColumn}>
-                  <Text style={styles.subColumnLabel}>在場</Text>
+                  <Text style={styles.subColumnLabel}>
+                    在場 {subOutIds.size > 0 ? `· 選 ${subOutIds.size}` : ''}
+                  </Text>
                   <ScrollView style={styles.subColumnScroll}>
                     {(() => {
                       const onCourt = stats.filter((s) => s.team_label === subTeam && activeStatIds.has(s.id));
@@ -1189,7 +1217,7 @@ export default function EventScoresScreen() {
                         const name = s.user_id
                           ? getDisplayName(profiles[s.user_id], s.user_id, false)
                           : s.display_name || '';
-                        const picked = subOutStatId === s.id;
+                        const picked = subOutIds.has(s.id);
                         return (
                           <TouchableOpacity
                             key={s.id}
@@ -1197,7 +1225,7 @@ export default function EventScoresScreen() {
                               styles.subPlayerRow,
                               picked && styles.subPlayerRowOut,
                             ]}
-                            onPress={() => setSubOutStatId(picked ? null : s.id)}
+                            onPress={() => toggleSubOut(s.id)}
                             activeOpacity={0.7}
                           >
                             <Text style={[styles.subPlayerName, picked && { color: '#FFF' }]}>
@@ -1213,7 +1241,9 @@ export default function EventScoresScreen() {
 
                 {/* Bench column */}
                 <View style={styles.subColumn}>
-                  <Text style={styles.subColumnLabel}>板凳</Text>
+                  <Text style={styles.subColumnLabel}>
+                    板凳 {subInIds.size > 0 ? `· 選 ${subInIds.size}` : ''}
+                  </Text>
                   <ScrollView style={styles.subColumnScroll}>
                     {(() => {
                       const bench = stats.filter((s) => s.team_label === subTeam && !activeStatIds.has(s.id));
@@ -1226,7 +1256,7 @@ export default function EventScoresScreen() {
                         const name = s.user_id
                           ? getDisplayName(profiles[s.user_id], s.user_id, false)
                           : s.display_name || '';
-                        const picked = subInStatId === s.id;
+                        const picked = subInIds.has(s.id);
                         return (
                           <TouchableOpacity
                             key={s.id}
@@ -1234,7 +1264,7 @@ export default function EventScoresScreen() {
                               styles.subPlayerRow,
                               picked && styles.subPlayerRowIn,
                             ]}
-                            onPress={() => setSubInStatId(picked ? null : s.id)}
+                            onPress={() => toggleSubIn(s.id)}
                             activeOpacity={0.7}
                           >
                             <Text style={[styles.subPlayerName, picked && { color: '#FFF' }]}>
@@ -1262,19 +1292,19 @@ export default function EventScoresScreen() {
                 <TouchableOpacity
                   style={[
                     styles.subConfirm,
-                    (!subOutStatId && !subInStatId) && { opacity: 0.4 },
+                    (subOutIds.size === 0 && subInIds.size === 0) && { opacity: 0.4 },
                   ]}
                   onPress={handleSubmitSub}
-                  disabled={!subOutStatId && !subInStatId}
+                  disabled={subOutIds.size === 0 && subInIds.size === 0}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.subConfirmText}>
-                    {subOutStatId && subInStatId
-                      ? '確認換人'
-                      : subInStatId
-                        ? '上場'
-                        : subOutStatId
-                          ? '下場'
+                    {subOutIds.size > 0 && subInIds.size > 0
+                      ? `換 ${Math.max(subOutIds.size, subInIds.size)} 人`
+                      : subInIds.size > 0
+                        ? `${subInIds.size} 人上場`
+                        : subOutIds.size > 0
+                          ? `${subOutIds.size} 人下場`
                           : '選擇球員'}
                   </Text>
                 </TouchableOpacity>

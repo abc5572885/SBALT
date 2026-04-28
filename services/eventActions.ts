@@ -73,34 +73,40 @@ export async function deleteAction(id: string) {
 
 // ── Substitution helpers ──────────────────────────────────────────
 
+export interface SubEntry {
+  statId: string;
+  userId: string | null;
+}
+
 export interface SubstitutionInput {
   eventId: string;
   sport: 'basketball' | 'volleyball' | 'badminton';
-  /** Player coming off court (omit for solo on-court promotion). */
-  outStatId?: string | null;
-  outUserId?: string | null;
-  /** Player coming on court (omit if just taking someone off without replacement). */
-  inStatId?: string | null;
-  inUserId?: string | null;
   teamLabel: string;
+  /** Players coming off court (empty if no one is being subbed out). */
+  outs: SubEntry[];
+  /** Players coming on court (empty if no one is being subbed in). */
+  ins: SubEntry[];
   quarter?: number | null;
   setNumber?: number | null;
 }
 
 /**
- * Record a substitution. Both sides are optional: pass only `out` to take someone
- * off court without replacement, or only `in` to put a bench player on court
- * (e.g., amateur teams with a small roster).
+ * Record one or more substitutions for a team at a single instant.
+ * outs[] and ins[] do NOT have to be the same length — a roster of 1
+ * can put their only player on court (ins=[x], outs=[]); a benched
+ * starter can come off without replacement (outs=[x], ins=[]); the
+ * common case of swapping N players is supported with both arrays
+ * the same length.
  */
 export async function recordSubstitution(input: SubstitutionInput): Promise<void> {
   const ts = new Date().toISOString();
   const rows: any[] = [];
-  if (input.outStatId) {
+  for (const o of input.outs) {
     rows.push({
       event_id: input.eventId,
       sport: input.sport,
-      stat_id: input.outStatId,
-      user_id: input.outUserId ?? null,
+      stat_id: o.statId,
+      user_id: o.userId,
       team_label: input.teamLabel,
       action_type: 'sub_out',
       points_delta: 0,
@@ -109,12 +115,12 @@ export async function recordSubstitution(input: SubstitutionInput): Promise<void
       ts,
     });
   }
-  if (input.inStatId) {
+  for (const i of input.ins) {
     rows.push({
       event_id: input.eventId,
       sport: input.sport,
-      stat_id: input.inStatId,
-      user_id: input.inUserId ?? null,
+      stat_id: i.statId,
+      user_id: i.userId,
       team_label: input.teamLabel,
       action_type: 'sub_in',
       points_delta: 0,
