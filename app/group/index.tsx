@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/EmptyState';
 import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
@@ -185,14 +186,12 @@ export default function GroupsScreen() {
 
         {/* Groups list */}
         {groups.length === 0 ? (
-          <View style={[styles.emptyContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <ThemedText style={{ color: colors.textSecondary }}>
-              您尚未加入任何群組
-            </ThemedText>
-            <ThemedText type="caption" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-              建立一個群組邀請球友，或輸入邀請碼加入
-            </ThemedText>
-          </View>
+          <EmptyState
+            icon="person.2.fill"
+            title="尚未加入任何群組"
+            body="建立一個群組邀請球友，或輸入邀請碼加入"
+            cta={{ label: '建立群組', onPress: () => router.push('/group/create') }}
+          />
         ) : (
           <View style={styles.list}>
             {groups

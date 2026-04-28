@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/EmptyState';
 import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
@@ -127,12 +128,11 @@ export default function NotificationsScreen() {
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : notifications.length === 0 ? (
-        <View style={styles.center}>
-          <IconSymbol name="envelope.fill" size={40} color={colors.disabled} />
-          <ThemedText type="caption" style={{ color: colors.textSecondary, marginTop: Spacing.md }}>
-            還沒有通知
-          </ThemedText>
-        </View>
+        <EmptyState
+          icon="envelope.fill"
+          title="還沒有通知"
+          body="球友邀請、報名訊息、活動提醒都會出現在這裡"
+        />
       ) : (
         <ScrollView
           refreshControl={

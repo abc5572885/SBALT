@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/EmptyState';
 import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
@@ -71,20 +72,12 @@ export default function JoinedEventsScreen() {
         }
       >
         {events.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <ThemedText style={{ color: colors.textSecondary }}>
-              您尚未報名任何活動
-            </ThemedText>
-            <TouchableOpacity
-              style={[styles.browseBtn, { backgroundColor: colors.primary }, Shadows.sm]}
-              onPress={() => router.push('/(tabs)/scores')}
-              activeOpacity={0.7}
-            >
-              <ThemedText style={{ color: colors.primaryText, fontWeight: '600', fontSize: 15 }}>
-                瀏覽活動
-              </ThemedText>
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            icon="calendar"
+            title="還沒參加任何活動"
+            body="從首頁或社群找一場有興趣的，按報名就會出現在這裡"
+            cta={{ label: '瀏覽活動', onPress: () => router.push('/(tabs)/scores') }}
+          />
         ) : (
           <View style={styles.list}>
             {events.map((evt) => {

@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/EmptyState';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -272,12 +273,11 @@ export default function DiscoverScreen() {
             <ActivityIndicator size="large" />
           </View>
         ) : !hasAnyContent ? (
-          <View style={styles.emptyContainer}>
-            <IconSymbol name="magnifyingglass" size={40} color={colors.disabled} />
-            <ThemedText type="caption" style={{ color: colors.textSecondary, marginTop: Spacing.md }}>
-              {activeTab === 'tournament' ? '目前沒有進行中的比賽' : '目前沒有推廣資訊'}
-            </ThemedText>
-          </View>
+          <EmptyState
+            icon="magnifyingglass"
+            title={activeTab === 'tournament' ? '目前沒有進行中的比賽' : '目前沒有推廣資訊'}
+            body="切換上方分類或選不同地區看看"
+          />
         ) : (
           <ScrollView
             showsVerticalScrollIndicator={false}

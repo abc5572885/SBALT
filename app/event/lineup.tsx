@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/EmptyState';
 import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
@@ -380,9 +381,7 @@ function TeamSection({
         </Text>
       </View>
       {rows.length === 0 ? (
-        <View style={[styles.emptyCard, { borderColor: colors.border }]}>
-          <ThemedText type="caption" style={{ color: colors.textSecondary }}>尚無球員</ThemedText>
-        </View>
+        <EmptyState compact title="尚無球員" body="從上方未分隊的人選分配，或加入臨時球員" />
       ) : (
         rows.map((r) => {
           const name = r.user_id

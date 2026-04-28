@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/EmptyState';
 import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
@@ -198,21 +199,12 @@ export default function MyEventsScreen() {
         }
       >
         {events.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <ThemedText style={{ color: colors.textSecondary, marginBottom: Spacing.lg }}>
-              您尚未建立任何活動
-            </ThemedText>
-            <TouchableOpacity
-              style={[styles.createButton, { backgroundColor: colors.primary }, Shadows.sm]}
-              onPress={() => router.push('/event/new')}
-              activeOpacity={0.7}
-            >
-              <IconSymbol name="plus" size={16} color={colors.primaryText} />
-              <ThemedText style={{ color: colors.primaryText, fontWeight: '600', fontSize: 15 }}>
-                建立第一個活動
-              </ThemedText>
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            icon="calendar"
+            title="尚未建立任何活動"
+            body="揪一場朋友的時間表才能對齊"
+            cta={{ label: '建立第一個活動', onPress: () => router.push('/event/new') }}
+          />
         ) : (
           <View style={styles.eventsList}>
             {events.map((event) => (
