@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 export interface BasketballStat {
   id: string;
   event_id: string;
+  match_id: string | null;
   user_id: string | null;
   team_label: string;
   display_name: string | null;
@@ -53,6 +54,15 @@ export async function getEventBasketballStats(eventId: string): Promise<Basketba
   return (data || []) as BasketballStat[];
 }
 
+export async function getMatchBasketballStats(matchId: string): Promise<BasketballStat[]> {
+  const { data, error } = await supabase
+    .from('basketball_stats')
+    .select('*')
+    .eq('match_id', matchId);
+  if (error) throw error;
+  return (data || []) as BasketballStat[];
+}
+
 export async function getUserBasketballStats(userId: string): Promise<BasketballStat[]> {
   const { data, error } = await supabase
     .from('basketball_stats')
@@ -68,6 +78,7 @@ export async function getUserBasketballStats(userId: string): Promise<Basketball
 export interface VolleyballStat {
   id: string;
   event_id: string;
+  match_id: string | null;
   user_id: string | null;
   team_label: string;
   display_name: string | null;
@@ -100,6 +111,15 @@ export async function getEventVolleyballStats(eventId: string): Promise<Volleyba
   return (data || []) as VolleyballStat[];
 }
 
+export async function getMatchVolleyballStats(matchId: string): Promise<VolleyballStat[]> {
+  const { data, error } = await supabase
+    .from('volleyball_stats')
+    .select('*')
+    .eq('match_id', matchId);
+  if (error) throw error;
+  return (data || []) as VolleyballStat[];
+}
+
 export async function getUserVolleyballStats(userId: string): Promise<VolleyballStat[]> {
   const { data, error } = await supabase
     .from('volleyball_stats')
@@ -115,6 +135,7 @@ export async function getUserVolleyballStats(userId: string): Promise<Volleyball
 export interface BadmintonStat {
   id: string;
   event_id: string;
+  match_id: string | null;
   user_id: string | null;
   team_label: string;
   display_name: string | null;
@@ -149,6 +170,15 @@ export async function getEventBadmintonStats(eventId: string): Promise<Badminton
     .from('badminton_stats')
     .select('*')
     .eq('event_id', eventId);
+  if (error) throw error;
+  return (data || []) as BadmintonStat[];
+}
+
+export async function getMatchBadmintonStats(matchId: string): Promise<BadmintonStat[]> {
+  const { data, error } = await supabase
+    .from('badminton_stats')
+    .select('*')
+    .eq('match_id', matchId);
   if (error) throw error;
   return (data || []) as BadmintonStat[];
 }

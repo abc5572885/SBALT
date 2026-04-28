@@ -59,10 +59,12 @@ export interface VolleyballLineupPlayer {
 export async function createVolleyballLineup(
   eventId: string,
   players: VolleyballLineupPlayer[],
+  matchId?: string,
 ): Promise<VolleyballStat[]> {
   if (players.length === 0) return [];
   const rows = players.map((p) => ({
     event_id: eventId,
+    match_id: matchId || null,
     user_id: p.user_id || null,
     display_name: p.display_name || null,
     jersey_number: p.jersey_number || null,

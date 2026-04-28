@@ -30,10 +30,8 @@ import {
   closeBadmintonGame,
   closeVolleyballSet,
   formatMatchDuration,
-  getBadmintonGames,
-  getVolleyballSets,
-  markMatchEnded,
-  markMatchStarted,
+  getMatchBadmintonGames,
+  getMatchVolleyballSets,
   openBadmintonGame,
   openVolleyballSet,
   resetMatchData,
@@ -43,18 +41,24 @@ import {
 import {
   ActionRow,
   deleteAction,
-  getEventActions,
+  getMatchActions,
   logAction,
   recordSubstitution,
 } from '@/services/eventActions';
+import {
+  EventMatch,
+  finishMatch,
+  getMatchById,
+  markMatchStarted as markEventMatchStarted,
+} from '@/services/eventMatches';
 import { TimeoutOverlay } from '@/components/TimeoutOverlay';
 import {
   BasketballStat,
   VolleyballStat,
   BadmintonStat,
-  getEventBasketballStats,
-  getEventVolleyballStats,
-  getEventBadmintonStats,
+  getMatchBasketballStats,
+  getMatchVolleyballStats,
+  getMatchBadmintonStats,
 } from '@/services/sportStats';
 import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
 import { Event, EventScore } from '@/types/database';
@@ -154,12 +158,13 @@ async function dispatchUndoAction(
 }
 
 export default function EventScoresScreen() {
-  const { eventId } = useLocalSearchParams<{ eventId: string }>();
+  const { eventId, matchId } = useLocalSearchParams<{ eventId: string; matchId?: string }>();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
   const [event, setEvent] = useState<Event | null>(null);
+  const [match, setMatch] = useState<EventMatch | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Pro mode state (basketball / volleyball / badminton)
@@ -218,33 +223,37 @@ export default function EventScoresScreen() {
   const secondaryButtons = buttons.filter((b) => b !== primaryPoints);
 
   const loadData = useCallback(async () => {
-    if (!eventId) return;
+    if (!eventId || !matchId) return;
     try {
-      const eventData = await getEventById(eventId);
+      const [eventData, matchData] = await Promise.all([
+        getEventById(eventId),
+        getMatchById(matchId),
+      ]);
       const sport = eventData?.sport_type;
       const [existingScores, sportStats] = await Promise.all([
         getEventScores(eventId),
         sport === 'basketball'
-          ? getEventBasketballStats(eventId)
+          ? getMatchBasketballStats(matchId)
           : sport === 'volleyball'
-            ? getEventVolleyballStats(eventId)
+            ? getMatchVolleyballStats(matchId)
             : sport === 'badminton'
-              ? getEventBadmintonStats(eventId)
+              ? getMatchBadmintonStats(matchId)
               : Promise.resolve([] as AnyStat[]),
       ]);
       setEvent(eventData);
+      setMatch(matchData);
       setStats(sportStats as AnyStat[]);
-      setMatchStartedAt((eventData as any)?.match_started_at || null);
-      setMatchEndedAt((eventData as any)?.match_ended_at || null);
+      setMatchStartedAt(matchData?.started_at || null);
+      setMatchEndedAt(matchData?.ended_at || null);
 
       if (sport === 'volleyball') {
-        setVballSets(await getVolleyballSets(eventId));
+        setVballSets(await getMatchVolleyballSets(matchId));
       } else if (sport === 'badminton') {
-        setBminGames(await getBadmintonGames(eventId));
+        setBminGames(await getMatchBadmintonGames(matchId));
       }
 
       // Phase 2: load action log + derive active set from starters + sub events
-      const actionRows = await getEventActions(eventId);
+      const actionRows = await getMatchActions(matchId);
       setActions(actionRows);
       const starterIds = new Set(
         (sportStats as AnyStat[]).filter((s) => (s as any).is_starter).map((s) => s.id),
@@ -276,7 +285,7 @@ export default function EventScoresScreen() {
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, matchId]);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
@@ -323,9 +332,12 @@ export default function EventScoresScreen() {
   // Pro mode：若沒陣容，跳到 lineup 頁
   useEffect(() => {
     if (!loading && isPro && stats.length === 0) {
-      router.replace({ pathname: '/event/lineup', params: { eventId } });
+      router.replace({
+        pathname: '/event/lineup',
+        params: matchId ? { eventId, matchId } : { eventId },
+      });
     }
-  }, [loading, isPro, stats.length, eventId, router]);
+  }, [loading, isPro, stats.length, eventId, matchId, router]);
 
   // 從 stats 推算隊伍總分
   const teamScores = useMemo(() => {
@@ -374,10 +386,10 @@ export default function EventScoresScreen() {
     ].slice(0, 20));
 
     // First action of the match: stamp start time
-    if (!matchStartedAt) {
+    if (!matchStartedAt && matchId) {
       const nowIso = new Date().toISOString();
       setMatchStartedAt(nowIso);
-      markMatchStarted(eventId).catch(() => {});
+      markEventMatchStarted(matchId).catch(() => {});
     }
 
     try {
@@ -390,6 +402,7 @@ export default function EventScoresScreen() {
           action === 'point_1' ? 1 : action === 'point_2' ? 2 : action === 'point_3' ? 3 : 0;
         const logged = await logAction({
           eventId,
+          matchId,
           sport: 'basketball',
           statId: stat.id,
           userId: stat.user_id,
@@ -413,7 +426,7 @@ export default function EventScoresScreen() {
         if (sportKey === 'volleyball') {
           let openSet = vballSets.find((s) => !s.ended_at);
           if (!openSet && homeLabel && awayLabel) {
-            openSet = await openVolleyballSet(eventId, homeLabel, awayLabel);
+            openSet = await openVolleyballSet(eventId, homeLabel, awayLabel, matchId);
             setVballSets((prev) => [...prev, openSet!]);
           }
           if (openSet) {
@@ -428,7 +441,7 @@ export default function EventScoresScreen() {
         } else {
           let openGame = bminGames.find((g) => !g.ended_at);
           if (!openGame && homeLabel && awayLabel) {
-            openGame = await openBadmintonGame(eventId, homeLabel, awayLabel);
+            openGame = await openBadmintonGame(eventId, homeLabel, awayLabel, matchId);
             setBminGames((prev) => [...prev, openGame!]);
           }
           if (openGame) {
@@ -495,6 +508,7 @@ export default function EventScoresScreen() {
     try {
       await recordSubstitution({
         eventId,
+        matchId,
         sport: sportKey,
         teamLabel: subTeam,
         outs,
@@ -508,7 +522,7 @@ export default function EventScoresScreen() {
         inIds.forEach((id) => next.add(id));
         return next;
       });
-      const updated = await getEventActions(eventId);
+      const updated = matchId ? await getMatchActions(matchId) : [];
       setActions(updated);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Multi-sub session: clear selection, keep modal open
@@ -592,8 +606,9 @@ export default function EventScoresScreen() {
                   text: '我確定，全部歸零',
                   style: 'destructive',
                   onPress: async () => {
+                    if (!matchId) return;
                     try {
-                      await resetMatchData(eventId, sportKey as 'basketball' | 'volleyball' | 'badminton');
+                      await resetMatchData(matchId, sportKey as 'basketball' | 'volleyball' | 'badminton');
                       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                       // Reset local state
                       setMatchStartedAt(null);
@@ -635,6 +650,7 @@ export default function EventScoresScreen() {
               const homeLabel = teamLabels[0] || '';
               const logged = await logAction({
                 eventId,
+                matchId,
                 sport: 'basketball',
                 statId: null,
                 userId: null,
@@ -785,14 +801,17 @@ export default function EventScoresScreen() {
         const open = bminGames.find((g) => !g.ended_at);
         if (open) await closeBadmintonGame(open.id);
       }
-      if (matchStartedAt && !matchEndedAt) {
-        await markMatchEnded(eventId);
+      if (matchStartedAt && !matchEndedAt && matchId) {
+        await finishMatch(matchId);
         setMatchEndedAt(new Date().toISOString());
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (isPro) {
-        router.replace({ pathname: '/event/box-score', params: { eventId } });
+        router.replace({
+          pathname: '/event/box-score',
+          params: matchId ? { eventId, matchId } : { eventId },
+        });
       } else {
         toast.success('比分已記錄');
         router.back();

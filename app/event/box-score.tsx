@@ -16,25 +16,26 @@ import {
   VolleyballStat,
   basketballTotalPoints,
   basketballTotalRebounds,
-  getEventBadmintonStats,
-  getEventBasketballStats,
-  getEventVolleyballStats,
+  getMatchBadmintonStats,
+  getMatchBasketballStats,
+  getMatchVolleyballStats,
 } from '@/services/sportStats';
 import {
   BadmintonGame,
   VolleyballSet,
   formatMatchDuration,
-  getBadmintonGames,
-  getVolleyballSets,
+  getMatchBadmintonGames,
+  getMatchVolleyballSets,
 } from '@/services/matchTime';
 import {
   ActionRow,
   aggregateQuarterScores,
   computePlayerIntervals,
   computePlusMinus,
-  getEventActions,
+  getMatchActions,
   intervalsTotalSeconds,
 } from '@/services/eventActions';
+import { EventMatch, getMatchById } from '@/services/eventMatches';
 import { getDisplayName, getProfilesByIds, Profile } from '@/services/profile';
 import { Event } from '@/types/database';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -335,12 +336,13 @@ const BADMINTON_COLS: Column<BadmintonStat>[] = [
 type AnyStat = BasketballStat | VolleyballStat | BadmintonStat;
 
 export default function BoxScoreScreen() {
-  const { eventId } = useLocalSearchParams<{ eventId: string }>();
+  const { eventId, matchId } = useLocalSearchParams<{ eventId: string; matchId?: string }>();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
   const [event, setEvent] = useState<Event | null>(null);
+  const [match, setMatch] = useState<EventMatch | null>(null);
   const [stats, setStats] = useState<AnyStat[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [vballSets, setVballSets] = useState<VolleyballSet[]>([]);
@@ -349,21 +351,25 @@ export default function BoxScoreScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!eventId) return;
+    if (!eventId || !matchId) return;
     (async () => {
       try {
-        const ev = await getEventById(eventId);
+        const [ev, m] = await Promise.all([
+          getEventById(eventId),
+          getMatchById(matchId),
+        ]);
         setEvent(ev);
+        setMatch(m);
         const sport = ev?.sport_type;
         const data: AnyStat[] =
-          sport === 'basketball' ? await getEventBasketballStats(eventId)
-            : sport === 'volleyball' ? await getEventVolleyballStats(eventId)
-              : sport === 'badminton' ? await getEventBadmintonStats(eventId)
+          sport === 'basketball' ? await getMatchBasketballStats(matchId)
+            : sport === 'volleyball' ? await getMatchVolleyballStats(matchId)
+              : sport === 'badminton' ? await getMatchBadmintonStats(matchId)
                 : [];
         setStats(data);
-        if (sport === 'volleyball') setVballSets(await getVolleyballSets(eventId));
-        if (sport === 'badminton') setBminGames(await getBadmintonGames(eventId));
-        setActions(await getEventActions(eventId));
+        if (sport === 'volleyball') setVballSets(await getMatchVolleyballSets(matchId));
+        if (sport === 'badminton') setBminGames(await getMatchBadmintonGames(matchId));
+        setActions(await getMatchActions(matchId));
         const userIds = data.map((s) => s.user_id).filter(Boolean) as string[];
         if (userIds.length > 0) {
           setProfiles(await getProfilesByIds(userIds));
@@ -374,7 +380,7 @@ export default function BoxScoreScreen() {
         setLoading(false);
       }
     })();
-  }, [eventId]);
+  }, [eventId, matchId]);
 
   if (loading) {
     return (
@@ -399,8 +405,8 @@ export default function BoxScoreScreen() {
   }
 
   const sport = event.sport_type;
-  const matchStart = (event as any).match_started_at as string | null;
-  const matchEnd = (event as any).match_ended_at as string | null;
+  const matchStart = match?.started_at || null;
+  const matchEnd = match?.ended_at || null;
   const cols: Column<any>[] =
     sport === 'basketball'
       ? buildBasketballCols({ matchStart, matchEnd, actions })
@@ -447,10 +453,10 @@ export default function BoxScoreScreen() {
       </View>
 
       {/* Match duration */}
-      {(event as any)?.match_started_at && (
+      {match?.started_at && (
         <View style={styles.metaRow}>
           <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-            比賽時長 {formatMatchDuration((event as any).match_started_at, (event as any).match_ended_at)}
+            比賽時長 {formatMatchDuration(match.started_at, match.ended_at)}
           </Text>
         </View>
       )}
@@ -680,7 +686,12 @@ export default function BoxScoreScreen() {
 
       <TouchableOpacity
         style={[styles.continueBtn, { backgroundColor: colors.text }, Shadows.sm]}
-        onPress={() => router.replace({ pathname: '/event/scores', params: { eventId } })}
+        onPress={() =>
+          router.replace({
+            pathname: '/event/scores',
+            params: matchId ? { eventId, matchId } : { eventId },
+          })
+        }
         activeOpacity={0.85}
       >
         <Text style={[styles.continueBtnText, { color: colors.background }]}>繼續記錄</Text>

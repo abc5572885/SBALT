@@ -37,7 +37,7 @@ const TEAM_COLORS: Record<'A' | 'B', string> = {
 };
 
 export default function LineupScreen() {
-  const { eventId } = useLocalSearchParams<{ eventId: string }>();
+  const { eventId, matchId } = useLocalSearchParams<{ eventId: string; matchId?: string }>();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -148,14 +148,17 @@ export default function LineupScreen() {
         }));
       const sport = event?.sport_type;
       if (sport === 'volleyball') {
-        await createVolleyballLineup(eventId, players as VolleyballLineupPlayer[]);
+        await createVolleyballLineup(eventId, players as VolleyballLineupPlayer[], matchId);
       } else if (sport === 'badminton') {
-        await createBadmintonLineup(eventId, players as BadmintonLineupPlayer[]);
+        await createBadmintonLineup(eventId, players as BadmintonLineupPlayer[], matchId);
       } else {
-        await createLineup(eventId, players as LineupPlayer[]);
+        await createLineup(eventId, players as LineupPlayer[], matchId);
       }
       toast.success('陣容已建立');
-      router.replace({ pathname: '/event/scores', params: { eventId } });
+      router.replace({
+        pathname: '/event/scores',
+        params: matchId ? { eventId, matchId } : { eventId },
+      });
     } catch (error: any) {
       toast.error(error.message || '建立失敗');
     } finally {

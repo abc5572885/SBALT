@@ -64,10 +64,15 @@ export interface LineupPlayer {
   is_starter?: boolean;
 }
 
-export async function createLineup(eventId: string, players: LineupPlayer[]): Promise<BasketballStat[]> {
+export async function createLineup(
+  eventId: string,
+  players: LineupPlayer[],
+  matchId?: string,
+): Promise<BasketballStat[]> {
   if (players.length === 0) return [];
   const rows = players.map((p) => ({
     event_id: eventId,
+    match_id: matchId || null,
     user_id: p.user_id || null,
     display_name: p.display_name || null,
     jersey_number: p.jersey_number || null,

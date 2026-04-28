@@ -7,36 +7,14 @@
 
 import { supabase } from '@/lib/supabase';
 
-// ── Match start / end ─────────────────────────────────────────────
-
-/** 標記比賽實際開始時間（首次點動作時自動呼叫，冪等：已開始就不覆寫）。 */
-export async function markMatchStarted(eventId: string) {
-  // Only update if currently null
-  const { data: ev } = await supabase
-    .from('events')
-    .select('match_started_at')
-    .eq('id', eventId)
-    .maybeSingle();
-  if (ev?.match_started_at) return;
-  await supabase
-    .from('events')
-    .update({ match_started_at: new Date().toISOString() })
-    .eq('id', eventId);
-}
-
-/** 標記比賽結束時間（球經結束計分時呼叫）。 */
-export async function markMatchEnded(eventId: string) {
-  await supabase
-    .from('events')
-    .update({ match_ended_at: new Date().toISOString() })
-    .eq('id', eventId);
-}
+// (Match start / end is now on event_matches table — see services/eventMatches.ts)
 
 // ── Volleyball sets ─────────────────────────────────────────────
 
 export interface VolleyballSet {
   id: string;
   event_id: string;
+  match_id: string | null;
   set_number: number;
   home_label: string;
   away_label: string;
@@ -56,13 +34,26 @@ export async function getVolleyballSets(eventId: string): Promise<VolleyballSet[
   return (data || []) as VolleyballSet[];
 }
 
+export async function getMatchVolleyballSets(matchId: string): Promise<VolleyballSet[]> {
+  const { data, error } = await supabase
+    .from('volleyball_sets')
+    .select('*')
+    .eq('match_id', matchId)
+    .order('set_number', { ascending: true });
+  if (error) throw error;
+  return (data || []) as VolleyballSet[];
+}
+
 /** Open the next volleyball set. If no set exists yet, opens set 1. Idempotent on existing open sets. */
 export async function openVolleyballSet(
   eventId: string,
   homeLabel: string,
   awayLabel: string,
+  matchId?: string | null,
 ): Promise<VolleyballSet> {
-  const sets = await getVolleyballSets(eventId);
+  const sets = matchId
+    ? await getMatchVolleyballSets(matchId)
+    : await getVolleyballSets(eventId);
   const open = sets.find((s) => !s.ended_at);
   if (open) return open;
 
@@ -71,6 +62,7 @@ export async function openVolleyballSet(
     .from('volleyball_sets')
     .insert({
       event_id: eventId,
+      match_id: matchId ?? null,
       set_number: nextNumber,
       home_label: homeLabel,
       away_label: awayLabel,
@@ -104,6 +96,7 @@ export async function closeVolleyballSet(setId: string) {
 export interface BadmintonGame {
   id: string;
   event_id: string;
+  match_id: string | null;
   game_number: number;
   home_label: string;
   away_label: string;
@@ -123,12 +116,25 @@ export async function getBadmintonGames(eventId: string): Promise<BadmintonGame[
   return (data || []) as BadmintonGame[];
 }
 
+export async function getMatchBadmintonGames(matchId: string): Promise<BadmintonGame[]> {
+  const { data, error } = await supabase
+    .from('badminton_games')
+    .select('*')
+    .eq('match_id', matchId)
+    .order('game_number', { ascending: true });
+  if (error) throw error;
+  return (data || []) as BadmintonGame[];
+}
+
 export async function openBadmintonGame(
   eventId: string,
   homeLabel: string,
   awayLabel: string,
+  matchId?: string | null,
 ): Promise<BadmintonGame> {
-  const games = await getBadmintonGames(eventId);
+  const games = matchId
+    ? await getMatchBadmintonGames(matchId)
+    : await getBadmintonGames(eventId);
   const open = games.find((g) => !g.ended_at);
   if (open) return open;
 
@@ -137,6 +143,7 @@ export async function openBadmintonGame(
     .from('badminton_games')
     .insert({
       event_id: eventId,
+      match_id: matchId ?? null,
       game_number: nextNumber,
       home_label: homeLabel,
       away_label: awayLabel,
@@ -222,14 +229,14 @@ const BADMINTON_RESET_FIELDS = {
 };
 
 /**
- * Wipe all recorded stats / actions / sets / games for an event, keeping the
- * lineup (rows) intact so the recorder can re-record from scratch. Match start
- * and end are also cleared so the timer restarts on next action.
+ * Wipe all recorded stats / actions / sets / games for a single match within an
+ * event, keeping the lineup (stats rows) intact so the recorder can re-record
+ * from scratch. Match start and end on event_matches are also cleared.
  *
  * Caller MUST get explicit user confirmation — this is destructive.
  */
 export async function resetMatchData(
-  eventId: string,
+  matchId: string,
   sport: 'basketball' | 'volleyball' | 'badminton',
 ): Promise<void> {
   const table =
@@ -241,19 +248,18 @@ export async function resetMatchData(
       : sport === 'volleyball' ? VOLLEYBALL_RESET_FIELDS
         : BADMINTON_RESET_FIELDS;
 
-  await supabase.from(table).update(fields).eq('event_id', eventId);
-  await supabase.from('event_actions').delete().eq('event_id', eventId);
+  await supabase.from(table).update(fields).eq('match_id', matchId);
+  await supabase.from('event_actions').delete().eq('match_id', matchId);
   if (sport === 'volleyball') {
-    await supabase.from('volleyball_sets').delete().eq('event_id', eventId);
+    await supabase.from('volleyball_sets').delete().eq('match_id', matchId);
   }
   if (sport === 'badminton') {
-    await supabase.from('badminton_games').delete().eq('event_id', eventId);
+    await supabase.from('badminton_games').delete().eq('match_id', matchId);
   }
   await supabase
-    .from('events')
-    .update({ match_started_at: null, match_ended_at: null })
-    .eq('id', eventId);
-  await supabase.from('event_scores').delete().eq('event_id', eventId);
+    .from('event_matches')
+    .update({ started_at: null, ended_at: null, status: 'open' })
+    .eq('id', matchId);
 }
 
 export function formatMatchDuration(startISO: string | null, endISO: string | null): string {

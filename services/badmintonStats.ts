@@ -73,10 +73,12 @@ export interface BadmintonLineupPlayer {
 export async function createBadmintonLineup(
   eventId: string,
   players: BadmintonLineupPlayer[],
+  matchId?: string,
 ): Promise<BadmintonStat[]> {
   if (players.length === 0) return [];
   const rows = players.map((p) => ({
     event_id: eventId,
+    match_id: matchId || null,
     user_id: p.user_id || null,
     display_name: p.display_name || null,
     jersey_number: p.jersey_number || null,

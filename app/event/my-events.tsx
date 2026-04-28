@@ -282,7 +282,7 @@ export default function MyEventsScreen() {
                       <IconSymbol name="checkmark.circle" size={18} color={colors.text} />
                       <ThemedText style={styles.primaryButtonText}>簽到</ThemedText>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.primaryButton, { borderColor: colors.border }]} onPress={() => router.push({ pathname: '/event/scores', params: { eventId: event.id } })} activeOpacity={0.6}>
+                    <TouchableOpacity style={[styles.primaryButton, { borderColor: colors.border }]} onPress={() => router.push({ pathname: '/event/matches', params: { eventId: event.id } })} activeOpacity={0.6}>
                       <IconSymbol name="chart.bar.fill" size={18} color={colors.text} />
                       <ThemedText style={styles.primaryButtonText}>記分</ThemedText>
                     </TouchableOpacity>

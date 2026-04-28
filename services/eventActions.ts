@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 export type ActionRow = {
   id: string;
   event_id: string;
+  match_id: string | null;
   sport: 'basketball' | 'volleyball' | 'badminton';
   stat_id: string | null;
   user_id: string | null;
@@ -24,6 +25,7 @@ export type ActionRow = {
 
 export interface LogActionParams {
   eventId: string;
+  matchId?: string | null;
   sport: 'basketball' | 'volleyball' | 'badminton';
   statId: string | null;
   userId: string | null;
@@ -40,6 +42,7 @@ export async function logAction(params: LogActionParams): Promise<ActionRow> {
     .from('event_actions')
     .insert({
       event_id: params.eventId,
+      match_id: params.matchId ?? null,
       sport: params.sport,
       stat_id: params.statId,
       user_id: params.userId,
@@ -66,6 +69,16 @@ export async function getEventActions(eventId: string): Promise<ActionRow[]> {
   return (data || []) as ActionRow[];
 }
 
+export async function getMatchActions(matchId: string): Promise<ActionRow[]> {
+  const { data, error } = await supabase
+    .from('event_actions')
+    .select('*')
+    .eq('match_id', matchId)
+    .order('ts', { ascending: true });
+  if (error) throw error;
+  return (data || []) as ActionRow[];
+}
+
 export async function deleteAction(id: string) {
   const { error } = await supabase.from('event_actions').delete().eq('id', id);
   if (error) throw error;
@@ -80,6 +93,7 @@ export interface SubEntry {
 
 export interface SubstitutionInput {
   eventId: string;
+  matchId?: string | null;
   sport: 'basketball' | 'volleyball' | 'badminton';
   teamLabel: string;
   /** Players coming off court (empty if no one is being subbed out). */
@@ -101,32 +115,30 @@ export interface SubstitutionInput {
 export async function recordSubstitution(input: SubstitutionInput): Promise<void> {
   const ts = new Date().toISOString();
   const rows: any[] = [];
+  const baseFields = {
+    event_id: input.eventId,
+    match_id: input.matchId ?? null,
+    sport: input.sport,
+    team_label: input.teamLabel,
+    points_delta: 0,
+    quarter: input.quarter ?? null,
+    set_number: input.setNumber ?? null,
+    ts,
+  };
   for (const o of input.outs) {
     rows.push({
-      event_id: input.eventId,
-      sport: input.sport,
+      ...baseFields,
       stat_id: o.statId,
       user_id: o.userId,
-      team_label: input.teamLabel,
       action_type: 'sub_out',
-      points_delta: 0,
-      quarter: input.quarter ?? null,
-      set_number: input.setNumber ?? null,
-      ts,
     });
   }
   for (const i of input.ins) {
     rows.push({
-      event_id: input.eventId,
-      sport: input.sport,
+      ...baseFields,
       stat_id: i.statId,
       user_id: i.userId,
-      team_label: input.teamLabel,
       action_type: 'sub_in',
-      points_delta: 0,
-      quarter: input.quarter ?? null,
-      set_number: input.setNumber ?? null,
-      ts,
     });
   }
   if (rows.length === 0) return;
