@@ -27,6 +27,7 @@ export const Colors = {
     card: '#FAFAFA',
     // Status Colors
     statusSuccess: '#16A34A',
+    statusWarning: '#F59E0B',
     statusSecondary: '#6B7280',
     // Control Colors
     disabled: '#D1D5DB',
@@ -53,6 +54,7 @@ export const Colors = {
     card: '#1A1A1A',
     // Status Colors
     statusSuccess: '#22C55E',
+    statusWarning: '#F59E0B',
     statusSecondary: '#9CA3AF',
     // Control Colors
     disabled: '#4B5563',
@@ -95,6 +97,28 @@ export const Shadows = {
     android: { elevation: 6 },
     default: {},
   }),
+};
+
+// ─── Typography scale ────────────────────────────────────
+// Six fixed type sizes for the whole app. New screens MUST pick from
+// here rather than picking ad-hoc fontSize values; existing code can
+// migrate gradually.
+//
+// Mental model:
+//   display    僅用於最大數字（比分、計時器、單一 hero KPI）
+//   title      頁面主標題、彈窗主標題
+//   headline   分區標題、卡片粗體標題
+//   body       正文、輸入欄位、次要 CTA
+//   caption    註解、metadata（時間、人數）
+//   label      tab / chip / overline 短標、強調 letter spacing
+
+export const Type = {
+  display: { fontSize: 32, fontWeight: '900' as const, letterSpacing: -1 },
+  title:   { fontSize: 22, fontWeight: '800' as const, letterSpacing: -0.5 },
+  headline:{ fontSize: 17, fontWeight: '700' as const, letterSpacing: -0.3 },
+  body:    { fontSize: 15, fontWeight: '500' as const },
+  caption: { fontSize: 13, fontWeight: '500' as const },
+  label:   { fontSize: 11, fontWeight: '700' as const, letterSpacing: 1, textTransform: 'uppercase' as const },
 };
 
 // ─── Spacing ──────────────────────────────────────────────

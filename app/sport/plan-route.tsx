@@ -209,7 +209,7 @@ export default function PlanRouteScreen() {
 
           {distance > 0 && (
             <TouchableOpacity
-              style={[styles.startBtn, { backgroundColor: '#22C55E' }]}
+              style={[styles.startBtn, { backgroundColor: colors.statusSuccess }]}
               onPress={handleStartRun}
               activeOpacity={0.8}
             >

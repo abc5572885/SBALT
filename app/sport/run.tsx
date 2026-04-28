@@ -428,7 +428,7 @@ export default function RunScreen() {
               )}
 
               <TouchableOpacity
-                style={[styles.startBtn, { backgroundColor: '#22C55E' }]}
+                style={[styles.startBtn, { backgroundColor: colors.statusSuccess }]}
                 onPress={startRun}
                 activeOpacity={0.8}
               >
@@ -440,14 +440,14 @@ export default function RunScreen() {
           {status === 'running' && (
             <View style={styles.runningControls}>
               <TouchableOpacity
-                style={[styles.controlBtn, { backgroundColor: '#F59E0B' }]}
+                style={[styles.controlBtn, { backgroundColor: colors.statusWarning }]}
                 onPress={pauseRun}
                 activeOpacity={0.8}
               >
                 <Text style={styles.controlBtnText}>暫停</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.controlBtn, { backgroundColor: '#DC2626' }]}
+                style={[styles.controlBtn, { backgroundColor: colors.error }]}
                 onPress={() => {
                   Alert.alert('結束跑步', '確定要結束嗎？', [
                     { text: '取消', style: 'cancel' },
@@ -464,14 +464,14 @@ export default function RunScreen() {
           {status === 'paused' && (
             <View style={styles.runningControls}>
               <TouchableOpacity
-                style={[styles.controlBtn, { backgroundColor: '#22C55E' }]}
+                style={[styles.controlBtn, { backgroundColor: colors.statusSuccess }]}
                 onPress={resumeRun}
                 activeOpacity={0.8}
               >
                 <Text style={styles.controlBtnText}>繼續</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.controlBtn, { backgroundColor: '#DC2626' }]}
+                style={[styles.controlBtn, { backgroundColor: colors.error }]}
                 onPress={finishRun}
                 activeOpacity={0.8}
               >

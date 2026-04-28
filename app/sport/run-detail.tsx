@@ -146,10 +146,10 @@ export default function RunDetailScreen() {
                   />
                 </Mapbox.ShapeSource>
                 <Mapbox.PointAnnotation id="start" coordinate={[route[0].longitude, route[0].latitude]}>
-                  <View style={styles.startMarker} />
+                  <View style={[styles.routeMarker, { backgroundColor: colors.statusSuccess, borderColor: colors.background }]} />
                 </Mapbox.PointAnnotation>
                 <Mapbox.PointAnnotation id="end" coordinate={[route[route.length - 1].longitude, route[route.length - 1].latitude]}>
-                  <View style={styles.endMarker} />
+                  <View style={[styles.routeMarker, { backgroundColor: colors.error, borderColor: colors.background }]} />
                 </Mapbox.PointAnnotation>
               </>
             )}
@@ -277,21 +277,11 @@ const styles = StyleSheet.create({
   gridItemBorderBottom: {
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  startMarker: {
+  routeMarker: {
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: '#22C55E',
     borderWidth: 3,
-    borderColor: '#FFF',
-  },
-  endMarker: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#DC2626',
-    borderWidth: 3,
-    borderColor: '#FFF',
   },
   gridValue: {
     fontSize: 18,
