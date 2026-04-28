@@ -98,7 +98,7 @@ export default function MyBookingsScreen() {
           {canCancel && (
             <TouchableOpacity
               onPress={() => handleCancel(b)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               activeOpacity={0.6}
             >
               <ThemedText type="label" style={{ color: colors.error }}>取消</ThemedText>

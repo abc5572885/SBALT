@@ -188,7 +188,7 @@ export default function LoginScreen() {
               activeOpacity={0.8}
             >
               <Text style={[styles.loginButtonText, { color: colors.background }]}>
-                Sign in with Google
+                以 Google 帳號繼續
               </Text>
             </TouchableOpacity>
             {Platform.OS === 'ios' && (
@@ -198,7 +198,7 @@ export default function LoginScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={[styles.loginButtonText, { color: colors.background }]}>
-                  Sign in with Apple
+                  以 Apple 帳號繼續
                 </Text>
               </TouchableOpacity>
             )}

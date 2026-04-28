@@ -156,7 +156,7 @@ export default function VenueDetailScreen() {
             {isOperator && (
               <TouchableOpacity
                 onPress={() => router.push(`/venue/edit/${venue.id}`)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.6}
               >
                 <IconSymbol name="pencil" size={20} color={colors.text} />
@@ -164,7 +164,7 @@ export default function VenueDetailScreen() {
             )}
             <TouchableOpacity
               onPress={handleShare}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               activeOpacity={0.6}
             >
               <IconSymbol name="paperplane.fill" size={20} color={colors.text} />

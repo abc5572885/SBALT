@@ -336,7 +336,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               onPress={() => router.push('/notifications')}
               activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={{ position: 'relative' }}
             >
               <IconSymbol name="envelope.fill" size={22} color={colors.textSecondary} />

@@ -888,7 +888,7 @@ export default function EventScoresScreen() {
           <TouchableOpacity
             onPress={() => router.back()}
             style={styles.headerIconBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <IconSymbol name="chevron.left" size={22} color="#FFF" />
           </TouchableOpacity>
@@ -905,10 +905,10 @@ export default function EventScoresScreen() {
               </React.Fragment>
             ))}
           </View>
-          <TouchableOpacity onPress={handleResetAll} style={styles.headerIconBtn} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+          <TouchableOpacity onPress={handleResetAll} style={styles.headerIconBtn} hitSlop={{ top: 12, bottom: 12, left: 4, right: 4 }}>
             <IconSymbol name="ellipsis" size={18} color="rgba(255,255,255,0.7)" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleSave} style={styles.headerEndBtn} hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }} disabled={saving}>
+          <TouchableOpacity onPress={handleSave} style={styles.headerEndBtn} hitSlop={{ top: 12, bottom: 12, left: 4, right: 8 }} disabled={saving}>
             <Text style={styles.headerEndText}>{saving ? '...' : '結束'}</Text>
           </TouchableOpacity>
         </View>
@@ -1094,7 +1094,7 @@ export default function EventScoresScreen() {
               <TouchableOpacity
                 onPress={() => setSelectedStatId(null)}
                 style={styles.selectedClose}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
                 <IconSymbol name="xmark" size={14} color="rgba(255,255,255,0.5)" />
               </TouchableOpacity>

@@ -293,15 +293,15 @@ export default function MyEventsScreen() {
                   </View>
                   {/* Secondary actions: text-only mini links */}
                   <View style={styles.secondaryRow}>
-                    <TouchableOpacity style={styles.secondaryLink} onPress={() => handleDuplicate(event)} activeOpacity={0.5} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+                    <TouchableOpacity style={styles.secondaryLink} onPress={() => handleDuplicate(event)} activeOpacity={0.5} hitSlop={{ top: 12, bottom: 12, left: 4, right: 4 }}>
                       <ThemedText style={[styles.secondaryLinkText, { color: colors.textSecondary }]}>複製</ThemedText>
                     </TouchableOpacity>
                     <View style={[styles.secondaryDot, { backgroundColor: colors.border }]} />
-                    <TouchableOpacity style={styles.secondaryLink} onPress={() => handleEdit(event)} activeOpacity={0.5} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+                    <TouchableOpacity style={styles.secondaryLink} onPress={() => handleEdit(event)} activeOpacity={0.5} hitSlop={{ top: 12, bottom: 12, left: 4, right: 4 }}>
                       <ThemedText style={[styles.secondaryLinkText, { color: colors.textSecondary }]}>編輯</ThemedText>
                     </TouchableOpacity>
                     <View style={[styles.secondaryDot, { backgroundColor: colors.border }]} />
-                    <TouchableOpacity style={styles.secondaryLink} onPress={() => handleDelete(event)} activeOpacity={0.5} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+                    <TouchableOpacity style={styles.secondaryLink} onPress={() => handleDelete(event)} activeOpacity={0.5} hitSlop={{ top: 12, bottom: 12, left: 4, right: 4 }}>
                       <ThemedText style={[styles.secondaryLinkText, { color: colors.error }]}>刪除</ThemedText>
                     </TouchableOpacity>
                   </View>

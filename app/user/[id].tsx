@@ -122,7 +122,7 @@ export default function UserProfileScreen() {
             {profile.instagram_url && (
               <TouchableOpacity
                 onPress={() => openUrl(normalizeInstagram(profile.instagram_url!))}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.6}
               >
                 <FontAwesome5 name="instagram" size={20} color={colors.text} />
@@ -131,7 +131,7 @@ export default function UserProfileScreen() {
             {profile.facebook_url && (
               <TouchableOpacity
                 onPress={() => openUrl(normalizeFacebook(profile.facebook_url!))}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.6}
               >
                 <FontAwesome5 name="facebook" size={20} color={colors.text} />
@@ -140,7 +140,7 @@ export default function UserProfileScreen() {
             {profile.line_id && (
               <TouchableOpacity
                 onPress={() => openUrl(`https://line.me/ti/p/~${profile.line_id}`)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.6}
               >
                 <FontAwesome5 name="line" size={20} color={colors.text} />

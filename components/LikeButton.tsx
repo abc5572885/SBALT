@@ -79,7 +79,7 @@ export function LikeButton({ entityId, entityType, onToggle }: LikeButtonProps) 
       onPress={handlePress}
       style={styles.container}
       activeOpacity={0.6}
-      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
     >
       <View style={[styles.iconContainer, { backgroundColor: liked ? colors.errorBackground : colors.secondary }]}>
         <IconSymbol

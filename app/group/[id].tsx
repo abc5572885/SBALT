@@ -364,7 +364,7 @@ export default function GroupDetailScreen() {
                         {new Date(post.created_at).toLocaleDateString('zh-TW')}
                       </ThemedText>
                       {post.user_id === user?.id && (
-                        <TouchableOpacity onPress={() => handleDeletePost(post.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <TouchableOpacity onPress={() => handleDeletePost(post.id)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                           <IconSymbol name="trash" size={14} color={colors.error} />
                         </TouchableOpacity>
                       )}

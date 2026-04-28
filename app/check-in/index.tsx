@@ -89,7 +89,7 @@ export default function CheckInListScreen() {
         rightContent={
           <TouchableOpacity
             onPress={() => router.push('/check-in/new')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             activeOpacity={0.6}
           >
             <IconSymbol name="plus" size={20} color={colors.primary} />
@@ -134,14 +134,14 @@ export default function CheckInListScreen() {
                   <View style={{ flex: 1 }} />
                   <TouchableOpacity
                     onPress={() => router.push({ pathname: '/check-in/[id]', params: { id: c.id, share: '1' } })}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     activeOpacity={0.6}
                   >
                     <IconSymbol name="square.and.arrow.up" size={14} color={colors.primary} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => handleDelete(c)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     activeOpacity={0.6}
                   >
                     <IconSymbol name="trash" size={14} color={colors.error} />

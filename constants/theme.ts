@@ -118,3 +118,15 @@ export const Radius = {
   xl: 24,
   full: 9999,
 };
+
+// ─── Touch hit slop ──────────────────────────────────────
+// Shared hitSlop values so icon-only buttons across the app expand to a
+// consistent touch target. Default is 12px on each side, the minimum we
+// want for any tappable icon.
+
+export const HitSlop = {
+  /** Standard 12px expansion — use for header / card icons. */
+  default: { top: 12, bottom: 12, left: 12, right: 12 },
+  /** 16px expansion — use for tighter clusters where each target is small. */
+  large: { top: 16, bottom: 16, left: 16, right: 16 },
+};

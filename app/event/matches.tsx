@@ -303,7 +303,7 @@ export default function MatchesScreen() {
                 <TouchableOpacity
                   style={styles.matchDeleteBtn}
                   onPress={() => confirmDelete(m)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
                   <IconSymbol name="trash" size={14} color={colors.textSecondary} />
                 </TouchableOpacity>

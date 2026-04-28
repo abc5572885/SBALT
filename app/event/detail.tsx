@@ -310,7 +310,7 @@ export default function EventDetailScreen() {
               onPress={handleShare}
               style={[styles.shareBtn, { backgroundColor: colors.secondary }]}
               activeOpacity={0.6}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <IconSymbol name="paperplane.fill" size={16} color={colors.textSecondary} />
             </TouchableOpacity>

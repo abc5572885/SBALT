@@ -177,7 +177,7 @@ export default function TournamentDetailScreen() {
       <PageHeader
         title="賽事詳情"
         rightContent={
-          <TouchableOpacity onPress={handleShare} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity onPress={handleShare} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <IconSymbol name="square.and.arrow.up" size={20} color={colors.text} />
           </TouchableOpacity>
         }
@@ -288,7 +288,7 @@ export default function TournamentDetailScreen() {
                         },
                       ]);
                     }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   >
                     <IconSymbol name="trash" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
@@ -390,7 +390,7 @@ export default function TournamentDetailScreen() {
                 {isOrganizer && (
                   <TouchableOpacity
                     onPress={() => openOrganizerActions(r, divisions, loadData)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   >
                     <IconSymbol name="ellipsis" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
@@ -410,7 +410,7 @@ export default function TournamentDetailScreen() {
                         },
                       ]);
                     }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   >
                     <Text style={{ color: colors.error, fontSize: 12, fontWeight: '600' }}>取消</Text>
                   </TouchableOpacity>

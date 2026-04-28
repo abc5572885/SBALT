@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/EmptyState';
 import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
@@ -164,11 +165,7 @@ export default function RegistrationsScreen() {
           </ThemedText>
 
           {activeRegistrations.length === 0 ? (
-            <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <ThemedText type="caption" style={{ color: colors.textSecondary }}>
-                目前尚無人報名
-              </ThemedText>
-            </View>
+            <EmptyState compact title="目前尚無人報名" />
           ) : (
             <View style={styles.list}>
               {activeRegistrations.map((reg, index) => (
@@ -222,7 +219,7 @@ export default function RegistrationsScreen() {
                     {/* Cancel button */}
                     <TouchableOpacity
                       onPress={() => handleCancelRegistration(reg)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                       style={styles.cancelButton}
                     >
                       <IconSymbol name="trash" size={16} color={colors.error} />

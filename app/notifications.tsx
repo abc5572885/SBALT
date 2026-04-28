@@ -112,7 +112,7 @@ export default function NotificationsScreen() {
           unreadCount > 0 ? (
             <TouchableOpacity
               onPress={handleMarkAllRead}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               activeOpacity={0.6}
               style={[styles.markAllBtn, { borderColor: colors.border }]}
             >

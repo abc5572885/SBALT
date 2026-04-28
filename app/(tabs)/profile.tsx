@@ -146,7 +146,7 @@ export default function ProfileScreen() {
                   const url = instagramUrl.startsWith('http') ? instagramUrl : `https://instagram.com/${instagramUrl.replace(/^@/, '')}`;
                   Linking.openURL(url).catch(() => {});
                 }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.6}
               >
                 <FontAwesome5 name="instagram" size={20} color={colors.textSecondary} />
@@ -158,7 +158,7 @@ export default function ProfileScreen() {
                   const url = facebookUrl.startsWith('http') ? facebookUrl : `https://facebook.com/${facebookUrl}`;
                   Linking.openURL(url).catch(() => {});
                 }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.6}
               >
                 <FontAwesome5 name="facebook" size={20} color={colors.textSecondary} />
@@ -167,7 +167,7 @@ export default function ProfileScreen() {
             {lineId && (
               <TouchableOpacity
                 onPress={() => Linking.openURL(`https://line.me/ti/p/~${lineId}`).catch(() => {})}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.6}
               >
                 <FontAwesome5 name="line" size={20} color={colors.textSecondary} />

@@ -260,7 +260,7 @@ export default function DiscoverScreen() {
           {cityFilter && (
             <TouchableOpacity
               onPress={() => setCityFilter(null)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Text style={{ color: colors.textSecondary, fontSize: 14, marginLeft: 4 }}>×</Text>
             </TouchableOpacity>

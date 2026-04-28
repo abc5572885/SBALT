@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/EmptyState';
 import { PageHeader } from '@/components/PageHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { ThemedText } from '@/components/themed-text';
@@ -93,15 +94,11 @@ export default function HistoryScreen() {
 
         {/* History list */}
         {events.length === 0 ? (
-          <View style={[styles.emptyContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <IconSymbol name="calendar" size={36} color={colors.disabled} />
-            <ThemedText type="caption" style={{ color: colors.textSecondary, marginTop: Spacing.md }}>
-              尚無歷史紀錄
-            </ThemedText>
-            <ThemedText type="caption" style={{ color: colors.textSecondary, opacity: 0.6, marginTop: 4 }}>
-              參加活動後會自動出現在這裡
-            </ThemedText>
-          </View>
+          <EmptyState
+            icon="calendar"
+            title="尚無歷史紀錄"
+            body="參加活動後會自動出現在這裡"
+          />
         ) : (
           <View style={styles.list}>
             {events.map((evt) => {
