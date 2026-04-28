@@ -493,6 +493,14 @@ export default function EventScoresScreen() {
       toast.error('至少選一位球員');
       return;
     }
+    // First interaction (sub or score) marks the match started.
+    // Without this, sub_in events end up earlier than match.started_at
+    // and MIN drifts above 比賽時長.
+    if (!matchStartedAt && matchId) {
+      const nowIso = new Date().toISOString();
+      setMatchStartedAt(nowIso);
+      markEventMatchStarted(matchId).catch(() => {});
+    }
     const outs = Array.from(subOutIds)
       .map((id) => {
         const s = stats.find((x) => x.id === id);

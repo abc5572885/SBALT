@@ -191,6 +191,9 @@ export function computePlayerIntervals(
     .filter((a) => a.stat_id === statId && (a.action_type === 'sub_in' || a.action_type === 'sub_out'))
     .sort((a, b) => a.ts.localeCompare(b.ts));
 
+  const matchStartMs = new Date(matchStartIso).getTime();
+  const matchEndMs = new Date(matchEndIso).getTime();
+
   const intervals: OnCourtInterval[] = [];
   let openStart: string | null = isStarter ? matchStartIso : null;
 
@@ -207,7 +210,17 @@ export function computePlayerIntervals(
   if (openStart !== null) {
     intervals.push({ start: openStart, end: matchEndIso });
   }
-  return intervals;
+
+  // Clamp every interval to [matchStart, matchEnd] so a sub_in recorded
+  // before the match was officially started can't push MIN above 比賽時長.
+  return intervals
+    .map((iv) => {
+      const start = Math.max(new Date(iv.start).getTime(), matchStartMs);
+      const end = Math.min(new Date(iv.end).getTime(), matchEndMs);
+      if (end <= start) return null;
+      return { start: new Date(start).toISOString(), end: new Date(end).toISOString() };
+    })
+    .filter((iv): iv is OnCourtInterval => iv !== null);
 }
 
 /** Sum interval durations in seconds, with a sanity cap. */
